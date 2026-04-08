@@ -1,0 +1,396 @@
+<template>
+    <div class="app">
+        <!-- 右上角用户信息（User 页面除外） -->
+        <div v-if="$route.path !== '/profile'" class="user-info">
+            <span class="username">🌱 {{ userStore.username }}</span>
+            <span class="points">⭐ {{ userStore.totalPoints }} 积分</span>
+        </div>
+        <!-- 路由视图 -->
+        <main class="main-content">
+            <router-view />
+        </main>
+
+        <!-- 移动端底部导航栏 -->
+        <nav class="bottom-nav" :class="{ 'hidden': !isMobile }">
+            <router-link to="/garden">🌱 花园</router-link>
+            <router-link to="/shop">🛒 商城</router-link>
+            <router-link to="/backpack">🎒 背包</router-link>
+            <router-link to="/user">👤 我的</router-link>
+        </nav>
+
+        <!-- 平板/PC 端悬浮胶囊导航栏 -->
+        <nav class="floating-nav" :class="{ 'visible': !isMobile }">
+            <div class="nav-capsule">
+                <router-link to="/garden" class="nav-item" :class="{ active: $route.path === '/garden' }">
+                    <span class="nav-icon">🌱</span>
+                    <span class="nav-label">花园</span>
+                </router-link>
+                <router-link to="/shop" class="nav-item" :class="{ active: $route.path === '/shop' }">
+                    <span class="nav-icon">🛒</span>
+                    <span class="nav-label">商城</span>
+                </router-link>
+                <router-link to="/backpack" class="nav-item" :class="{ active: $route.path === '/inventory' }">
+                    <span class="nav-icon">🎒</span>
+                    <span class="nav-label">背包</span>
+                </router-link>
+                <router-link to="/user" class="nav-item" :class="{ active: $route.path === '/profile' }">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-label">我的</span>
+                </router-link>
+            </div>
+        </nav>
+    </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/userStore'
+
+const route = useRoute()
+const userStore = useUserStore()
+
+// 响应式判断是否为移动端
+const isMobile = ref(window.innerWidth < 768)
+
+const handleResize = () => {
+    isMobile.value = window.innerWidth < 768
+}
+
+onMounted(() => {
+    window.addEventListener('resize', handleResize)
+    // 加载用户信息
+    userStore.loadFromLocal()
+})
+
+onUnmounted(() => {
+    window.removeEventListener('resize', handleResize)
+})
+
+</script>
+
+<style>
+/* 全局重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
+}
+
+/* 深色模式背景 */
+@media (prefers-color-scheme: dark) {
+    body {
+        background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
+    }
+}
+
+/* 确保 #app 占满全屏 */
+#app {
+    min-height: 100vh;
+    width: 100%;
+}
+
+.app {
+    min-height: 100vh;
+    position: relative;
+    background: transparent;
+}
+
+.main-content {
+    min-height: 100vh;
+    width: 100%;
+}
+
+/* ========== 移动端底部导航栏样式 ========== */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+    z-index: 1000;
+    transition: transform 0.3s ease;
+}
+
+.bottom-nav a {
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #999;
+    padding: 8px 16px;
+    border-radius: 40px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bottom-nav a.router-link-active {
+    color: #4caf50;
+    background: rgba(76, 175, 80, 0.12);
+}
+
+.bottom-nav a:active {
+    transform: scale(0.95);
+}
+
+/* 移动端隐藏悬浮导航 */
+.bottom-nav.hidden {
+    display: none;
+}
+
+/* ========== 平板/PC 端悬浮胶囊导航栏 ========== */
+.floating-nav {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.floating-nav.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.nav-capsule {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    padding: 12px 10px;
+    border-radius: 40px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.2s ease;
+}
+
+.nav-capsule:hover {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* 竖向布局的导航项 */
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border-radius: 30px;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    /* 固定最小宽度，让所有项大小一致 */
+    min-width: 60px;
+}
+
+.nav-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+
+.nav-label {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    white-space: nowrap;
+}
+
+/* hover 效果 - 轻微上浮和变色 */
+.nav-item:hover {
+    background: rgba(76, 175, 80, 0.12);
+    color: #4caf50;
+    transform: translateY(-2px);
+}
+
+.nav-item:hover .nav-icon {
+    transform: scale(1.05);
+}
+
+/* 选中状态 */
+.nav-item.active {
+    background: #4caf50;
+    color: white;
+}
+
+.nav-item.active .nav-icon {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.nav-item.active .nav-label {
+    opacity: 1;
+    font-weight: 500;
+}
+
+/* 选中状态下 hover 保持原有样式 */
+.nav-item.active:hover {
+    background: #4caf50;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* 用户信息悬浮窗 */
+.user-info {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    display: flex;
+    gap: 16px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    padding: 8px 20px;
+    border-radius: 40px;
+    z-index: 1001;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 全局提示消息容器样式，避免与用户信息悬浮窗遮挡 */
+.toast-container {
+    top: 70px !important;
+}
+
+.username {
+    color: #2c5a2a;
+}
+
+.points {
+    color: #ff9800;
+}
+
+/* ========== 深色模式适配 ========== */
+@media (prefers-color-scheme: dark) {
+    .bottom-nav {
+        background: rgba(30, 30, 35, 0.95);
+        border-top-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .bottom-nav a {
+        color: #aaa;
+    }
+
+    .bottom-nav a.router-link-active {
+        color: #8bc34a;
+        background: rgba(139, 195, 74, 0.15);
+    }
+
+    .nav-capsule {
+        background: rgba(30, 30, 35, 0.85);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-capsule:hover {
+        background: rgba(40, 40, 45, 0.95);
+    }
+
+    .nav-item {
+        color: #ccc;
+    }
+
+    .nav-item:hover {
+        background: rgba(139, 195, 74, 0.15);
+        color: #9ccc65;
+    }
+
+    .nav-item.active {
+        background: #4a4a4f;
+        color: #9ccc65;
+    }
+
+    .nav-item.active .nav-icon {
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+    }
+
+    .nav-item.active:hover {
+        background: #4a4a4f;
+        color: #9ccc65;
+    }
+}
+
+/* ========== 响应式断点 ========== */
+/* 移动端（默认） */
+@media (max-width: 767px) {
+    .bottom-nav {
+        display: flex;
+    }
+
+    .floating-nav {
+        display: none;
+    }
+}
+
+/* 平板端（768px - 1023px）和 PC 端（≥1024px）统一使用悬浮导航 */
+@media (min-width: 768px) {
+    .bottom-nav {
+        display: none;
+    }
+
+    .floating-nav {
+        display: block;
+    }
+}
+
+/* 平板端微调 */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .nav-capsule {
+        gap: 6px;
+        padding: 10px 8px;
+    }
+
+    .nav-item {
+        min-width: 50px;
+        padding: 6px 10px;
+    }
+
+    .nav-icon {
+        font-size: 1.1rem;
+    }
+
+    .nav-label {
+        font-size: 0.65rem;
+    }
+}
+
+/* 大屏幕 PC 端 */
+@media (min-width: 1024px) {
+    .nav-capsule {
+        gap: 10px;
+        padding: 14px 12px;
+    }
+
+    .nav-item {
+        min-width: 70px;
+        padding: 10px 14px;
+    }
+
+    .nav-icon {
+        font-size: 1.5rem;
+    }
+
+    .nav-label {
+        font-size: 0.75rem;
+    }
+}
+</style>
