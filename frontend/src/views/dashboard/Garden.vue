@@ -167,8 +167,14 @@ const stageEmoji = computed(() => {
 })
 
 // ---------- 植物数据操作 ----------
+function getPlantKey() {
+    const userId = localStorage.getItem('user_id') || 'guest'
+    return `current_plant_${userId}`
+}
+
 function loadPlant() {
-    const saved = localStorage.getItem('current_plant')
+    const key = getPlantKey()
+    const saved = localStorage.getItem(key)
     if (saved) {
         try {
             const p = JSON.parse(saved)
@@ -193,13 +199,15 @@ function loadPlant() {
 }
 
 function savePlant(p) {
-    localStorage.setItem('current_plant', JSON.stringify(p))
+    const key = getPlantKey()
+    localStorage.setItem(key, JSON.stringify(p))
     plant.value = p
     hasPlant.value = true
 }
 
 function clearPlant() {
-    localStorage.removeItem('current_plant')
+    const key = getPlantKey()
+    localStorage.removeItem(key)
     plant.value = null
     hasPlant.value = false
     updateUI()
@@ -357,7 +365,8 @@ function startTimer() {
                 addToast(`💀 ${plant.value.name} 因未及时浇水而枯萎了`, 'error')
             }
         }
-        loadPlant()
+        // 只更新UI，不重新加载整个植物数据
+        updateUI()
     }, 1000)
 }
 
@@ -370,10 +379,6 @@ onMounted(() => {
 
 onUnmounted(() => {
     if (timer) clearInterval(timer)
-    activeToasts.forEach(toast => {
-        if (toast && toast.remove) toast.remove()
-    })
-    activeToasts = []
 })
 </script>
 

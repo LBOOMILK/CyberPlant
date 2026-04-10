@@ -1,7 +1,7 @@
 <template>
     <div class="app">
-        <!-- 右上角用户信息（User 页面除外） -->
-        <div v-if="$route.path !== '/profile'" class="user-info">
+        <!-- 右上角用户信息（登录/注册页面除外，User 页面除外，管理端页面除外） -->
+        <div v-if="!isAuthPage && !isAdminPage && $route.path !== '/dashboard/user'" class="user-info">
             <span class="username">🌱 {{ userStore.username }}</span>
             <span class="points">⭐ {{ userStore.totalPoints }} 积分</span>
         </div>
@@ -10,30 +10,30 @@
             <router-view />
         </main>
 
-        <!-- 移动端底部导航栏 -->
-        <nav class="bottom-nav" :class="{ 'hidden': !isMobile }">
-            <router-link to="/garden">🌱 花园</router-link>
-            <router-link to="/shop">🛒 商城</router-link>
-            <router-link to="/backpack">🎒 背包</router-link>
-            <router-link to="/user">👤 我的</router-link>
+        <!-- 移动端底部导航栏（登录/注册页面除外，管理端页面除外） -->
+        <nav v-if="!isAuthPage && !isAdminPage" class="bottom-nav" :class="{ 'hidden': !isMobile }">
+            <router-link to="/dashboard/garden">🌱 花园</router-link>
+            <router-link to="/dashboard/shop">🛒 商城</router-link>
+            <router-link to="/dashboard/backpack">🎒 背包</router-link>
+            <router-link to="/dashboard/user">👤 我的</router-link>
         </nav>
 
-        <!-- 平板/PC 端悬浮胶囊导航栏 -->
-        <nav class="floating-nav" :class="{ 'visible': !isMobile }">
+        <!-- 平板/PC 端悬浮胶囊导航栏（登录/注册页面除外，管理端页面除外） -->
+        <nav v-if="!isAuthPage && !isAdminPage" class="floating-nav" :class="{ 'visible': !isMobile }">
             <div class="nav-capsule">
-                <router-link to="/garden" class="nav-item" :class="{ active: $route.path === '/garden' }">
+                <router-link to="/dashboard/garden" class="nav-item" :class="{ active: $route.path === '/dashboard/garden' }">
                     <span class="nav-icon">🌱</span>
                     <span class="nav-label">花园</span>
                 </router-link>
-                <router-link to="/shop" class="nav-item" :class="{ active: $route.path === '/shop' }">
+                <router-link to="/dashboard/shop" class="nav-item" :class="{ active: $route.path === '/dashboard/shop' }">
                     <span class="nav-icon">🛒</span>
                     <span class="nav-label">商城</span>
                 </router-link>
-                <router-link to="/backpack" class="nav-item" :class="{ active: $route.path === '/inventory' }">
+                <router-link to="/dashboard/backpack" class="nav-item" :class="{ active: $route.path === '/dashboard/backpack' }">
                     <span class="nav-icon">🎒</span>
                     <span class="nav-label">背包</span>
                 </router-link>
-                <router-link to="/user" class="nav-item" :class="{ active: $route.path === '/profile' }">
+                <router-link to="/dashboard/user" class="nav-item" :class="{ active: $route.path === '/dashboard/user' }">
                     <span class="nav-icon">👤</span>
                     <span class="nav-label">我的</span>
                 </router-link>
@@ -43,7 +43,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 
@@ -52,6 +52,16 @@ const userStore = useUserStore()
 
 // 响应式判断是否为移动端
 const isMobile = ref(window.innerWidth < 768)
+
+// 判断是否为登录/注册页面
+const isAuthPage = computed(() => {
+    return route.path === '/login' || route.path === '/register'
+})
+
+// 判断是否为管理端页面
+const isAdminPage = computed(() => {
+    return route.path.startsWith('/admin')
+})
 
 const handleResize = () => {
     isMobile.value = window.innerWidth < 768
@@ -70,32 +80,7 @@ onUnmounted(() => {
 </script>
 
 <style>
-/* 全局重置 */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
 
-body {
-    margin: 0;
-    padding: 0;
-    min-height: 100vh;
-    background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
-}
-
-/* 深色模式背景 */
-@media (prefers-color-scheme: dark) {
-    body {
-        background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
-    }
-}
-
-/* 确保 #app 占满全屏 */
-#app {
-    min-height: 100vh;
-    width: 100%;
-}
 
 .app {
     min-height: 100vh;
@@ -267,10 +252,7 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 全局提示消息容器样式，避免与用户信息悬浮窗遮挡 */
-.toast-container {
-    top: 70px !important;
-}
+
 
 .username {
     color: #2c5a2a;

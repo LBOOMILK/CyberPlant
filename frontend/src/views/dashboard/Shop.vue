@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import Modal from '@/components/Modal.vue'
 import Toast from '@/components/Toast.vue'
@@ -38,14 +38,52 @@ const toastRef = ref(null)
 const showBuyModalVisible = ref(false)
 const currentItem = ref(null)
 const buyModalMessage = ref('')
+const shopItems = ref([])
 
-const shopItems = ref([
-    { rarity: 'C', name: '🌰 普通种子', price: 10, icon: '🌰', sellPrice: 20 },
-    { rarity: 'B', name: '🍃 稀有种子', price: 30, icon: '🍃', sellPrice: 60 },
-    { rarity: 'A', name: '🌿 史诗种子', price: 50, icon: '🌿', sellPrice: 100 },
-    { rarity: 'S', name: '🌺 传说种子', price: 100, icon: '🌺', sellPrice: 200 },
-    { rarity: 'SSS', name: '✨ 神级种子', price: 300, icon: '✨', sellPrice: 600 }
-])
+// 从后端API获取植物数据
+async function loadShopItems() {
+    try {
+        const response = await fetch('http://localhost:3000/api/plants')
+        if (response.ok) {
+            const plants = await response.json()
+            // 按id排序
+            plants.sort((a, b) => a.id - b.id)
+            // 转换数据格式以匹配现有代码
+            shopItems.value = plants.map(plant => ({
+                rarity: plant.rarity,
+                name: `${plant.icon} ${plant.name}`,
+                price: plant.price,
+                icon: plant.icon,
+                sellPrice: plant.price * 2 // 假设售价是价格的两倍
+            }))
+        } else {
+            console.error('Failed to load plants:', response.statusText)
+            // 加载失败时使用默认数据
+            loadDefaultItems()
+        }
+    } catch (error) {
+        console.error('Error loading plants:', error)
+        // 网络错误时使用默认数据
+        loadDefaultItems()
+    }
+}
+
+// 加载默认数据
+function loadDefaultItems() {
+    shopItems.value = [
+        { rarity: 'C', name: '🌰 普通种子', price: 10, icon: '🌰', sellPrice: 20 },
+        { rarity: 'B', name: '🍃 稀有种子', price: 30, icon: '🍃', sellPrice: 60 },
+        { rarity: 'A', name: '🌿 史诗种子', price: 50, icon: '🌿', sellPrice: 100 },
+        { rarity: 'S', name: '🌺 传说种子', price: 100, icon: '🌺', sellPrice: 200 },
+        { rarity: 'SSS', name: '✨ 神级种子', price: 300, icon: '✨', sellPrice: 600 }
+    ]
+}
+
+// 生命周期
+onMounted(() => {
+    userStore.loadFromLocal()
+    loadShopItems()
+})
 
 function addToast(message, type = 'info') {
     if (toastRef.value) {
@@ -62,15 +100,17 @@ function showBuyModal(item) {
 function handleBuyConfirm() {
     if (currentItem.value) {
         const item = currentItem.value
-        const success = userStore.deductPoints(item.price)
-        if (success) {
-            userStore.addSeed(item.rarity)
-            addToast(`🎉 购买成功！获得 ${item.name}`, 'success')
-        } else {
-            addToast(`💔 积分不足，还需要 ${item.price - userStore.points} 积分`, 'error')
-        }
-        showBuyModalVisible.value = false
-        currentItem.value = null
+        userStore.deductPoints(item.price).then(success => {
+            if (success) {
+                userStore.addSeed(item.rarity).then(() => {
+                    addToast(`🎉 购买成功！获得 ${item.name}`, 'success')
+                })
+            } else {
+                addToast(`💔 积分不足，还需要 ${item.price - userStore.points} 积分`, 'error')
+            }
+            showBuyModalVisible.value = false
+            currentItem.value = null
+        })
     }
 }
 </script>
