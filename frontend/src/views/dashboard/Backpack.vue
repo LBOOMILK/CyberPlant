@@ -79,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import Modal from '@/components/Modal.vue'
 import Toast from '@/components/Toast.vue'
@@ -97,6 +97,11 @@ const sellQuantity = ref(0)
 const maxQuantity = ref(0)
 
 const rarityConfig = userStore.rarityConfig
+
+// 生命周期
+onMounted(() => {
+    userStore.loadFromLocal()
+})
 
 function seedIcon(rarity) {
     const icons = { C: '🌱', B: '🍃', A: '🌿', S: '🌺', SSS: '✨' }

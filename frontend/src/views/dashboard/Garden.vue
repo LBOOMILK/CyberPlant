@@ -371,8 +371,8 @@ function startTimer() {
 }
 
 // ---------- 生命周期 ----------
-onMounted(() => {
-    userStore.loadFromLocal()
+onMounted(async () => {
+    await userStore.loadFromLocal()
     loadPlant()
     startTimer()
 })

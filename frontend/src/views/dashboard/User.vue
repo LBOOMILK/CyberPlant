@@ -91,7 +91,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import Modal from '@/components/Modal.vue'
@@ -110,6 +110,11 @@ const passwordForm = ref({
     currentPassword: '',
     newPassword: '',
     confirmNewPassword: ''
+})
+
+// 生命周期
+onMounted(async () => {
+    await userStore.loadFromLocal()
 })
 
 function addToast(message, type = 'info') {
