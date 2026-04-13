@@ -432,6 +432,8 @@ function formatUserId(id) {
 function openBackpackModal(user) {
   // 深拷贝用户数据，避免直接修改原始数据
   backpackUser.value = JSON.parse(JSON.stringify(user))
+  // 确保用户ID保持字符串类型
+  backpackUser.value.id = String(user.id)
   // 确保seeds和crops字段存在
   if (!backpackUser.value.seeds) {
     backpackUser.value.seeds = []
@@ -497,7 +499,8 @@ async function saveBackpackChanges() {
   
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`http://localhost:3000/api/users/${backpackUser.value.id}`, {
+    const userId = String(backpackUser.value.id)
+    const response = await fetch(`http://localhost:3000/api/users/${userId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -507,8 +510,8 @@ async function saveBackpackChanges() {
         email: backpackUser.value.email,
         role: backpackUser.value.role,
         points: backpackUser.value.points,
-        seeds: backpackUser.value.seeds,
-        crops: backpackUser.value.crops
+        seeds: backpackUser.value.seeds || [],
+        crops: backpackUser.value.crops || []
       })
     })
     
