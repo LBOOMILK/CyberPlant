@@ -123,7 +123,7 @@ async function fetchDashboardData() {
     const token = localStorage.getItem('auth_token')
     
     // 获取用户数量
-    const usersResponse = await fetch('http://localhost:3000/api/users', {
+    const usersResponse = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -132,7 +132,7 @@ async function fetchDashboardData() {
     stats.value.totalUsers = usersData.length
     
     // 获取植物数量
-    const plantsResponse = await fetch('http://localhost:3000/api/plants')
+    const plantsResponse = await fetch(`${import.meta.env.VITE_API_URL}/plants`)
     const plantsData = await plantsResponse.json()
     stats.value.totalPlants = plantsData.length
     
@@ -146,7 +146,7 @@ async function fetchDashboardData() {
       .reduce((total, user) => total + (user.points || 0), 0)
     
     // 获取订单数量和总收入
-    const ordersResponse = await fetch('http://localhost:3000/api/orders', {
+    const ordersResponse = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

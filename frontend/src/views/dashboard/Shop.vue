@@ -43,7 +43,7 @@ const shopItems = ref([])
 // 从后端API获取植物数据
 async function loadShopItems() {
     try {
-        const response = await fetch('http://localhost:3000/api/plants')
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/plants`)
         if (response.ok) {
             const plants = await response.json()
             // 按id排序

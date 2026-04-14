@@ -145,7 +145,7 @@ function toggleUserMenu() {
 // 加载植物数据
 async function loadPlants() {
   try {
-    const response = await fetch('http://localhost:3000/api/plants')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants`)
     const data = await response.json()
     plants.value = data
   } catch (error) {
@@ -159,7 +159,7 @@ async function loadPlants() {
 // 处理添加商品
 async function handleAddPlant() {
   try {
-    const response = await fetch('http://localhost:3000/api/plants', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -177,7 +177,7 @@ async function handleAddPlant() {
         name: '',
         icon: '',
         rarity: 'C',
-        price: ''
+        price: 0
       }
       if (toastRef.value) {
         toastRef.value.addToast('添加商品成功', 'success')
@@ -207,7 +207,7 @@ async function handleEditPlant() {
   if (!currentPlant.value) return
   
   try {
-    const response = await fetch(`http://localhost:3000/api/plants/${currentPlant.value.id}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants/${currentPlant.value.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -246,7 +246,7 @@ async function handleDeletePlant(plantId) {
   if (!confirm('确定要删除这个商品吗？')) return
   
   try {
-    const response = await fetch(`http://localhost:3000/api/plants/${plantId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants/${plantId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}`

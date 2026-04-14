@@ -266,7 +266,7 @@ const newCrop = ref({ rarity: 'C' })
 async function loadUsers() {
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch('http://localhost:3000/api/users', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -291,7 +291,7 @@ async function handleAddUser() {
       ...newUser.value,
       role: 'user'
     }
-    const response = await fetch('http://localhost:3000/api/users', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -345,7 +345,7 @@ async function handleEditUser() {
       ...currentUser.value,
       role: 'user'
     }
-    const response = await fetch(`http://localhost:3000/api/users/${currentUser.value.id}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.value.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -385,7 +385,7 @@ async function handleDeleteUser(userId) {
   
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`http://localhost:3000/api/users/${userId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${userId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -500,7 +500,7 @@ async function saveBackpackChanges() {
   try {
     const token = localStorage.getItem('auth_token')
     const userId = String(backpackUser.value.id)
-    const response = await fetch(`http://localhost:3000/api/users/${userId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${userId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

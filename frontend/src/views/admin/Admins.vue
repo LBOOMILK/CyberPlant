@@ -131,7 +131,7 @@ function toggleUserMenu() {
 async function loadAdmins() {
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch('http://localhost:3000/api/users', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -158,7 +158,7 @@ async function handleAddAdmin() {
   
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch('http://localhost:3000/api/users', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -205,7 +205,7 @@ async function handleDeleteAdmin(adminId) {
   
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`http://localhost:3000/api/users/${adminId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${adminId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`

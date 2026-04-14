@@ -58,7 +58,7 @@ export const useUserStore = defineStore('user', () => {
       }
       
       // 从后端API获取用户信息
-      const userResponse = await fetch('http://localhost:3000/api/users/me', {
+      const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -73,7 +73,7 @@ export const useUserStore = defineStore('user', () => {
       }
       
       // 从后端API获取背包数据
-      const backpackResponse = await fetch('http://localhost:3000/api/user/backpack', {
+      const backpackResponse = await fetch(`${import.meta.env.VITE_API_URL}/user/backpack`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -144,7 +144,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
-        const response = await fetch('http://localhost:3000/api/user/points', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/user/points`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -168,7 +168,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
-        const response = await fetch('http://localhost:3000/api/user/seeds', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/user/seeds`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -212,7 +212,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
-        const response = await fetch(`http://localhost:3000/api/user/seeds/${seedId}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/user/seeds/${seedId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -267,7 +267,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
-        const response = await fetch('http://localhost:3000/api/user/crops', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/user/crops`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -311,7 +311,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
-        const response = await fetch(`http://localhost:3000/api/user/crops/${cropId}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/user/crops/${cropId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`

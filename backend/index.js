@@ -75,7 +75,7 @@ async function initDatabase() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS orders (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL,
+        user_id VARCHAR(50) NOT NULL,
         product VARCHAR(255) NOT NULL,
         amount INTEGER NOT NULL,
         status VARCHAR(50) DEFAULT '待支付',

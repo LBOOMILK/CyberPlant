@@ -139,17 +139,17 @@ async function handleRegister() {
   }
   
   // 调用后端 API 进行注册
-  try {
-    const response = await fetch('http://localhost:3000/api/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email: form.value.email,
-        password: form.value.password
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: form.value.email,
+          password: form.value.password
+        })
       })
-    })
     
     const data = await response.json()
     
