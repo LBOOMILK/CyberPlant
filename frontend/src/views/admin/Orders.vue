@@ -1,31 +1,11 @@
 <template>
   <div class="admin-page">
-    <div class="admin-sidebar">
-      <h2>管理中心</h2>
-      <ul>
-        <li><router-link to="/admin/dashboard">仪表盘</router-link></li>
-        <li class="menu-item">
-          <span class="menu-title" @click="toggleUserMenu">
-            <span>用户管理</span>
-            <span class="menu-arrow" :class="{ open: userMenuOpen }"><</span>
-          </span>
-          <ul v-if="userMenuOpen" class="sub-menu">
-            <li><router-link to="/admin/users">普通用户</router-link></li>
-            <li><router-link to="/admin/admins">管理员</router-link></li>
-          </ul>
-        </li>
-        <li><router-link to="/admin/plants">植物管理</router-link></li>
-        <li><router-link to="/admin/orders">订单管理</router-link></li>
-        <li @click="handleLogout">退出登录</li>
-      </ul>
-    </div>
+    <AdminSidebar />
     
     <div class="admin-content">
       <h1>订单管理</h1>
       
-      <div class="search-bar">
-        <input type="text" placeholder="搜索订单...">
-        <button class="search-btn">搜索</button>
+      <div class="action-bar">
       </div>
       
       <div class="orders-table">
@@ -64,6 +44,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import AdminSidebar from '@/components/AdminSidebar.vue'
 
 const router = useRouter()
 const orders = ref([
@@ -71,12 +52,6 @@ const orders = ref([
   { id: 2, user: '李四', product: '稀有种子 x 2', amount: 100, status: '已完成', created_at: '2026-04-02 11:00' },
   { id: 3, user: '王五', product: '史诗种子 x 1', amount: 100, status: '待支付', created_at: '2026-04-03 12:00' },
 ])
-const userMenuOpen = ref(false)
-
-// 切换用户管理菜单
-function toggleUserMenu() {
-  userMenuOpen.value = !userMenuOpen.value
-}
 
 function handleLogout() {
   localStorage.removeItem('auth_token')
@@ -227,34 +202,12 @@ function handleLogout() {
   color: #2c5a2a;
 }
 
-.search-bar {
+.action-bar {
   display: flex;
   margin-bottom: 24px;
-  gap: 12px;
+  justify-content: flex-end;
 }
 
-.search-bar input {
-  flex: 1;
-  padding: 12px 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 1rem;
-}
-
-.search-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  background: #4caf50;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.search-btn:hover {
-  background: #388e3c;
-}
 
 .orders-table {
   background: white;

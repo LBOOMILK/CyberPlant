@@ -1,32 +1,12 @@
 <template>
   <div class="admin-page">
     <Toast ref="toastRef" />
-    <div class="admin-sidebar">
-      <h2>管理中心</h2>
-      <ul>
-        <li><router-link to="/admin/dashboard">仪表盘</router-link></li>
-        <li class="menu-item">
-          <span class="menu-title" @click="toggleUserMenu">
-            <span>用户管理</span>
-            <span class="menu-arrow" :class="{ open: userMenuOpen }">▼</span>
-          </span>
-          <ul v-if="userMenuOpen" class="sub-menu">
-            <li><router-link to="/admin/users">普通用户</router-link></li>
-            <li><router-link to="/admin/admins">管理员</router-link></li>
-          </ul>
-        </li>
-        <li><router-link to="/admin/plants">植物管理</router-link></li>
-        <li><router-link to="/admin/orders">订单管理</router-link></li>
-        <li class="logout-btn" @click="showLogoutModal = true">退出登录</li>
-      </ul>
-    </div>
+    <AdminSidebar />
     
     <div class="admin-content">
       <h1>管理员管理</h1>
       
-      <div class="search-bar">
-        <input type="text" placeholder="搜索管理员...">
-        <button class="search-btn">搜索</button>
+      <div class="action-bar">
         <button class="add-btn" @click="showAddModal = true">添加管理员</button>
       </div>
       
@@ -107,6 +87,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Toast from '@/components/Toast.vue'
 import Modal from '@/components/Modal.vue'
+import AdminSidebar from '@/components/AdminSidebar.vue'
 
 const router = useRouter()
 const admins = ref([])
@@ -120,12 +101,6 @@ const newAdmin = ref({
 const toastRef = ref(null)
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
-const userMenuOpen = ref(false)
-
-// 切换用户管理菜单
-function toggleUserMenu() {
-  userMenuOpen.value = !userMenuOpen.value
-}
 
 // 加载管理员数据
 async function loadAdmins() {
@@ -428,35 +403,12 @@ onMounted(() => {
   color: #2c5a2a;
 }
 
-.search-bar {
+.action-bar {
   display: flex;
   margin-bottom: 24px;
-  gap: 12px;
+  justify-content: flex-end;
 }
 
-.search-bar input {
-  flex: 1;
-  padding: 12px 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-
-.search-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  background: #4caf50;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.search-btn:hover {
-  background: #388e3c;
-}
 
 .add-btn {
   padding: 12px 24px;
