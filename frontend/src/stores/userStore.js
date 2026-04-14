@@ -81,8 +81,10 @@ export const useUserStore = defineStore('user', () => {
       
       if (backpackResponse.ok) {
         const backpackData = await backpackResponse.json()
-        seeds.value = backpackData.seeds || []
-        crops.value = backpackData.crops || []
+        // 确保seeds始终是数组
+        seeds.value = Array.isArray(backpackData.seeds) ? backpackData.seeds : []
+        // 确保crops始终是数组
+        crops.value = Array.isArray(backpackData.crops) ? backpackData.crops : []
         // 保存到本地存储
         saveToLocalStorage()
       }
@@ -105,10 +107,32 @@ export const useUserStore = defineStore('user', () => {
     if (savedPoints) points.value = parseInt(savedPoints)
 
     const savedSeeds = localStorage.getItem(`${userKey}_seeds`)
-    if (savedSeeds) seeds.value = JSON.parse(savedSeeds)
+    if (savedSeeds) {
+      try {
+        const parsedSeeds = JSON.parse(savedSeeds)
+        // 确保seeds始终是数组
+        seeds.value = Array.isArray(parsedSeeds) ? parsedSeeds : []
+      } catch (error) {
+        console.error('Failed to parse seeds:', error)
+        seeds.value = []
+      }
+    } else {
+      seeds.value = []
+    }
 
     const savedCrops = localStorage.getItem(`${userKey}_crops`)
-    if (savedCrops) crops.value = JSON.parse(savedCrops)
+    if (savedCrops) {
+      try {
+        const parsedCrops = JSON.parse(savedCrops)
+        // 确保crops始终是数组
+        crops.value = Array.isArray(parsedCrops) ? parsedCrops : []
+      } catch (error) {
+        console.error('Failed to parse crops:', error)
+        crops.value = []
+      }
+    } else {
+      crops.value = []
+    }
 
     const savedUsername = localStorage.getItem(`${userKey}_username`)
     if (savedUsername) username.value = savedUsername

@@ -58,7 +58,14 @@ async function initDatabase() {
     } catch (error) {
       console.error('Error adding crops column:', error);
     }
-    
+
+    // 检查并添加current_plant字段
+    try {
+      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS current_plant JSONB DEFAULT NULL');
+    } catch (error) {
+      console.error('Error adding current_plant column:', error);
+    }
+
     // 创建植物表
     await client.query(`
       CREATE TABLE IF NOT EXISTS plants (
@@ -231,7 +238,7 @@ app.post('/api/auth/register', async (req, res) => {
         email: user.email,
         role: user.role,
         points: user.points || 0,
-        created_at: user.created_at
+        created_at: user.created_at.toISOString().split('T')[0]
       },
       token
     });
@@ -244,32 +251,32 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ error: '请输入邮箱和密码' });
     }
-    
+
     // 查找用户
     const userResult = await client.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userResult.rowCount === 0) {
       return res.status(401).json({ error: '用户不存在' });
     }
-    
+
     const user = userResult.rows[0];
-    
+
     // 验证密码
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       return res.status(401).json({ error: '密码错误' });
     }
-    
+
     // 生成 JWT 令牌
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    
+
     res.json({
       user: {
         id: user.id,
@@ -277,7 +284,7 @@ app.post('/api/auth/login', async (req, res) => {
         email: user.email,
         role: user.role,
         points: user.points || 0,
-        created_at: user.created_at
+        created_at: user.created_at.toISOString().split('T')[0]
       },
       token
     });
@@ -287,11 +294,61 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// 修改密码
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    // 验证输入
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: '请输入当前密码和新密码' });
+    }
+
+    // 获取用户当前密码
+    const userResult = await client.query('SELECT password FROM users WHERE id = $1', [userId]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    const user = userResult.rows[0];
+
+    // 验证当前密码
+    const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: '当前密码错误' });
+    }
+
+    // 哈希新密码
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 更新密码
+    await client.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, userId]);
+
+    res.json({ message: '密码修改成功' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: '修改密码失败，请稍后再试' });
+  }
+});
+
 // 用户路由
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const usersResult = await client.query('SELECT id, name, email, role, points, seeds, crops, created_at FROM users');
-    res.json(usersResult.rows);
+    const users = usersResult.rows.map(user => ({
+      ...user,
+      created_at: user.created_at.toISOString().split('T')[0],
+      seeds: (user.seeds || []).map(seed => ({
+        ...seed,
+        purchasedAt: seed.purchasedAt ? seed.purchasedAt.split('T')[0] : null
+      })),
+      crops: (user.crops || []).map(crop => ({
+        ...crop,
+        harvestedAt: crop.harvestedAt ? crop.harvestedAt.split('T')[0] : null
+      }))
+    }));
+    res.json(users);
   } catch (error) {
     console.error('Fetch users error:', error);
     res.status(500).json({ error: '获取用户列表失败，请稍后再试' });
@@ -507,7 +564,7 @@ app.get('/api/orders', authenticateToken, requireAdmin, async (req, res) => {
       product: order.product,
       amount: order.amount,
       status: order.status,
-      created_at: order.created_at,
+      created_at: order.created_at.toISOString().split('T')[0],
       user: {
         id: order.user_id,
         name: order.user_name,
@@ -540,8 +597,14 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
     const user = userResult.rows[0];
     
     res.json({
-      seeds: user.seeds || [],
-      crops: user.crops || []
+      seeds: (user.seeds || []).map(seed => ({
+        ...seed,
+        purchasedAt: seed.purchasedAt ? seed.purchasedAt.split('T')[0] : null
+      })),
+      crops: (user.crops || []).map(crop => ({
+        ...crop,
+        harvestedAt: crop.harvestedAt ? crop.harvestedAt.split('T')[0] : null
+      }))
     });
   } catch (error) {
     console.error('Fetch backpack error:', error);
@@ -569,11 +632,12 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
     
-    const currentSeeds = userResult.rows[0].seeds || [];
+    // 确保currentSeeds始终是数组
+    const currentSeeds = Array.isArray(userResult.rows[0].seeds) ? userResult.rows[0].seeds : [];
     const newSeed = {
       id: Date.now() + Math.random(),
       rarity: rarity,
-      purchasedAt: new Date().toISOString()
+      purchasedAt: new Date().toISOString().split('T')[0]
     };
     
     const updatedSeeds = [...currentSeeds, newSeed];
@@ -607,7 +671,8 @@ app.delete('/api/user/seeds/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
     
-    const currentSeeds = userResult.rows[0].seeds || [];
+    // 确保currentSeeds始终是数组
+    const currentSeeds = Array.isArray(userResult.rows[0].seeds) ? userResult.rows[0].seeds : [];
     const updatedSeeds = currentSeeds.filter(seed => seed.id != id);
     
     if (updatedSeeds.length === currentSeeds.length) {
@@ -647,11 +712,12 @@ app.post('/api/user/crops', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
     
-    const currentCrops = userResult.rows[0].crops || [];
+    // 确保currentCrops始终是数组
+    const currentCrops = Array.isArray(userResult.rows[0].crops) ? userResult.rows[0].crops : [];
     const newCrop = {
       id: Date.now() + Math.random(),
       rarity: rarity,
-      harvestedAt: new Date().toISOString()
+      harvestedAt: new Date().toISOString().split('T')[0]
     };
     
     const updatedCrops = [...currentCrops, newCrop];
@@ -685,7 +751,8 @@ app.delete('/api/user/crops/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
     
-    const currentCrops = userResult.rows[0].crops || [];
+    // 确保currentCrops始终是数组
+    const currentCrops = Array.isArray(userResult.rows[0].crops) ? userResult.rows[0].crops : [];
     const updatedCrops = currentCrops.filter(crop => crop.id != id);
     
     if (updatedCrops.length === currentCrops.length) {
@@ -743,7 +810,19 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
     
-    res.json(result.rows[0]);
+    const user = result.rows[0];
+    res.json({
+      ...user,
+      created_at: user.created_at.toISOString().split('T')[0],
+      seeds: (user.seeds || []).map(seed => ({
+        ...seed,
+        purchasedAt: seed.purchasedAt ? seed.purchasedAt.split('T')[0] : null
+      })),
+      crops: (user.crops || []).map(crop => ({
+        ...crop,
+        harvestedAt: crop.harvestedAt ? crop.harvestedAt.split('T')[0] : null
+      }))
+    });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: '获取用户信息失败，请稍后再试' });
