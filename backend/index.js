@@ -596,12 +596,16 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
     
     const user = userResult.rows[0];
     
+    // 确保seeds和crops始终是数组
+    const seedsArray = Array.isArray(user.seeds) ? user.seeds : [];
+    const cropsArray = Array.isArray(user.crops) ? user.crops : [];
+    
     res.json({
-      seeds: (user.seeds || []).map(seed => ({
+      seeds: seedsArray.map(seed => ({
         ...seed,
         purchasedAt: seed.purchasedAt ? seed.purchasedAt.split('T')[0] : null
       })),
-      crops: (user.crops || []).map(crop => ({
+      crops: cropsArray.map(crop => ({
         ...crop,
         harvestedAt: crop.harvestedAt ? crop.harvestedAt.split('T')[0] : null
       }))
@@ -615,10 +619,14 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
 // 添加种子
 app.post('/api/user/seeds', authenticateToken, async (req, res) => {
   try {
+    console.log('Add seed request received:', req.body);
+    console.log('User ID from token:', req.user.id);
+    
     const userId = req.user.id;
     const { rarity } = req.body;
     
     if (!rarity) {
+      console.log('Missing rarity parameter');
       return res.status(400).json({ error: '请提供种子稀有度' });
     }
     
@@ -629,8 +637,11 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
     );
     
     if (userResult.rowCount === 0) {
+      console.log('User not found with ID:', userId);
       return res.status(404).json({ error: '用户不存在' });
     }
+    
+    console.log('Current seeds:', userResult.rows[0].seeds);
     
     // 确保currentSeeds始终是数组
     const currentSeeds = Array.isArray(userResult.rows[0].seeds) ? userResult.rows[0].seeds : [];
@@ -641,6 +652,7 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
     };
     
     const updatedSeeds = [...currentSeeds, newSeed];
+    console.log('Updated seeds:', updatedSeeds);
     
     // 更新用户种子
     await client.query(
@@ -648,6 +660,7 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
       [updatedSeeds, userId]
     );
     
+    console.log('Seed added successfully');
     res.status(201).json(newSeed);
   } catch (error) {
     console.error('Add seed error:', error);
