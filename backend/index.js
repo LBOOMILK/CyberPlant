@@ -619,48 +619,26 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
 // 添加种子
 app.post('/api/user/seeds', authenticateToken, async (req, res) => {
   try {
-    console.log('Add seed request received:', req.body);
-    console.log('User ID from token:', req.user.id);
-    
     const userId = req.user.id;
     const { rarity } = req.body;
     
     if (!rarity) {
-      console.log('Missing rarity parameter');
       return res.status(400).json({ error: '请提供种子稀有度' });
     }
     
-    // 获取用户当前种子
-    const userResult = await client.query(
-      'SELECT seeds FROM users WHERE id = $1',
-      [userId]
-    );
-    
-    if (userResult.rowCount === 0) {
-      console.log('User not found with ID:', userId);
-      return res.status(404).json({ error: '用户不存在' });
-    }
-    
-    console.log('Current seeds:', userResult.rows[0].seeds);
-    
-    // 确保currentSeeds始终是数组
-    const currentSeeds = Array.isArray(userResult.rows[0].seeds) ? userResult.rows[0].seeds : [];
+    // 创建新种子
     const newSeed = {
       id: Date.now() + Math.random(),
       rarity: rarity,
       purchasedAt: new Date().toISOString().split('T')[0]
     };
     
-    const updatedSeeds = [...currentSeeds, newSeed];
-    console.log('Updated seeds:', updatedSeeds);
-    
-    // 更新用户种子
+    // 直接更新数据库，使用简单的方法
     await client.query(
-      'UPDATE users SET seeds = $1 WHERE id = $2',
-      [updatedSeeds, userId]
+      "UPDATE users SET seeds = COALESCE(seeds, '[]'::jsonb) || $1::jsonb WHERE id = $2",
+      [newSeed, userId]
     );
     
-    console.log('Seed added successfully');
     res.status(201).json(newSeed);
   } catch (error) {
     console.error('Add seed error:', error);
