@@ -114,7 +114,12 @@ const passwordForm = ref({
 
 // 生命周期
 onMounted(async () => {
-    await userStore.loadFromLocal()
+    try {
+        await userStore.loadFromLocal()
+    } catch (error) {
+        console.error('Failed to load user data:', error)
+        addToast(error.message || '获取用户数据失败，请检查网络连接', 'error')
+    }
 })
 
 function addToast(message, type = 'info') {
@@ -179,11 +184,26 @@ async function handleChangePassword() {
 }
 
 function handleLogout() {
+    // 清除当前用户的本地存储数据
+    const userId = localStorage.getItem('user_id')
+    if (userId) {
+        localStorage.removeItem(`user_${userId}_points`)
+        localStorage.removeItem(`user_${userId}_seeds`)
+        localStorage.removeItem(`user_${userId}_crops`)
+        localStorage.removeItem(`user_${userId}_username`)
+    }
+    
+    // 清除认证信息
     localStorage.removeItem('auth_token')
+    localStorage.removeItem('user_id')
     localStorage.removeItem('user_role')
     localStorage.removeItem('user_email')
     localStorage.removeItem('user_name')
-    localStorage.removeItem('user_key')
+    localStorage.removeItem('prev_user_id')
+    
+    // 重置Pinia store状态
+    userStore.resetAllData()
+    
     addToast('已成功退出登录', 'success')
     setTimeout(() => {
         router.push('/login')

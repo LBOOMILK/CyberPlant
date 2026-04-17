@@ -121,12 +121,16 @@ const toastRef = ref(null)
 async function loadPlants() {
   try {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/plants`)
+    if (!response.ok) {
+      throw new Error('获取植物列表失败')
+    }
     const data = await response.json()
     plants.value = data
   } catch (error) {
     console.error('Failed to load plants:', error)
+    plants.value = []
     if (toastRef.value) {
-      toastRef.value.addToast('加载植物数据失败', 'error')
+      toastRef.value.addToast(error.message || '加载植物数据失败，请检查网络连接', 'error')
     }
   }
 }

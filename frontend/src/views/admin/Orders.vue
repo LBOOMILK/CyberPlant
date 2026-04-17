@@ -24,7 +24,7 @@
           <tbody>
             <tr v-for="order in orders" :key="order.id">
               <td>{{ order.id }}</td>
-              <td>{{ order.user }}</td>
+              <td>{{ order.user?.name || order.user }}</td>
               <td>{{ order.product }}</td>
               <td>¥{{ order.amount }}</td>
               <td :class="`status-${order.status}`">{{ order.status }}</td>
@@ -42,22 +42,44 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AdminSidebar from '@/components/AdminSidebar.vue'
 
 const router = useRouter()
-const orders = ref([
-  { id: 1, user: '张三', product: '普通种子 x 5', amount: 50, status: '已完成', created_at: '2026-04-01 10:00' },
-  { id: 2, user: '李四', product: '稀有种子 x 2', amount: 100, status: '已完成', created_at: '2026-04-02 11:00' },
-  { id: 3, user: '王五', product: '史诗种子 x 1', amount: 100, status: '待支付', created_at: '2026-04-03 12:00' },
-])
+const orders = ref([])
+
+// 加载订单数据
+async function loadOrders() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    if (!response.ok) {
+      throw new Error('获取订单列表失败，请检查网络连接')
+    }
+    const data = await response.json()
+    orders.value = data
+  } catch (error) {
+    console.error('Failed to load orders:', error)
+    orders.value = []
+    alert(error.message || '加载订单数据失败，请检查网络连接')
+  }
+}
 
 function handleLogout() {
   localStorage.removeItem('auth_token')
   localStorage.removeItem('user_role')
   router.push('/login')
 }
+
+// 生命周期
+onMounted(() => {
+  loadOrders()
+})
 </script>
 
 <style scoped>

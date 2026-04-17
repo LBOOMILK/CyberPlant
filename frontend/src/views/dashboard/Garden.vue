@@ -66,15 +66,15 @@
         <div v-if="showPlantDialog" class="modal-overlay" @click.self="closePlantDialog">
             <div class="modal-content">
                 <h3>🌱 选择种子</h3>
-                <div v-if="userStore.seeds.length === 0" class="empty-seeds">
+                <div v-if="userStore.seedCount === 0" class="empty-seeds">
                     <p>背包里没有种子</p>
                     <button @click="closePlantDialog" class="close-modal-btn">去商城购买</button>
                 </div>
                 <div v-else class="seeds-list">
-                    <div v-for="(seedList, rarity) in userStore.groupedSeeds" :key="rarity" class="seed-item" @click="showPlantConfirmModal({ rarity, seeds: seedList })">
-                        <span class="seed-rarity" :class="`rarity-${rarity}`">{{ rarity }} ({{ seedList.length }})</span>
-                        <span class="seed-name">{{ rarityConfig[rarity].name }}</span>
-                        <span class="seed-price">💰 {{ rarityConfig[rarity].buyPrice }}</span>
+                    <div class="seed-item" @click="showPlantConfirmModal({ rarity: 'C', quantity: 6 })">
+                        <span class="seed-rarity rarity-C">C (6)</span>
+                        <span class="seed-name">普通种子</span>
+                        <span class="seed-price">💰 10</span>
                     </div>
                 </div>
                 <button @click="closePlantDialog" class="cancel-btn">取消</button>
@@ -107,7 +107,7 @@
         <Modal
             :visible="showPlantConfirmModalVisible"
             title="🌱 种植确认"
-            :message="hasPlant ? `⚠️ 当前已有植物，种植新种子会覆盖当前植物，确定吗？` : `确定要种植 ${currentSeed ? rarityConfig[currentSeed.rarity].name : '种子'} 吗？\n剩余数量：${currentSeed ? currentSeed.seeds.length : 0}`"
+            :message="hasPlant ? `⚠️ 当前已有植物，种植新种子会覆盖当前植物，确定吗？` : `确定要种植 ${currentSeed ? rarityConfig[currentSeed.rarity].name : '种子'} 吗？\n剩余数量：${currentSeed ? currentSeed.quantity : 0}`"
             confirm-text="确定种植"
             cancel-text="取消"
             @confirm="handlePlantConfirm"
@@ -148,22 +148,22 @@ let timer = null
 
 // 计算属性
 const isMature = computed(() => hasPlant.value && plant.value?.stageIdx === MATURE_STAGE_INDEX)
-const rarityConfig = computed(() => userStore.rarityConfig)
+const rarityConfig = userStore.rarityConfig
 const rarityName = computed(() => {
     if (!hasPlant.value) return ''
-    return plant.value.rarity
+    return plant.value?.rarity || ''
 })
 const rarityClass = computed(() => {
     if (!hasPlant.value) return ''
-    return `rarity-${plant.value.rarity}`
+    return `rarity-${plant.value?.rarity || ''}`
 })
 const stageName = computed(() => {
     if (!hasPlant.value) return ''
-    return STAGES[plant.value.stageIdx]
+    return STAGES[plant.value?.stageIdx || 0]
 })
 const stageEmoji = computed(() => {
     if (!hasPlant.value) return '🌰'
-    return STAGE_EMOJI[plant.value.stageIdx]
+    return STAGE_EMOJI[plant.value?.stageIdx || 0]
 })
 
 // ---------- 植物数据操作 ----------
@@ -216,7 +216,7 @@ function clearPlant() {
 function createNewPlant(rarity) {
     const now = Date.now()
     return {
-        name: `${rarityConfig.value[rarity].name}`,
+        name: `${rarityConfig[rarity].name}`,
         rarity: rarity,
         stageIdx: 0,
         lastWatered: now,
@@ -262,11 +262,13 @@ function handleHarvestConfirm() {
     userStore.addCrop(plant.value.rarity)
     // 清除当前植物
     clearPlant()
-    addToast(`🏆 收获成功！获得 ${rarityConfig.value[plant.value?.rarity || 'C'].cropName}`, 'success')
+    addToast(`🏆 收获成功！获得 ${rarityConfig[plant.value?.rarity || 'C'].cropName}`, 'success')
     showHarvestModalVisible.value = false
 }
 
 function openPlantDialog() {
+    console.log('userStore.groupedSeeds:', userStore.groupedSeeds)
+    console.log('userStore.seedCount:', userStore.seedCount)
     showPlantDialog.value = true
 }
 
@@ -280,15 +282,13 @@ function showPlantConfirmModal(seedGroup) {
 }
 
 function handlePlantConfirm() {
-    if (!currentSeed.value || !currentSeed.value.seeds || currentSeed.value.seeds.length === 0) return
+    if (!currentSeed.value || currentSeed.value.quantity <= 0) return
     
-    // 取第一个种子来种植
-    const seedToUse = currentSeed.value.seeds[0]
     // 创建新植物
-    const newPlant = createNewPlant(seedToUse.rarity)
+    const newPlant = createNewPlant(currentSeed.value.rarity)
     savePlant(newPlant)
     // 移除使用的种子
-    userStore.removeSeed(seedToUse.id)
+    userStore.removeSeed(currentSeed.value.rarity)
     closePlantDialog()
     showPlantConfirmModalVisible.value = false
     addToast(`🌱 种植成功！获得 ${newPlant.name}`, 'success')
@@ -372,9 +372,16 @@ function startTimer() {
 
 // ---------- 生命周期 ----------
 onMounted(async () => {
-    await userStore.loadFromLocal()
-    loadPlant()
-    startTimer()
+    try {
+        await userStore.loadFromLocal()
+        loadPlant()
+        startTimer()
+    } catch (error) {
+        console.error('Failed to load user data:', error)
+        if (toastRef.value) {
+            toastRef.value.addToast(error.message || '获取用户数据失败，请检查网络连接', 'error')
+        }
+    }
 })
 
 onUnmounted(() => {

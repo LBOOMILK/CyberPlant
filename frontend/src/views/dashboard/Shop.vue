@@ -44,45 +44,35 @@ const shopItems = ref([])
 async function loadShopItems() {
     try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/plants`)
-        if (response.ok) {
-            const plants = await response.json()
-            // 按id排序
-            plants.sort((a, b) => a.id - b.id)
-            // 转换数据格式以匹配现有代码
-            shopItems.value = plants.map(plant => ({
-                rarity: plant.rarity,
-                name: `${plant.icon} ${plant.name}`,
-                price: plant.price,
-                icon: plant.icon,
-                sellPrice: plant.price * 2 // 假设售价是价格的两倍
-            }))
-        } else {
-            console.error('Failed to load plants:', response.statusText)
-            // 加载失败时使用默认数据
-            loadDefaultItems()
+        if (!response.ok) {
+            throw new Error('获取商品列表失败，请检查网络连接')
         }
+        const plants = await response.json()
+        // 按id排序
+        plants.sort((a, b) => a.id - b.id)
+        // 转换数据格式以匹配现有代码
+        shopItems.value = plants.map(plant => ({
+            rarity: plant.rarity,
+            name: `${plant.icon} ${plant.name}`,
+            price: plant.price,
+            icon: plant.icon,
+            sellPrice: plant.price * 2 // 假设售价是价格的两倍
+        }))
     } catch (error) {
         console.error('Error loading plants:', error)
-        // 网络错误时使用默认数据
-        loadDefaultItems()
+        addToast(error.message || '网络错误，请检查网络连接', 'error')
     }
 }
 
-// 加载默认数据
-function loadDefaultItems() {
-    shopItems.value = [
-        { rarity: 'C', name: '🌰 普通种子', price: 10, icon: '🌰', sellPrice: 20 },
-        { rarity: 'B', name: '🍃 稀有种子', price: 30, icon: '🍃', sellPrice: 60 },
-        { rarity: 'A', name: '🌿 史诗种子', price: 50, icon: '🌿', sellPrice: 100 },
-        { rarity: 'S', name: '🌺 传说种子', price: 100, icon: '🌺', sellPrice: 200 },
-        { rarity: 'SSS', name: '✨ 神级种子', price: 300, icon: '✨', sellPrice: 600 }
-    ]
-}
-
 // 生命周期
-onMounted(() => {
-    userStore.loadFromLocal()
-    loadShopItems()
+onMounted(async () => {
+    try {
+        await userStore.loadFromLocal()
+        loadShopItems()
+    } catch (error) {
+        console.error('Failed to load user data:', error)
+        addToast(error.message || '获取用户数据失败，请检查网络连接', 'error')
+    }
 })
 
 function addToast(message, type = 'info') {

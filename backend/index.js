@@ -250,23 +250,28 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   try {
+    console.log('Login request:', req.body);
     const { email, password } = req.body;
 
     if (!email || !password) {
+      console.log('Login error: Missing email or password');
       return res.status(400).json({ error: '请输入邮箱和密码' });
     }
 
     // 查找用户
     const userResult = await client.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userResult.rowCount === 0) {
+      console.log('Login error: User not found', email);
       return res.status(401).json({ error: '用户不存在' });
     }
 
     const user = userResult.rows[0];
+    console.log('User found:', user.id, user.email, user.role);
 
     // 验证密码
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
+      console.log('Login error: Invalid password');
       return res.status(401).json({ error: '密码错误' });
     }
 
@@ -276,8 +281,78 @@ app.post('/api/auth/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+    console.log('Token generated:', token);
 
-    res.json({
+    // 只对普通用户执行背包内容的格式化操作，管理员不需要
+    if (user.role === 'user') {
+      // 确保seeds和crops始终是对象，为所有稀有度的种子和作物设置初始数量为0
+      // 同时移除旧的存储方式的数据（数字键的对象）
+      const requiredRarities = ['C', 'B', 'A', 'S', 'SSS'];
+      
+      // 处理seeds字段
+      if (typeof user.seeds !== 'object' || user.seeds === null || Array.isArray(user.seeds)) {
+        user.seeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+        // 更新数据库
+        await client.query('UPDATE users SET seeds = $1 WHERE id = $2', [user.seeds, user.id]);
+        console.log('Updated seeds to default object');
+      } else {
+        // 统计旧的存储方式中的种子数量
+        let seedCounts = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+        for (const key in user.seeds) {
+          if (!isNaN(key)) {
+            // 旧的存储方式，key是数字
+            const seed = user.seeds[key];
+            if (seed && typeof seed === 'object' && seed.rarity) {
+              const rarity = seed.rarity;
+              if (requiredRarities.includes(rarity)) {
+                seedCounts[rarity]++;
+              }
+            }
+          } else if (requiredRarities.includes(key)) {
+            // 新的存储方式，key是稀有度
+            seedCounts[key] = user.seeds[key] || 0;
+          }
+        }
+        // 使用新的存储方式
+        user.seeds = seedCounts;
+        // 更新数据库
+        await client.query('UPDATE users SET seeds = $1 WHERE id = $2', [user.seeds, user.id]);
+        console.log('Updated seeds to new format:', user.seeds);
+      }
+      
+      // 处理crops字段
+      if (typeof user.crops !== 'object' || user.crops === null || Array.isArray(user.crops)) {
+        user.crops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+        // 更新数据库
+        await client.query('UPDATE users SET crops = $1 WHERE id = $2', [user.crops, user.id]);
+        console.log('Updated crops to default object');
+      } else {
+        // 统计旧的存储方式中的作物数量
+        let cropCounts = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+        for (const key in user.crops) {
+          if (!isNaN(key)) {
+            // 旧的存储方式，key是数字
+            const crop = user.crops[key];
+            if (crop && typeof crop === 'object' && crop.rarity) {
+              const rarity = crop.rarity;
+              if (requiredRarities.includes(rarity)) {
+                cropCounts[rarity]++;
+              }
+            }
+          } else if (requiredRarities.includes(key)) {
+            // 新的存储方式，key是稀有度
+            cropCounts[key] = user.crops[key] || 0;
+          }
+        }
+        // 使用新的存储方式
+        user.crops = cropCounts;
+        // 更新数据库
+        await client.query('UPDATE users SET crops = $1 WHERE id = $2', [user.crops, user.id]);
+        console.log('Updated crops to new format:', user.crops);
+      }
+    }
+    
+    const response = {
       user: {
         id: user.id,
         name: user.name,
@@ -287,7 +362,9 @@ app.post('/api/auth/login', async (req, res) => {
         created_at: user.created_at.toISOString().split('T')[0]
       },
       token
-    });
+    };
+    console.log('Login response:', response);
+    res.json(response);
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: '登录失败，请稍后再试' });
@@ -339,14 +416,8 @@ app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     const users = usersResult.rows.map(user => ({
       ...user,
       created_at: user.created_at.toISOString().split('T')[0],
-      seeds: (user.seeds || []).map(seed => ({
-        ...seed,
-        purchasedAt: seed.purchasedAt ? seed.purchasedAt.split('T')[0] : null
-      })),
-      crops: (user.crops || []).map(crop => ({
-        ...crop,
-        harvestedAt: crop.harvestedAt ? crop.harvestedAt.split('T')[0] : null
-      }))
+      seeds: typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {},
+      crops: typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {}
     }));
     res.json(users);
   } catch (error) {
@@ -406,9 +477,13 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     // 创建用户，用户名使用邮箱前缀
     const username = email.split('@')[0];
     
+    // 初始化背包数据，为所有稀有度的种子和作物设置初始数量为0
+    const initialSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    const initialCrops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    
     const newUser = await client.query(
-      'INSERT INTO users (id, name, email, password, role, points) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [nextId, username, email, hashedPassword, role || 'user', req.body.points || 0]
+      'INSERT INTO users (id, name, email, password, role, points, seeds, crops) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [nextId, username, email, hashedPassword, role || 'user', req.body.points || 0, initialSeeds, initialCrops]
     );
     
     res.status(201).json(newUser.rows[0]);
@@ -418,20 +493,166 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// 获取当前用户信息
+app.get('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    console.log('GET /api/users/me request');
+    console.log('User from token:', req.user);
+    const userId = req.user.id;
+    
+    const result = await client.query(
+      'SELECT id, name, email, role, points, seeds, crops, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (result.rowCount === 0) {
+      console.log('User not found:', userId);
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    const user = result.rows[0];
+    console.log('User data from database:', user);
+    // 确保seeds和crops始终是对象
+    const seeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
+    const crops = typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {};
+    const response = {
+      ...user,
+      created_at: user.created_at.toISOString().split('T')[0],
+      seeds,
+      crops
+    };
+    console.log('GET /api/users/me response:', response);
+    res.json(response);
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: '获取用户信息失败，请稍后再试' });
+  }
+});
+
+// 获取单个用户
+app.get('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Fetching user with id:', id);
+    const userResult = await client.query('SELECT id, name, email, role, points, seeds, crops, created_at FROM users WHERE id = $1', [id]);
+    
+    if (userResult.rowCount === 0) {
+      console.log('User not found:', id);
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    const user = userResult.rows[0];
+    console.log('User data from database:', user);
+    
+    // 确保seeds和crops始终是对象
+    const requiredRarities = ['C', 'B', 'A', 'S', 'SSS'];
+    let processedSeeds = user.seeds || {};
+    let processedCrops = user.crops || {};
+    
+    // 处理seeds字段
+    if (typeof processedSeeds !== 'object' || processedSeeds === null || Array.isArray(processedSeeds)) {
+      console.log('Processing seeds as array or null:', processedSeeds);
+      processedSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    } else {
+      // 确保所有稀有度都有值
+      for (const rarity of requiredRarities) {
+        if (processedSeeds[rarity] === undefined) {
+          processedSeeds[rarity] = 0;
+        }
+      }
+    }
+    
+    // 处理crops字段
+    if (typeof processedCrops !== 'object' || processedCrops === null || Array.isArray(processedCrops)) {
+      console.log('Processing crops as array or null:', processedCrops);
+      processedCrops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    } else {
+      // 确保所有稀有度都有值
+      for (const rarity of requiredRarities) {
+        if (processedCrops[rarity] === undefined) {
+          processedCrops[rarity] = 0;
+        }
+      }
+    }
+    
+    // 打印处理后的背包数据，以便调试
+    console.log('Processed seeds:', processedSeeds);
+    console.log('Processed crops:', processedCrops);
+    
+    // 确保返回的对象包含处理后的seeds和crops字段
+    const responseUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      points: user.points,
+      created_at: user.created_at.toISOString().split('T')[0],
+      seeds: processedSeeds,
+      crops: processedCrops
+    };
+    
+    // 打印返回的用户数据，以便调试
+    console.log('Response user data:', responseUser);
+    
+    res.json(responseUser);
+  } catch (error) {
+    console.error('Fetch user error:', error);
+    res.status(500).json({ error: '获取用户数据失败，请稍后再试' });
+  }
+});
+
 // 更新用户
 app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, role, points, seeds, crops } = req.body;
+    const { email, role, points, seeds, crops, password } = req.body;
     
     if (!email) {
       return res.status(400).json({ error: '请填写邮箱' });
     }
     
-    const updatedUser = await client.query(
-      'UPDATE users SET email = $1, role = $2, points = $3, seeds = $4, crops = $5 WHERE id = $6 RETURNING *',
-      [email, role || 'user', points || 0, seeds || '[]', crops || '[]', id]
-    );
+    // 确保seeds和crops始终是对象
+    const requiredRarities = ['C', 'B', 'A', 'S', 'SSS'];
+    let processedSeeds = seeds || {};
+    let processedCrops = crops || {};
+    
+    // 处理seeds字段
+    if (typeof processedSeeds !== 'object' || processedSeeds === null || Array.isArray(processedSeeds)) {
+      processedSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    } else {
+      // 确保所有稀有度都有值
+      for (const rarity of requiredRarities) {
+        if (processedSeeds[rarity] === undefined) {
+          processedSeeds[rarity] = 0;
+        }
+      }
+    }
+    
+    // 处理crops字段
+    if (typeof processedCrops !== 'object' || processedCrops === null || Array.isArray(processedCrops)) {
+      processedCrops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    } else {
+      // 确保所有稀有度都有值
+      for (const rarity of requiredRarities) {
+        if (processedCrops[rarity] === undefined) {
+          processedCrops[rarity] = 0;
+        }
+      }
+    }
+    
+    let query = 'UPDATE users SET email = $1, role = $2, points = $3, seeds = $4, crops = $5';
+    let params = [email, role || 'user', points || 0, processedSeeds, processedCrops, id];
+    
+    if (password) {
+      // 哈希密码
+      const hashedPassword = await bcrypt.hash(password, 10);
+      query += ', password = $6';
+      params.splice(5, 0, hashedPassword);
+    }
+    
+    query += ' WHERE id = $' + params.length + ' RETURNING *';
+    
+    const updatedUser = await client.query(query, params);
     
     if (updatedUser.rowCount === 0) {
       return res.status(404).json({ error: '用户不存在' });
@@ -584,10 +805,13 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     
+    // 确保userId是字符串类型
+    const stringUserId = String(userId);
+    
     // 获取用户数据
     const userResult = await client.query(
       'SELECT seeds, crops FROM users WHERE id = $1',
-      [userId]
+      [stringUserId]
     );
     
     if (userResult.rowCount === 0) {
@@ -596,19 +820,13 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
     
     const user = userResult.rows[0];
     
-    // 确保seeds和crops始终是数组
-    const seedsArray = Array.isArray(user.seeds) ? user.seeds : [];
-    const cropsArray = Array.isArray(user.crops) ? user.crops : [];
+    // 确保seeds和crops始终是对象
+    const seeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
+    const crops = typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {};
     
     res.json({
-      seeds: seedsArray.map(seed => ({
-        ...seed,
-        purchasedAt: seed.purchasedAt ? seed.purchasedAt.split('T')[0] : null
-      })),
-      crops: cropsArray.map(crop => ({
-        ...crop,
-        harvestedAt: crop.harvestedAt ? crop.harvestedAt.split('T')[0] : null
-      }))
+      seeds,
+      crops
     });
   } catch (error) {
     console.error('Fetch backpack error:', error);
@@ -626,57 +844,93 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: '请提供种子稀有度' });
     }
     
-    // 创建新种子
-    const newSeed = {
-      id: Date.now() + Math.random(),
-      rarity: rarity,
-      purchasedAt: new Date().toISOString().split('T')[0]
-    };
+    // 确保userId是字符串类型
+    const stringUserId = String(userId);
     
-    // 直接更新数据库，使用简单的方法
+    // 获取用户当前数据
+    const userResult = await client.query('SELECT * FROM users WHERE id = $1', [stringUserId]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    const user = userResult.rows[0];
+    
+    // 确保seeds字段是对象
+    const currentSeeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
+    
+    // 增加对应稀有度的数量
+    const updatedSeeds = { ...currentSeeds };
+    updatedSeeds[rarity] = (updatedSeeds[rarity] || 0) + 1;
+    
+    // 更新数据库
     await client.query(
-      "UPDATE users SET seeds = COALESCE(seeds, '[]'::jsonb) || $1::jsonb WHERE id = $2",
-      [newSeed, userId]
+      'UPDATE users SET seeds = $1 WHERE id = $2',
+      [updatedSeeds, stringUserId]
     );
     
-    res.status(201).json(newSeed);
+    res.status(201).json({ rarity, quantity: updatedSeeds[rarity] });
   } catch (error) {
     console.error('Add seed error:', error);
     res.status(500).json({ error: '添加种子失败，请稍后再试' });
   }
 });
 
+// 记录所有HTTP请求
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // 删除种子
-app.delete('/api/user/seeds/:id', authenticateToken, async (req, res) => {
+app.delete('/api/user/seeds/:rarity', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { id } = req.params;
+    const { rarity } = req.params;
+    const { quantity } = req.body || { quantity: 1 };
+    
+    console.log('Delete seed request received:', { userId, rarity, quantity });
+    
+    // 确保userId是字符串类型
+    const stringUserId = String(userId);
+    console.log('String userId:', stringUserId);
     
     // 获取用户当前种子
     const userResult = await client.query(
       'SELECT seeds FROM users WHERE id = $1',
-      [userId]
+      [stringUserId]
     );
     
     if (userResult.rowCount === 0) {
+      console.log('User not found:', stringUserId);
       return res.status(404).json({ error: '用户不存在' });
     }
     
-    // 确保currentSeeds始终是数组
-    const currentSeeds = Array.isArray(userResult.rows[0].seeds) ? userResult.rows[0].seeds : [];
-    const updatedSeeds = currentSeeds.filter(seed => seed.id != id);
+    // 确保currentSeeds始终是对象
+    const currentSeeds = typeof userResult.rows[0].seeds === 'object' && userResult.rows[0].seeds !== null ? userResult.rows[0].seeds : {};
+    console.log('Current seeds:', currentSeeds);
     
-    if (updatedSeeds.length === currentSeeds.length) {
-      return res.status(404).json({ error: '种子不存在' });
+    // 检查种子是否存在
+    if (!currentSeeds[rarity] || currentSeeds[rarity] < quantity) {
+      console.log('Seed not found or insufficient quantity:', { rarity, currentQuantity: currentSeeds[rarity], requestedQuantity: quantity });
+      return res.status(404).json({ error: '种子不存在或数量不足' });
     }
+    
+    // 减少对应稀有度的数量
+    const updatedSeeds = { ...currentSeeds };
+    updatedSeeds[rarity] -= quantity;
+    if (updatedSeeds[rarity] === 0) {
+      delete updatedSeeds[rarity];
+    }
+    console.log('Updated seeds:', updatedSeeds);
     
     // 更新用户种子
     await client.query(
       'UPDATE users SET seeds = $1 WHERE id = $2',
-      [updatedSeeds, userId]
+      [updatedSeeds, stringUserId]
     );
     
-    res.json({ message: '删除种子成功' });
+    console.log('Seed deleted successfully:', { rarity, quantity });
+    res.json({ rarity, quantity: updatedSeeds[rarity] || 0 });
   } catch (error) {
     console.error('Delete seed error:', error);
     res.status(500).json({ error: '删除种子失败，请稍后再试' });
@@ -693,33 +947,31 @@ app.post('/api/user/crops', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: '请提供作物稀有度' });
     }
     
-    // 获取用户当前作物
-    const userResult = await client.query(
-      'SELECT crops FROM users WHERE id = $1',
-      [userId]
-    );
+    // 确保userId是字符串类型
+    const stringUserId = String(userId);
     
+    // 获取用户当前数据
+    const userResult = await client.query('SELECT * FROM users WHERE id = $1', [stringUserId]);
     if (userResult.rowCount === 0) {
       return res.status(404).json({ error: '用户不存在' });
     }
     
-    // 确保currentCrops始终是数组
-    const currentCrops = Array.isArray(userResult.rows[0].crops) ? userResult.rows[0].crops : [];
-    const newCrop = {
-      id: Date.now() + Math.random(),
-      rarity: rarity,
-      harvestedAt: new Date().toISOString().split('T')[0]
-    };
+    const user = userResult.rows[0];
     
-    const updatedCrops = [...currentCrops, newCrop];
+    // 确保crops字段是对象
+    const currentCrops = typeof user.crops === 'object' && user.crops !== null ? user.crops : {};
     
-    // 更新用户作物
+    // 增加对应稀有度的数量
+    const updatedCrops = { ...currentCrops };
+    updatedCrops[rarity] = (updatedCrops[rarity] || 0) + 1;
+    
+    // 更新数据库
     await client.query(
       'UPDATE users SET crops = $1 WHERE id = $2',
-      [updatedCrops, userId]
+      [updatedCrops, stringUserId]
     );
     
-    res.status(201).json(newCrop);
+    res.status(201).json({ rarity, quantity: updatedCrops[rarity] });
   } catch (error) {
     console.error('Add crop error:', error);
     res.status(500).json({ error: '添加作物失败，请稍后再试' });
@@ -727,36 +979,47 @@ app.post('/api/user/crops', authenticateToken, async (req, res) => {
 });
 
 // 删除作物
-app.delete('/api/user/crops/:id', authenticateToken, async (req, res) => {
+app.delete('/api/user/crops/:rarity', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { id } = req.params;
+    const { rarity } = req.params;
+    const { quantity } = req.body || { quantity: 1 };
+    
+    // 确保userId是字符串类型
+    const stringUserId = String(userId);
     
     // 获取用户当前作物
     const userResult = await client.query(
       'SELECT crops FROM users WHERE id = $1',
-      [userId]
+      [stringUserId]
     );
     
     if (userResult.rowCount === 0) {
       return res.status(404).json({ error: '用户不存在' });
     }
     
-    // 确保currentCrops始终是数组
-    const currentCrops = Array.isArray(userResult.rows[0].crops) ? userResult.rows[0].crops : [];
-    const updatedCrops = currentCrops.filter(crop => crop.id != id);
+    // 确保currentCrops始终是对象
+    const currentCrops = typeof userResult.rows[0].crops === 'object' && userResult.rows[0].crops !== null ? userResult.rows[0].crops : {};
     
-    if (updatedCrops.length === currentCrops.length) {
-      return res.status(404).json({ error: '作物不存在' });
+    // 检查作物是否存在
+    if (!currentCrops[rarity] || currentCrops[rarity] < quantity) {
+      return res.status(404).json({ error: '作物不存在或数量不足' });
+    }
+    
+    // 减少对应稀有度的数量
+    const updatedCrops = { ...currentCrops };
+    updatedCrops[rarity] -= quantity;
+    if (updatedCrops[rarity] === 0) {
+      delete updatedCrops[rarity];
     }
     
     // 更新用户作物
     await client.query(
       'UPDATE users SET crops = $1 WHERE id = $2',
-      [updatedCrops, userId]
+      [updatedCrops, stringUserId]
     );
     
-    res.json({ message: '删除作物成功' });
+    res.json({ rarity, quantity: updatedCrops[rarity] || 0 });
   } catch (error) {
     console.error('Delete crop error:', error);
     res.status(500).json({ error: '删除作物失败，请稍后再试' });
@@ -784,39 +1047,6 @@ app.put('/api/user/points', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Update points error:', error);
     res.status(500).json({ error: '更新积分失败，请稍后再试' });
-  }
-});
-
-// 获取当前用户信息
-app.get('/api/users/me', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    const result = await client.query(
-      'SELECT id, name, email, role, points, seeds, crops, created_at FROM users WHERE id = $1',
-      [userId]
-    );
-    
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: '用户不存在' });
-    }
-    
-    const user = result.rows[0];
-    res.json({
-      ...user,
-      created_at: user.created_at.toISOString().split('T')[0],
-      seeds: (user.seeds || []).map(seed => ({
-        ...seed,
-        purchasedAt: seed.purchasedAt ? seed.purchasedAt.split('T')[0] : null
-      })),
-      crops: (user.crops || []).map(crop => ({
-        ...crop,
-        harvestedAt: crop.harvestedAt ? crop.harvestedAt.split('T')[0] : null
-      }))
-    });
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ error: '获取用户信息失败，请稍后再试' });
   }
 });
 

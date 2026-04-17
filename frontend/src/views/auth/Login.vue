@@ -114,6 +114,22 @@ async function handleLogin() {
       return
     }
     
+    // 检查是否有旧用户（只有在登录成功后才检查）
+    const oldUserId = localStorage.getItem('prev_user_id')
+    if (oldUserId && oldUserId !== data.user.id) {
+      // 显示旧用户被挤出的提示
+      if (toastRef.value) {
+        toastRef.value.addToast('旧账号已被挤出，您现在登录的是新账号', 'info')
+      }
+      
+      // 清除旧用户的本地存储数据
+      localStorage.removeItem(`user_${oldUserId}_points`)
+      localStorage.removeItem(`user_${oldUserId}_seeds`)
+      localStorage.removeItem(`user_${oldUserId}_crops`)
+      localStorage.removeItem(`user_${oldUserId}_username`)
+    }
+    localStorage.setItem('prev_user_id', data.user.id)
+    
     // 根据角色跳转到不同的页面
     if (data.user.role === 'admin') {
       router.push('/admin')

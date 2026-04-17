@@ -207,11 +207,23 @@ async function handleDeleteAdmin(adminId) {
 }
 
 function handleLogout() {
+  // 清除当前用户的本地存储数据
+  const userId = localStorage.getItem('user_id')
+  if (userId) {
+    localStorage.removeItem(`user_${userId}_points`)
+    localStorage.removeItem(`user_${userId}_seeds`)
+    localStorage.removeItem(`user_${userId}_crops`)
+    localStorage.removeItem(`user_${userId}_username`)
+  }
+  
+  // 清除认证信息
   localStorage.removeItem('auth_token')
+  localStorage.removeItem('user_id')
   localStorage.removeItem('user_role')
   localStorage.removeItem('user_email')
   localStorage.removeItem('user_name')
-  localStorage.removeItem('user_key')
+  localStorage.removeItem('prev_user_id')
+  
   if (toastRef.value) {
     toastRef.value.addToast('已成功退出登录', 'success')
   }

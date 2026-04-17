@@ -67,10 +67,14 @@ const handleResize = () => {
     isMobile.value = window.innerWidth < 768
 }
 
-onMounted(() => {
+onMounted(async () => {
     window.addEventListener('resize', handleResize)
     // 加载用户信息
-    userStore.loadFromLocal()
+    try {
+        await userStore.loadFromLocal()
+    } catch (error) {
+        console.error('Failed to load user data in Navbar:', error)
+    }
 })
 
 onUnmounted(() => {

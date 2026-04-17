@@ -6,8 +6,8 @@ export const useUserStore = defineStore('user', () => {
   // ========== 状态 ==========
   const username = ref('绿色园丁')
   const points = ref(100)  // 初始积分
-  const seeds = ref([])    // 种子背包 { id, rarity, purchasedAt }
-  const crops = ref([])    // 作物背包 { id, rarity, harvestedAt }
+  const seeds = ref({})    // 种子背包 { rarity: quantity }
+  const crops = ref({})    // 作物背包 { rarity: quantity }
 
   // ========== 稀有度配置 ==========
   const rarityConfig = {
@@ -20,79 +20,57 @@ export const useUserStore = defineStore('user', () => {
 
   // ========== 计算属性 ==========
   const totalPoints = computed(() => points.value)
-  const seedCount = computed(() => seeds.value.length)
-  const cropCount = computed(() => crops.value.length)
-  
-  // 按稀有度分组的种子
-  const groupedSeeds = computed(() => {
-    return seeds.value.reduce((groups, seed) => {
-      const rarity = seed.rarity
-      if (!groups[rarity]) {
-        groups[rarity] = []
-      }
-      groups[rarity].push(seed)
-      return groups
-    }, {})
+  const seedCount = computed(() => {
+    const values = Object.values(seeds.value)
+    return values.reduce((sum, quantity) => {
+      return sum + (typeof quantity === 'number' ? quantity : 0)
+    }, 0)
+  })
+  const cropCount = computed(() => {
+    const values = Object.values(crops.value)
+    return values.reduce((sum, quantity) => {
+      return sum + (typeof quantity === 'number' ? quantity : 0)
+    }, 0)
   })
   
-  // 按稀有度分组的作物
+  // 按稀有度分组的种子（直接返回种子数量映射）
+  const groupedSeeds = computed(() => {
+    return { ...seeds.value }
+  })
+  
+  // 按稀有度分组的作物（直接返回作物数量映射）
   const groupedCrops = computed(() => {
-    return crops.value.reduce((groups, crop) => {
-      const rarity = crop.rarity
-      if (!groups[rarity]) {
-        groups[rarity] = []
-      }
-      groups[rarity].push(crop)
-      return groups
-    }, {})
+    return { ...crops.value }
   })
 
   // ========== 初始化 ==========
   async function loadFromLocal() {
-    try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        // 如果没有token，使用本地存储
-        loadFromLocalStorage()
-        return
-      }
-      
-      // 从后端API获取用户信息
-      const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      if (userResponse.ok) {
-        const userData = await userResponse.json()
-        username.value = userData.name
-        points.value = userData.points || 0
-        // 保存用户ID到本地存储
-        localStorage.setItem('user_id', userData.id)
-      }
-      
-      // 从后端API获取背包数据
-      const backpackResponse = await fetch(`${import.meta.env.VITE_API_URL}/user/backpack`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      if (backpackResponse.ok) {
-        const backpackData = await backpackResponse.json()
-        // 确保seeds始终是数组
-        seeds.value = Array.isArray(backpackData.seeds) ? backpackData.seeds : []
-        // 确保crops始终是数组
-        crops.value = Array.isArray(backpackData.crops) ? backpackData.crops : []
-        // 保存到本地存储
-        saveToLocalStorage()
-      }
-    } catch (error) {
-      console.error('Failed to load data from API:', error)
-      // API加载失败时使用本地存储
-      loadFromLocalStorage()
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      throw new Error('未登录，请先登录')
     }
+    
+    // 从后端API获取用户信息
+    const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (!userResponse.ok) {
+      throw new Error('获取用户信息失败，请检查网络连接')
+    }
+    
+    const userData = await userResponse.json()
+    username.value = userData.name
+    points.value = userData.points || 0
+    // 从用户数据中获取背包数据
+    seeds.value = typeof userData.seeds === 'object' && userData.seeds !== null && !Array.isArray(userData.seeds) ? userData.seeds : {}
+    crops.value = typeof userData.crops === 'object' && userData.crops !== null && !Array.isArray(userData.crops) ? userData.crops : {}
+    // 保存用户ID到本地存储
+    localStorage.setItem('user_id', userData.id)
+    // 保存到本地存储
+    saveToLocalStorage()
   }
 
   function getCurrentUserKey() {
@@ -110,28 +88,28 @@ export const useUserStore = defineStore('user', () => {
     if (savedSeeds) {
       try {
         const parsedSeeds = JSON.parse(savedSeeds)
-        // 确保seeds始终是数组
-        seeds.value = Array.isArray(parsedSeeds) ? parsedSeeds : []
+        // 确保seeds始终是对象
+        seeds.value = typeof parsedSeeds === 'object' && parsedSeeds !== null ? parsedSeeds : {}
       } catch (error) {
         console.error('Failed to parse seeds:', error)
-        seeds.value = []
+        seeds.value = {}
       }
     } else {
-      seeds.value = []
+      seeds.value = {}
     }
 
     const savedCrops = localStorage.getItem(`${userKey}_crops`)
     if (savedCrops) {
       try {
         const parsedCrops = JSON.parse(savedCrops)
-        // 确保crops始终是数组
-        crops.value = Array.isArray(parsedCrops) ? parsedCrops : []
+        // 确保crops始终是对象
+        crops.value = typeof parsedCrops === 'object' && parsedCrops !== null ? parsedCrops : {}
       } catch (error) {
         console.error('Failed to parse crops:', error)
-        crops.value = []
+        crops.value = {}
       }
     } else {
-      crops.value = []
+      crops.value = {}
     }
 
     const savedUsername = localStorage.getItem(`${userKey}_username`)
@@ -202,86 +180,83 @@ export const useUserStore = defineStore('user', () => {
         })
         
         if (response.ok) {
-          const seed = await response.json()
-          seeds.value.push(seed)
+          const data = await response.json()
+          seeds.value[rarity] = data.quantity
           saveToLocalStorage()
-          return seed
+          return data
         }
       }
       
       // API失败时使用本地添加
-      const seed = {
-        id: Date.now() + Math.random(),
-        rarity: rarity,
-        purchasedAt: Date.now()
-      }
-      seeds.value.push(seed)
+      seeds.value[rarity] = (seeds.value[rarity] || 0) + 1
       saveToLocalStorage()
-      return seed
+      return { rarity, quantity: seeds.value[rarity] }
     } catch (error) {
       console.error('Failed to add seed:', error)
       // 错误时使用本地添加
-      const seed = {
-        id: Date.now() + Math.random(),
-        rarity: rarity,
-        purchasedAt: Date.now()
-      }
-      seeds.value.push(seed)
+      seeds.value[rarity] = (seeds.value[rarity] || 0) + 1
       saveToLocalStorage()
-      return seed
+      return { rarity, quantity: seeds.value[rarity] }
     }
   }
 
-  async function removeSeed(seedId) {
+  async function removeSeed(rarity) {
     try {
       const token = localStorage.getItem('auth_token')
+      console.log('removeSeed called with:', rarity, 'token:', token)
       if (token) {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/user/seeds/${seedId}`, {
+        const url = `${import.meta.env.VITE_API_URL}/user/seeds/${rarity}`
+        console.log('Fetch URL:', url)
+        const response = await fetch(url, {
           method: 'DELETE',
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
-          }
+          },
+          body: JSON.stringify({ quantity: 1 })
         })
         
+        console.log('Response status:', response.status, response.statusText)
         if (response.ok) {
-          const index = seeds.value.findIndex(s => s.id === seedId)
-          if (index !== -1) {
-            seeds.value.splice(index, 1)
-            saveToLocalStorage()
-            return true
-          }
+          const data = await response.json()
+          seeds.value[rarity] = data.quantity
+          saveToLocalStorage()
+          return true
+        } else {
+          // API失败时返回失败消息
+          console.error('API delete failed:', response.status, response.statusText)
+          return false
         }
+      } else {
+        // 没有token时使用本地删除
+        console.log('No token, using local delete')
+        if (seeds.value[rarity] > 0) {
+          seeds.value[rarity]--
+          if (seeds.value[rarity] === 0) {
+            delete seeds.value[rarity]
+          }
+          saveToLocalStorage()
+          return true
+        }
+        return false
       }
-      
-      // API失败时使用本地删除
-      const index = seeds.value.findIndex(s => s.id === seedId)
-      if (index !== -1) {
-        seeds.value.splice(index, 1)
-        saveToLocalStorage()
-        return true
-      }
-      return false
     } catch (error) {
       console.error('Failed to remove seed:', error)
-      // 错误时使用本地删除
-      const index = seeds.value.findIndex(s => s.id === seedId)
-      if (index !== -1) {
-        seeds.value.splice(index, 1)
-        saveToLocalStorage()
-        return true
-      }
+      // 错误时返回失败消息
       return false
     }
   }
 
-  async function sellSeed(seedId) {
-    const seed = seeds.value.find(s => s.id === seedId)
-    if (seed) {
-      const price = rarityConfig[seed.rarity].buyPrice
+  async function sellSeed(rarity) {
+    if (seeds.value[rarity] > 0) {
+      const price = rarityConfig[rarity].buyPrice
       await addPoints(price)
-      await removeSeed(seedId)
-      saveToLocalStorage()
-      return { success: true, price }
+      const success = await removeSeed(rarity)
+      if (success) {
+        saveToLocalStorage()
+        return { success: true, price }
+      }
+      return { success: false }
     }
     return { success: false }
   }
@@ -301,61 +276,53 @@ export const useUserStore = defineStore('user', () => {
         })
         
         if (response.ok) {
-          const crop = await response.json()
-          crops.value.push(crop)
+          const data = await response.json()
+          crops.value[rarity] = data.quantity
           saveToLocalStorage()
-          return crop
+          return data
         }
       }
       
       // API失败时使用本地添加
-      const crop = {
-        id: Date.now() + Math.random(),
-        rarity: rarity,
-        harvestedAt: Date.now()
-      }
-      crops.value.push(crop)
+      crops.value[rarity] = (crops.value[rarity] || 0) + 1
       saveToLocalStorage()
-      return crop
+      return { rarity, quantity: crops.value[rarity] }
     } catch (error) {
       console.error('Failed to add crop:', error)
       // 错误时使用本地添加
-      const crop = {
-        id: Date.now() + Math.random(),
-        rarity: rarity,
-        harvestedAt: Date.now()
-      }
-      crops.value.push(crop)
+      crops.value[rarity] = (crops.value[rarity] || 0) + 1
       saveToLocalStorage()
-      return crop
+      return { rarity, quantity: crops.value[rarity] }
     }
   }
 
-  async function removeCrop(cropId) {
+  async function removeCrop(rarity) {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/user/crops/${cropId}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/user/crops/${rarity}`, {
           method: 'DELETE',
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
-          }
+          },
+          body: JSON.stringify({ quantity: 1 })
         })
         
         if (response.ok) {
-          const index = crops.value.findIndex(c => c.id === cropId)
-          if (index !== -1) {
-            crops.value.splice(index, 1)
-            saveToLocalStorage()
-            return true
-          }
+          const data = await response.json()
+          crops.value[rarity] = data.quantity
+          saveToLocalStorage()
+          return true
         }
       }
       
       // API失败时使用本地删除
-      const index = crops.value.findIndex(c => c.id === cropId)
-      if (index !== -1) {
-        crops.value.splice(index, 1)
+      if (crops.value[rarity] > 0) {
+        crops.value[rarity]--
+        if (crops.value[rarity] === 0) {
+          delete crops.value[rarity]
+        }
         saveToLocalStorage()
         return true
       }
@@ -363,9 +330,11 @@ export const useUserStore = defineStore('user', () => {
     } catch (error) {
       console.error('Failed to remove crop:', error)
       // 错误时使用本地删除
-      const index = crops.value.findIndex(c => c.id === cropId)
-      if (index !== -1) {
-        crops.value.splice(index, 1)
+      if (crops.value[rarity] > 0) {
+        crops.value[rarity]--
+        if (crops.value[rarity] === 0) {
+          delete crops.value[rarity]
+        }
         saveToLocalStorage()
         return true
       }
@@ -373,14 +342,16 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function sellCrop(cropId) {
-    const crop = crops.value.find(c => c.id === cropId)
-    if (crop) {
-      const price = rarityConfig[crop.rarity].sellPrice
+  async function sellCrop(rarity) {
+    if (crops.value[rarity] > 0) {
+      const price = rarityConfig[rarity].sellPrice
       await addPoints(price)
-      await removeCrop(cropId)
-      saveToLocalStorage()
-      return { success: true, price }
+      const success = await removeCrop(rarity)
+      if (success) {
+        saveToLocalStorage()
+        return { success: true, price }
+      }
+      return { success: false }
     }
     return { success: false }
   }
