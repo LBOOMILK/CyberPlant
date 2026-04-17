@@ -189,15 +189,31 @@ app.get('/', (req, res) => {
 // 认证路由
 app.post('/api/auth/register', async (req, res) => {
   try {
+    console.log('Register request:', req.body);
+    if (!req.body) {
+      return res.status(400).json({ error: '请求体不能为空' });
+    }
+    
     const { name, email, password } = req.body;
     
-    if (!name || !email || !password) {
+    if (!email || !password) {
       return res.status(400).json({ error: '请填写所有必填字段' });
     }
+    
+    // 检查邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: '请输入有效的邮箱地址' });
+    }
+    
+    // 如果没有提供name，使用邮箱前缀作为用户名
+    const username = name || email.split('@')[0];
+    console.log('Username:', username);
     
     // 检查邮箱是否已存在
     const existingUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
     if (existingUser.rowCount > 0) {
+      console.log('Email already exists:', email);
       return res.status(400).json({ error: '该邮箱已被注册' });
     }
     
@@ -205,24 +221,30 @@ app.post('/api/auth/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     // 生成用户ID，以1开头
-    const userResult = await client.query('SELECT MAX(id) as max_id FROM users WHERE id LIKE \'1%\'');
+    const userResult = await client.query('SELECT MAX(id) as max_id FROM users WHERE id::text LIKE \'1%\'');
     const maxUserId = userResult.rows[0].max_id;
     let nextId;
     if (maxUserId) {
       // 提取数字部分并加1
-      const numPart = parseInt(maxUserId.substring(1)) || 0;
+      const numPart = parseInt(maxUserId.toString().substring(1)) || 0;
       nextId = `1${numPart + 1}`;
     } else {
       nextId = '11'; // 第一个用户
     }
+    console.log('Next user ID:', nextId);
+    
+    // 初始化背包数据，为所有稀有度的种子和作物设置初始数量为0
+    const initialSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    const initialCrops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
     
     // 创建用户
     const newUser = await client.query(
-      'INSERT INTO users (id, name, email, password, role, points) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [nextId, name, email, hashedPassword, 'user', 0]
+      'INSERT INTO users (id, name, email, password, role, points, seeds, crops) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [nextId, username, email, hashedPassword, 'user', 0, initialSeeds, initialCrops]
     );
     
     const user = newUser.rows[0];
+    console.log('New user created:', user);
     
     // 生成 JWT 令牌
     const token = jwt.sign(
@@ -230,8 +252,9 @@ app.post('/api/auth/register', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+    console.log('Token generated:', token);
     
-    res.status(201).json({
+    const response = {
       user: {
         id: user.id,
         name: user.name,
@@ -241,7 +264,9 @@ app.post('/api/auth/register', async (req, res) => {
         created_at: user.created_at.toISOString().split('T')[0]
       },
       token
-    });
+    };
+    console.log('Register response:', response);
+    res.status(201).json(response);
   } catch (error) {
     console.error('Register error:', error);
     res.status(500).json({ error: '注册失败，请稍后再试' });
@@ -451,23 +476,23 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     // 生成ID，管理员以0开头，用户以1开头
     let nextId;
     if (role === 'admin') {
-      // 获取最大的管理员ID
-      const adminResult = await client.query('SELECT MAX(id) as max_id FROM users WHERE id LIKE \'0%\'');
+      // 获取最大的管理员ID（将id转换为字符串再进行LIKE操作）
+      const adminResult = await client.query('SELECT MAX(id) as max_id FROM users WHERE id::text LIKE \'0%\'');
       const maxAdminId = adminResult.rows[0].max_id;
       if (maxAdminId) {
         // 提取数字部分并加1
-        const numPart = parseInt(maxAdminId.substring(1)) || 0;
+        const numPart = parseInt(maxAdminId.toString().substring(1)) || 0;
         nextId = `0${numPart + 1}`;
       } else {
         nextId = '01'; // 第一个管理员
       }
     } else {
-      // 获取最大的用户ID
-      const userResult = await client.query('SELECT MAX(id) as max_id FROM users WHERE id LIKE \'1%\'');
+      // 获取最大的用户ID（将id转换为字符串再进行LIKE操作）
+      const userResult = await client.query('SELECT MAX(id) as max_id FROM users WHERE id::text LIKE \'1%\'');
       const maxUserId = userResult.rows[0].max_id;
       if (maxUserId) {
         // 提取数字部分并加1
-        const numPart = parseInt(maxUserId.substring(1)) || 0;
+        const numPart = parseInt(maxUserId.toString().substring(1)) || 0;
         nextId = `1${numPart + 1}`;
       } else {
         nextId = '11'; // 第一个用户

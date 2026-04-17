@@ -356,15 +356,7 @@ export const useUserStore = defineStore('user', () => {
     return { success: false }
   }
 
-  // ========== 重置数据 ==========
-  async function resetAllData() {
-    points.value = 100
-    seeds.value = []
-    crops.value = []
-    username.value = '绿色园丁'
-    await updatePoints()
-    saveToLocalStorage()
-  }
+
 
   return {
     // 状态
@@ -388,7 +380,6 @@ export const useUserStore = defineStore('user', () => {
     sellSeed,
     addCrop,
     removeCrop,
-    sellCrop,
-    resetAllData
+    sellCrop
   }
 })

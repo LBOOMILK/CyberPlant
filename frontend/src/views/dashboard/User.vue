@@ -19,23 +19,13 @@
                 </div>
             </div>
 
-            <button class="reset-btn" @click="showResetModal = true">🔄 重置所有数据</button>
             <button class="change-pwd-btn" @click="showChangePwdModal = true">🔒 修改密码</button>
             <button class="logout-btn" @click="showLogoutModal = true">🚪 退出登录</button>
         </div>
 
         <Toast ref="toastRef" />
         
-        <!-- 重置数据弹窗 -->
-        <Modal
-            :visible="showResetModal"
-            title="⚠️ 重置数据"
-            message="重置所有数据将清空积分、种子、作物和当前植物，确定吗？"
-            confirm-text="确定重置"
-            cancel-text="取消"
-            @confirm="handleResetConfirm"
-            @cancel="showResetModal = false"
-        />
+
         
         <!-- 修改密码弹窗 -->
         <div v-if="showChangePwdModal" class="modal-overlay" @click.self="showChangePwdModal = false">
@@ -100,7 +90,6 @@ import Toast from '@/components/Toast.vue'
 const router = useRouter()
 const userStore = useUserStore()
 const toastRef = ref(null)
-const showResetModal = ref(false)
 const showChangePwdModal = ref(false)
 const showLogoutModal = ref(false)
 const showCurrentPassword = ref(false)
@@ -128,15 +117,7 @@ function addToast(message, type = 'info') {
     }
 }
 
-function handleResetConfirm() {
-    userStore.resetAllData()
-    localStorage.removeItem('current_plant')
-    addToast('所有数据已重置', 'info')
-    showResetModal.value = false
-    setTimeout(() => {
-        window.location.reload()
-    }, 1000)
-}
+
 
 async function handleChangePassword() {
     if (passwordForm.value.newPassword !== passwordForm.value.confirmNewPassword) {
@@ -261,19 +242,6 @@ function handleLogout() {
 .stat-value {
     font-weight: bold;
     color: #2e7d32;
-}
-
-.reset-btn {
-    width: 100%;
-    padding: 12px;
-    border: none;
-    border-radius: 40px;
-    background: #dd9040;
-    color: white;
-    font-size: 1rem;
-    font-weight: bold;
-    cursor: pointer;
-    margin-top: 12px;
 }
 
 .change-pwd-btn {

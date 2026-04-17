@@ -105,7 +105,7 @@ function validateEmail() {
   showEmailSuggestions.value = false
   
   // 邮箱格式验证
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const emailRegex = /^[^\s@]+@[^\s@]+$/
   if (!emailRegex.test(email)) {
     emailError.value = '请输入有效的邮箱地址'
   }

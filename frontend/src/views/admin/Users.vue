@@ -372,8 +372,6 @@ async function handleAddUser() {
     })
     
     if (response.ok) {
-      const addedUser = await response.json()
-      users.value.push(addedUser)
       showAddModal.value = false
       // 重置表单
       newUser.value = {
@@ -382,6 +380,8 @@ async function handleAddUser() {
         confirmPassword: '',
         points: 0
       }
+      // 重新加载用户列表，确保添加的用户数据格式与前端期望的格式一致
+      await loadUsers()
       if (toastRef.value) {
         toastRef.value.addToast('添加用户成功', 'success')
       }
