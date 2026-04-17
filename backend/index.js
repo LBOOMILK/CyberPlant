@@ -240,7 +240,7 @@ app.post('/api/auth/register', async (req, res) => {
     // 创建用户
     const newUser = await client.query(
       'INSERT INTO users (id, name, email, password, role, points, seeds, crops) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [nextId, username, email, hashedPassword, 'user', 0, initialSeeds, initialCrops]
+      [nextId, username, email, hashedPassword, 'user', 100, initialSeeds, initialCrops]
     );
     
     const user = newUser.rows[0];
@@ -508,7 +508,7 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     
     const newUser = await client.query(
       'INSERT INTO users (id, name, email, password, role, points, seeds, crops) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [nextId, username, email, hashedPassword, role || 'user', req.body.points || 0, initialSeeds, initialCrops]
+      [nextId, username, email, hashedPassword, role || 'user', req.body.points || 100, initialSeeds, initialCrops]
     );
     
     res.status(201).json(newUser.rows[0]);
@@ -551,6 +551,51 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: '获取用户信息失败，请稍后再试' });
+  }
+});
+
+// 更新当前用户信息
+app.put('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    console.log('PUT /api/users/me request');
+    console.log('User from token:', req.user);
+    console.log('Request body:', req.body);
+    const userId = req.user.id;
+    const { name } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: '请填写用户名' });
+    }
+    
+    // 更新用户信息
+    const updatedUser = await client.query(
+      'UPDATE users SET name = $1 WHERE id = $2 RETURNING *',
+      [name, userId]
+    );
+    
+    if (updatedUser.rowCount === 0) {
+      console.log('User not found:', userId);
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    const user = updatedUser.rows[0];
+    console.log('Updated user data:', user);
+    
+    // 确保seeds和crops始终是对象
+    const seeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
+    const crops = typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {};
+    const response = {
+      ...user,
+      created_at: user.created_at.toISOString().split('T')[0],
+      seeds,
+      crops
+    };
+    
+    console.log('PUT /api/users/me response:', response);
+    res.json(response);
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: '更新用户信息失败，请稍后再试' });
   }
 });
 
@@ -630,7 +675,7 @@ app.get('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, role, points, seeds, crops, password } = req.body;
+    const { name, email, role, points, seeds, crops, password } = req.body;
     
     if (!email) {
       return res.status(400).json({ error: '请填写邮箱' });
@@ -665,14 +710,14 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
       }
     }
     
-    let query = 'UPDATE users SET email = $1, role = $2, points = $3, seeds = $4, crops = $5';
-    let params = [email, role || 'user', points || 0, processedSeeds, processedCrops, id];
+    let query = 'UPDATE users SET name = $1, email = $2, role = $3, points = $4, seeds = $5, crops = $6';
+    let params = [name || email.split('@')[0], email, role || 'user', points || 0, processedSeeds, processedCrops, id];
     
     if (password) {
       // 哈希密码
       const hashedPassword = await bcrypt.hash(password, 10);
-      query += ', password = $6';
-      params.splice(5, 0, hashedPassword);
+      query += ', password = $7';
+      params.splice(6, 0, hashedPassword);
     }
     
     query += ' WHERE id = $' + params.length + ' RETURNING *';

@@ -20,6 +20,7 @@
             </div>
 
             <button class="change-pwd-btn" @click="showChangePwdModal = true">🔒 修改密码</button>
+            <button class="change-name-btn" @click="showChangeNameModal = true">✏️ 修改用户名</button>
             <button class="logout-btn" @click="showLogoutModal = true">🚪 退出登录</button>
         </div>
 
@@ -67,6 +68,23 @@
             </div>
         </div>
         
+        <!-- 修改用户名弹窗 -->
+        <div v-if="showChangeNameModal" class="modal-overlay" @click.self="showChangeNameModal = false">
+            <div class="modal-content">
+                <h3>✏️ 修改用户名</h3>
+                <form @submit.prevent="handleChangeName">
+                    <div class="form-group">
+                        <label for="newName">新用户名</label>
+                        <input type="text" id="newName" v-model="nameForm.newName" required placeholder="请输入新用户名">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="cancel-btn" @click="showChangeNameModal = false">取消</button>
+                        <button type="submit" class="confirm-btn">确认修改</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
         <!-- 退出登录弹窗 -->
         <Modal
             :visible="showLogoutModal"
@@ -91,6 +109,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const toastRef = ref(null)
 const showChangePwdModal = ref(false)
+const showChangeNameModal = ref(false)
 const showLogoutModal = ref(false)
 const showCurrentPassword = ref(false)
 const showNewPassword = ref(false)
@@ -99,6 +118,9 @@ const passwordForm = ref({
     currentPassword: '',
     newPassword: '',
     confirmNewPassword: ''
+})
+const nameForm = ref({
+    newName: ''
 })
 
 // 生命周期
@@ -160,6 +182,44 @@ async function handleChangePassword() {
         showConfirmNewPassword.value = false
     } catch (error) {
         console.error('修改密码失败:', error)
+        addToast('网络错误，请稍后再试', 'error')
+    }
+}
+
+async function handleChangeName() {
+    try {
+        const token = localStorage.getItem('auth_token')
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                name: nameForm.value.newName
+            })
+        })
+        
+        const data = await response.json()
+        
+        if (!response.ok) {
+            addToast(data.error || '修改用户名失败', 'error')
+            return
+        }
+        
+        // 更新本地存储和用户状态
+        localStorage.setItem('user_name', data.name)
+        userStore.username = data.name
+        
+        addToast('用户名修改成功', 'success')
+        showChangeNameModal.value = false
+        
+        // 重置表单
+        nameForm.value = {
+            newName: ''
+        }
+    } catch (error) {
+        console.error('修改用户名失败:', error)
         addToast('网络错误，请稍后再试', 'error')
     }
 }
@@ -250,6 +310,19 @@ function handleLogout() {
     border: none;
     border-radius: 40px;
     background: #2196f3;
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 12px;
+}
+
+.change-name-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 40px;
+    background: #ff9800;
     color: white;
     font-size: 1rem;
     font-weight: bold;
@@ -426,6 +499,10 @@ function handleLogout() {
     
     .change-pwd-btn {
         background: #1976d2;
+    }
+    
+    .change-name-btn {
+        background: #ef6c00;
     }
     
     .modal-content {

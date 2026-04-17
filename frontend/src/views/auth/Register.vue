@@ -7,6 +7,17 @@
       
       <form @submit.prevent="handleRegister">
         <div class="form-group">
+          <label for="name">用户名</label>
+          <input 
+            type="text" 
+            id="name" 
+            v-model="form.name" 
+            required 
+            placeholder="请输入用户名"
+          >
+        </div>
+        
+        <div class="form-group">
           <label for="email">邮箱</label>
           <div class="email-input-container">
             <input 
@@ -69,6 +80,7 @@ import Toast from '@/components/Toast.vue'
 
 const router = useRouter()
 const form = ref({
+  name: '',
   email: '',
   password: '',
   confirmPassword: ''
@@ -146,6 +158,7 @@ async function handleRegister() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          name: form.value.name,
           email: form.value.email,
           password: form.value.password
         })
