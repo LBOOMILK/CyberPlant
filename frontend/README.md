@@ -65,3 +65,4 @@ frontend/
 - [ ] 添加后端（Node.js + PostgreSQL）
 - [ ] 用户登录/注册
 - [ ] 更多植物品种
+ 水（）
