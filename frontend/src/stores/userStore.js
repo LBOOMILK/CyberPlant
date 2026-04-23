@@ -166,7 +166,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // ========== 种子操作 ==========
-  async function addSeed(rarity) {
+  async function addSeed(rarity, price) {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
@@ -176,12 +176,13 @@ export const useUserStore = defineStore('user', () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ rarity })
+          body: JSON.stringify({ rarity, price })
         })
         
         if (response.ok) {
           const data = await response.json()
           seeds.value[rarity] = data.quantity
+          points.value = data.points || points.value
           saveToLocalStorage()
           return data
         }
@@ -189,21 +190,27 @@ export const useUserStore = defineStore('user', () => {
       
       // API失败时使用本地添加
       seeds.value[rarity] = (seeds.value[rarity] || 0) + 1
+      if (price) {
+        points.value -= price
+      }
       saveToLocalStorage()
-      return { rarity, quantity: seeds.value[rarity] }
+      return { rarity, quantity: seeds.value[rarity], points: points.value }
     } catch (error) {
       console.error('Failed to add seed:', error)
       // 错误时使用本地添加
       seeds.value[rarity] = (seeds.value[rarity] || 0) + 1
+      if (price) {
+        points.value -= price
+      }
       saveToLocalStorage()
-      return { rarity, quantity: seeds.value[rarity] }
+      return { rarity, quantity: seeds.value[rarity], points: points.value }
     }
   }
 
-  async function removeSeed(rarity) {
+  async function removeSeed(rarity, price = 0) {
     try {
       const token = localStorage.getItem('auth_token')
-      console.log('removeSeed called with:', rarity, 'token:', token)
+      console.log('removeSeed called with:', rarity, 'price:', price, 'token:', token)
       if (token) {
         const url = `${import.meta.env.VITE_API_URL}/user/seeds/${rarity}`
         console.log('Fetch URL:', url)
@@ -213,13 +220,14 @@ export const useUserStore = defineStore('user', () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ quantity: 1 })
+          body: JSON.stringify({ quantity: 1, price })
         })
         
         console.log('Response status:', response.status, response.statusText)
         if (response.ok) {
           const data = await response.json()
           seeds.value[rarity] = data.quantity
+          points.value = data.points || points.value
           saveToLocalStorage()
           return true
         } else {
@@ -234,6 +242,9 @@ export const useUserStore = defineStore('user', () => {
           seeds.value[rarity]--
           if (seeds.value[rarity] === 0) {
             delete seeds.value[rarity]
+          }
+          if (price) {
+            points.value += price
           }
           saveToLocalStorage()
           return true
@@ -250,8 +261,7 @@ export const useUserStore = defineStore('user', () => {
   async function sellSeed(rarity) {
     if (seeds.value[rarity] > 0) {
       const price = rarityConfig[rarity].buyPrice
-      await addPoints(price)
-      const success = await removeSeed(rarity)
+      const success = await removeSeed(rarity, price)
       if (success) {
         saveToLocalStorage()
         return { success: true, price }
@@ -296,7 +306,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function removeCrop(rarity) {
+  async function removeCrop(rarity, price = 0) {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
@@ -306,12 +316,13 @@ export const useUserStore = defineStore('user', () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ quantity: 1 })
+          body: JSON.stringify({ quantity: 1, price })
         })
         
         if (response.ok) {
           const data = await response.json()
           crops.value[rarity] = data.quantity
+          points.value = data.points || points.value
           saveToLocalStorage()
           return true
         }
@@ -322,6 +333,9 @@ export const useUserStore = defineStore('user', () => {
         crops.value[rarity]--
         if (crops.value[rarity] === 0) {
           delete crops.value[rarity]
+        }
+        if (price) {
+          points.value += price
         }
         saveToLocalStorage()
         return true
@@ -335,6 +349,9 @@ export const useUserStore = defineStore('user', () => {
         if (crops.value[rarity] === 0) {
           delete crops.value[rarity]
         }
+        if (price) {
+          points.value += price
+        }
         saveToLocalStorage()
         return true
       }
@@ -345,8 +362,7 @@ export const useUserStore = defineStore('user', () => {
   async function sellCrop(rarity) {
     if (crops.value[rarity] > 0) {
       const price = rarityConfig[rarity].sellPrice
-      await addPoints(price)
-      const success = await removeCrop(rarity)
+      const success = await removeCrop(rarity, price)
       if (success) {
         saveToLocalStorage()
         return { success: true, price }
@@ -356,7 +372,13 @@ export const useUserStore = defineStore('user', () => {
     return { success: false }
   }
 
-
+  // 重置所有数据
+  function resetAllData() {
+    username.value = '绿色园丁'
+    points.value = 100
+    seeds.value = {}
+    crops.value = {}
+  }
 
   return {
     // 状态
@@ -380,6 +402,7 @@ export const useUserStore = defineStore('user', () => {
     sellSeed,
     addCrop,
     removeCrop,
-    sellCrop
+    sellCrop,
+    resetAllData
   }
 })

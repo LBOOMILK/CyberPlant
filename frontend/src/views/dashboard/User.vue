@@ -246,9 +246,8 @@ function handleLogout() {
     userStore.resetAllData()
     
     addToast('已成功退出登录', 'success')
-    setTimeout(() => {
-        router.push('/login')
-    }, 1000)
+    // 立即跳转到登录页面，不使用setTimeout
+    router.push('/login')
 }
 </script>
 

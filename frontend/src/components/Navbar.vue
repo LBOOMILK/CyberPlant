@@ -15,6 +15,7 @@
             <router-link to="/dashboard/garden">🌱 花园</router-link>
             <router-link to="/dashboard/shop">🛒 商城</router-link>
             <router-link to="/dashboard/backpack">🎒 背包</router-link>
+            <router-link to="/dashboard/orders">📋 订单</router-link>
             <router-link to="/dashboard/user">👤 我的</router-link>
         </nav>
 
@@ -32,6 +33,10 @@
                 <router-link to="/dashboard/backpack" class="nav-item" :class="{ active: $route.path === '/dashboard/backpack' }">
                     <span class="nav-icon">🎒</span>
                     <span class="nav-label">背包</span>
+                </router-link>
+                <router-link to="/dashboard/orders" class="nav-item" :class="{ active: $route.path === '/dashboard/orders' }">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">订单</span>
                 </router-link>
                 <router-link to="/dashboard/user" class="nav-item" :class="{ active: $route.path === '/dashboard/user' }">
                     <span class="nav-icon">👤</span>

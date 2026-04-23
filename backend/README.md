@@ -47,4 +47,6 @@ npm start
 - 数据库迁移：`npm run prisma:migrate`
 - 打开 Prisma Studio：`npm run prisma:studio`
 
-4.21  订单管理开发失败
+4.23 
+订单管理开发完成
+README补全以及修改后续完成

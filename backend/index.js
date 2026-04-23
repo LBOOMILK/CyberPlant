@@ -81,14 +81,19 @@ async function initDatabase() {
     // 创建订单表
     await client.query(`
       CREATE TABLE IF NOT EXISTS orders (
-        id SERIAL PRIMARY KEY,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR(50) NOT NULL,
-        product VARCHAR(255) NOT NULL,
+        type VARCHAR(50) NOT NULL CHECK (type IN ('PURCHASE_SEED', 'SELL_SEED', 'SELL_CROP')),
         amount INTEGER NOT NULL,
-        status VARCHAR(50) DEFAULT '待支付',
+        related_item_id INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
       )
+    `);
+    
+    // 创建userId和createdAt的联合索引
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_orders_user_id_created_at ON orders(user_id, created_at)
     `);
     
     // 检查是否已有管理员用户
@@ -151,7 +156,11 @@ async function initDatabase() {
 }
 
 // 中间件
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(helmet());
 app.use(express.json());
 
@@ -840,22 +849,89 @@ app.delete('/api/plants/:id', authenticateToken, requireAdmin, async (req, res) 
   }
 });
 
-// 订单路由
-app.get('/api/orders', authenticateToken, requireAdmin, async (req, res) => {
+// 创建订单服务函数
+async function createOrder(userId, type, amount, relatedItemId = null) {
   try {
+    const result = await client.query(
+      'INSERT INTO orders (user_id, type, amount, related_item_id) VALUES ($1, $2, $3, $4) RETURNING *',
+      [userId, type, amount, relatedItemId]
+    );
+    return result.rows[0];
+  } catch (error) {
+    console.error('Create order error:', error);
+    throw error;
+  }
+}
+
+// 订单路由
+// 用户获取自己的订单，支持分页
+app.get('/api/orders', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    
     const ordersResult = await client.query(`
-      SELECT o.*, u.id as user_id, u.name as user_name, u.email as user_email 
-      FROM orders o
-      JOIN users u ON o.user_id = u.id
-    `);
+      SELECT * FROM orders 
+      WHERE user_id = $1 
+      ORDER BY created_at DESC 
+      LIMIT $2 OFFSET $3
+    `, [userId, limit, offset]);
+    
+    const totalResult = await client.query(
+      'SELECT COUNT(*) as total FROM orders WHERE user_id = $1',
+      [userId]
+    );
     
     const orders = ordersResult.rows.map(order => ({
       id: order.id,
       user_id: order.user_id,
-      product: order.product,
+      type: order.type,
       amount: order.amount,
-      status: order.status,
-      created_at: order.created_at.toISOString().split('T')[0],
+      related_item_id: order.related_item_id,
+      created_at: order.created_at.toISOString().replace('T', ' ').slice(0, 19)
+    }));
+    
+    res.json({
+      orders,
+      pagination: {
+        page,
+        limit,
+        total: parseInt(totalResult.rows[0].total),
+        totalPages: Math.ceil(parseInt(totalResult.rows[0].total) / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Fetch orders error:', error);
+    res.status(500).json({ error: '获取订单列表失败，请稍后再试' });
+  }
+});
+
+// 管理员获取所有订单，支持分页
+app.get('/api/admin/orders', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    
+    const ordersResult = await client.query(`
+      SELECT o.*, u.id as user_id, u.name as user_name, u.email as user_email 
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+      ORDER BY o.created_at DESC 
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+    
+    const totalResult = await client.query('SELECT COUNT(*) as total FROM orders');
+    
+    const orders = ordersResult.rows.map(order => ({
+      id: order.id,
+      user_id: order.user_id,
+      type: order.type,
+      amount: order.amount,
+      related_item_id: order.related_item_id,
+      created_at: order.created_at.toISOString().replace('T', ' ').slice(0, 19),
       user: {
         id: order.user_id,
         name: order.user_name,
@@ -863,10 +939,39 @@ app.get('/api/orders', authenticateToken, requireAdmin, async (req, res) => {
       }
     }));
     
-    res.json(orders);
+    res.json({
+      orders,
+      pagination: {
+        page,
+        limit,
+        total: parseInt(totalResult.rows[0].total),
+        totalPages: Math.ceil(parseInt(totalResult.rows[0].total) / limit)
+      }
+    });
   } catch (error) {
     console.error('Fetch orders error:', error);
     res.status(500).json({ error: '获取订单列表失败，请稍后再试' });
+  }
+});
+
+// 管理员删除订单
+app.delete('/api/admin/orders/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const deletedOrder = await client.query(
+      'DELETE FROM orders WHERE id = $1 RETURNING *',
+      [id]
+    );
+    
+    if (deletedOrder.rowCount === 0) {
+      return res.status(404).json({ error: '订单不存在' });
+    }
+    
+    res.json({ message: '订单删除成功' });
+  } catch (error) {
+    console.error('Delete order error:', error);
+    res.status(500).json({ error: '删除订单失败，请稍后再试' });
   }
 });
 
@@ -904,41 +1009,66 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
   }
 });
 
-// 添加种子
+// 购买种子（包含积分扣除和订单创建）
 app.post('/api/user/seeds', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { rarity } = req.body;
+    const { rarity, price } = req.body;
     
-    if (!rarity) {
-      return res.status(400).json({ error: '请提供种子稀有度' });
+    if (!rarity || !price) {
+      return res.status(400).json({ error: '请提供种子稀有度和价格' });
     }
     
     // 确保userId是字符串类型
     const stringUserId = String(userId);
     
-    // 获取用户当前数据
-    const userResult = await client.query('SELECT * FROM users WHERE id = $1', [stringUserId]);
-    if (userResult.rowCount === 0) {
-      return res.status(404).json({ error: '用户不存在' });
+    // 开始事务
+    await client.query('BEGIN');
+    
+    try {
+      // 获取用户当前数据
+      const userResult = await client.query('SELECT * FROM users WHERE id = $1', [stringUserId]);
+      if (userResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: '用户不存在' });
+      }
+      
+      const user = userResult.rows[0];
+      
+      // 检查积分是否足够
+      if (user.points < price) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: '积分不足' });
+      }
+      
+      // 确保seeds字段是对象
+      const currentSeeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
+      
+      // 增加对应稀有度的数量
+      const updatedSeeds = { ...currentSeeds };
+      updatedSeeds[rarity] = (updatedSeeds[rarity] || 0) + 1;
+      
+      // 扣除积分
+      const updatedPoints = user.points - price;
+      
+      // 更新用户数据
+      await client.query(
+        'UPDATE users SET seeds = $1, points = $2 WHERE id = $3',
+        [updatedSeeds, updatedPoints, stringUserId]
+      );
+      
+      // 创建订单
+      await createOrder(stringUserId, 'PURCHASE_SEED', -price);
+      
+      // 提交事务
+      await client.query('COMMIT');
+      
+      res.status(201).json({ rarity, quantity: updatedSeeds[rarity], points: updatedPoints });
+    } catch (error) {
+      // 回滚事务
+      await client.query('ROLLBACK');
+      throw error;
     }
-    
-    const user = userResult.rows[0];
-    
-    // 确保seeds字段是对象
-    const currentSeeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
-    
-    // 增加对应稀有度的数量
-    const updatedSeeds = { ...currentSeeds };
-    updatedSeeds[rarity] = (updatedSeeds[rarity] || 0) + 1;
-    
-    // 更新数据库
-    await client.query(
-      'UPDATE users SET seeds = $1 WHERE id = $2',
-      [updatedSeeds, stringUserId]
-    );
-    
-    res.status(201).json({ rarity, quantity: updatedSeeds[rarity] });
   } catch (error) {
     console.error('Add seed error:', error);
     res.status(500).json({ error: '添加种子失败，请稍后再试' });
@@ -951,59 +1081,86 @@ app.use((req, res, next) => {
   next();
 });
 
-// 删除种子
+// 卖出种子（包含积分增加和订单创建）
 app.delete('/api/user/seeds/:rarity', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { rarity } = req.params;
-    const { quantity } = req.body || { quantity: 1 };
+    const { quantity, price } = req.body || { quantity: 1, price: 0 };
     
-    console.log('Delete seed request received:', { userId, rarity, quantity });
+    console.log('Sell seed request received:', { userId, rarity, quantity, price });
+    
+    if (!price) {
+      return res.status(400).json({ error: '请提供种子价格' });
+    }
     
     // 确保userId是字符串类型
     const stringUserId = String(userId);
     console.log('String userId:', stringUserId);
     
-    // 获取用户当前种子
-    const userResult = await client.query(
-      'SELECT seeds FROM users WHERE id = $1',
-      [stringUserId]
-    );
+    // 开始事务
+    await client.query('BEGIN');
     
-    if (userResult.rowCount === 0) {
-      console.log('User not found:', stringUserId);
-      return res.status(404).json({ error: '用户不存在' });
+    try {
+      // 获取用户当前数据
+      const userResult = await client.query(
+        'SELECT seeds, points FROM users WHERE id = $1',
+        [stringUserId]
+      );
+      
+      if (userResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        console.log('User not found:', stringUserId);
+        return res.status(404).json({ error: '用户不存在' });
+      }
+      
+      const user = userResult.rows[0];
+      
+      // 确保currentSeeds始终是对象
+      const currentSeeds = typeof user.seeds === 'object' && user.seeds !== null ? user.seeds : {};
+      console.log('Current seeds:', currentSeeds);
+      
+      // 检查种子是否存在
+      if (!currentSeeds[rarity] || currentSeeds[rarity] < quantity) {
+        await client.query('ROLLBACK');
+        console.log('Seed not found or insufficient quantity:', { rarity, currentQuantity: currentSeeds[rarity], requestedQuantity: quantity });
+        return res.status(404).json({ error: '种子不存在或数量不足' });
+      }
+      
+      // 减少对应稀有度的数量
+      const updatedSeeds = { ...currentSeeds };
+      updatedSeeds[rarity] -= quantity;
+      if (updatedSeeds[rarity] === 0) {
+        delete updatedSeeds[rarity];
+      }
+      console.log('Updated seeds:', updatedSeeds);
+      
+      // 计算增加的积分
+      const totalPrice = price * quantity;
+      const updatedPoints = (user.points || 0) + totalPrice;
+      
+      // 更新用户数据
+      await client.query(
+        'UPDATE users SET seeds = $1, points = $2 WHERE id = $3',
+        [updatedSeeds, updatedPoints, stringUserId]
+      );
+      
+      // 创建订单
+      await createOrder(stringUserId, 'SELL_SEED', totalPrice);
+      
+      // 提交事务
+      await client.query('COMMIT');
+      
+      console.log('Seed sold successfully:', { rarity, quantity, totalPrice });
+      res.json({ rarity, quantity: updatedSeeds[rarity] || 0, points: updatedPoints });
+    } catch (error) {
+      // 回滚事务
+      await client.query('ROLLBACK');
+      throw error;
     }
-    
-    // 确保currentSeeds始终是对象
-    const currentSeeds = typeof userResult.rows[0].seeds === 'object' && userResult.rows[0].seeds !== null ? userResult.rows[0].seeds : {};
-    console.log('Current seeds:', currentSeeds);
-    
-    // 检查种子是否存在
-    if (!currentSeeds[rarity] || currentSeeds[rarity] < quantity) {
-      console.log('Seed not found or insufficient quantity:', { rarity, currentQuantity: currentSeeds[rarity], requestedQuantity: quantity });
-      return res.status(404).json({ error: '种子不存在或数量不足' });
-    }
-    
-    // 减少对应稀有度的数量
-    const updatedSeeds = { ...currentSeeds };
-    updatedSeeds[rarity] -= quantity;
-    if (updatedSeeds[rarity] === 0) {
-      delete updatedSeeds[rarity];
-    }
-    console.log('Updated seeds:', updatedSeeds);
-    
-    // 更新用户种子
-    await client.query(
-      'UPDATE users SET seeds = $1 WHERE id = $2',
-      [updatedSeeds, stringUserId]
-    );
-    
-    console.log('Seed deleted successfully:', { rarity, quantity });
-    res.json({ rarity, quantity: updatedSeeds[rarity] || 0 });
   } catch (error) {
-    console.error('Delete seed error:', error);
-    res.status(500).json({ error: '删除种子失败，请稍后再试' });
+    console.error('Sell seed error:', error);
+    res.status(500).json({ error: '卖出种子失败，请稍后再试' });
   }
 });
 
@@ -1048,51 +1205,78 @@ app.post('/api/user/crops', authenticateToken, async (req, res) => {
   }
 });
 
-// 删除作物
+// 卖出作物（包含积分增加和订单创建）
 app.delete('/api/user/crops/:rarity', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { rarity } = req.params;
-    const { quantity } = req.body || { quantity: 1 };
+    const { quantity, price } = req.body || { quantity: 1, price: 0 };
+    
+    if (!price) {
+      return res.status(400).json({ error: '请提供作物价格' });
+    }
     
     // 确保userId是字符串类型
     const stringUserId = String(userId);
     
-    // 获取用户当前作物
-    const userResult = await client.query(
-      'SELECT crops FROM users WHERE id = $1',
-      [stringUserId]
-    );
+    // 开始事务
+    await client.query('BEGIN');
     
-    if (userResult.rowCount === 0) {
-      return res.status(404).json({ error: '用户不存在' });
+    try {
+      // 获取用户当前数据
+      const userResult = await client.query(
+        'SELECT crops, points FROM users WHERE id = $1',
+        [stringUserId]
+      );
+      
+      if (userResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: '用户不存在' });
+      }
+      
+      const user = userResult.rows[0];
+      
+      // 确保currentCrops始终是对象
+      const currentCrops = typeof user.crops === 'object' && user.crops !== null ? user.crops : {};
+      
+      // 检查作物是否存在
+      if (!currentCrops[rarity] || currentCrops[rarity] < quantity) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: '作物不存在或数量不足' });
+      }
+      
+      // 减少对应稀有度的数量
+      const updatedCrops = { ...currentCrops };
+      updatedCrops[rarity] -= quantity;
+      if (updatedCrops[rarity] === 0) {
+        delete updatedCrops[rarity];
+      }
+      
+      // 计算增加的积分
+      const totalPrice = price * quantity;
+      const updatedPoints = (user.points || 0) + totalPrice;
+      
+      // 更新用户数据
+      await client.query(
+        'UPDATE users SET crops = $1, points = $2 WHERE id = $3',
+        [updatedCrops, updatedPoints, stringUserId]
+      );
+      
+      // 创建订单
+      await createOrder(stringUserId, 'SELL_CROP', totalPrice);
+      
+      // 提交事务
+      await client.query('COMMIT');
+      
+      res.json({ rarity, quantity: updatedCrops[rarity] || 0, points: updatedPoints });
+    } catch (error) {
+      // 回滚事务
+      await client.query('ROLLBACK');
+      throw error;
     }
-    
-    // 确保currentCrops始终是对象
-    const currentCrops = typeof userResult.rows[0].crops === 'object' && userResult.rows[0].crops !== null ? userResult.rows[0].crops : {};
-    
-    // 检查作物是否存在
-    if (!currentCrops[rarity] || currentCrops[rarity] < quantity) {
-      return res.status(404).json({ error: '作物不存在或数量不足' });
-    }
-    
-    // 减少对应稀有度的数量
-    const updatedCrops = { ...currentCrops };
-    updatedCrops[rarity] -= quantity;
-    if (updatedCrops[rarity] === 0) {
-      delete updatedCrops[rarity];
-    }
-    
-    // 更新用户作物
-    await client.query(
-      'UPDATE users SET crops = $1 WHERE id = $2',
-      [updatedCrops, stringUserId]
-    );
-    
-    res.json({ rarity, quantity: updatedCrops[rarity] || 0 });
   } catch (error) {
-    console.error('Delete crop error:', error);
-    res.status(500).json({ error: '删除作物失败，请稍后再试' });
+    console.error('Sell crop error:', error);
+    res.status(500).json({ error: '卖出作物失败，请稍后再试' });
   }
 });
 

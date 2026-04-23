@@ -8,15 +8,24 @@
       <div class="action-bar">
       </div>
       
-      <div class="orders-table">
+      <div v-if="loading" class="loading">
+        <div class="loading-spinner"></div>
+        <p>加载中...</p>
+      </div>
+      
+      <div v-else-if="orders.length === 0" class="empty-msg">
+        <p>暂无订单记录</p>
+      </div>
+      
+      <div v-else class="orders-table">
         <table>
           <thead>
             <tr>
               <th>订单ID</th>
-              <th>用户</th>
-              <th>商品</th>
-              <th>金额</th>
-              <th>状态</th>
+              <th>用户ID</th>
+              <th>操作类型</th>
+              <th>积分变化</th>
+              <th>相关物品ID</th>
               <th>创建时间</th>
               <th>操作</th>
             </tr>
@@ -24,61 +33,202 @@
           <tbody>
             <tr v-for="order in orders" :key="order.id">
               <td>{{ order.id }}</td>
-              <td>{{ order.user?.name || order.user }}</td>
-              <td>{{ order.product }}</td>
-              <td>¥{{ order.amount }}</td>
-              <td :class="`status-${order.status}`">{{ order.status }}</td>
-              <td>{{ order.created_at }}</td>
+              <td>{{ order.user_id }}</td>
+              <td>{{ orderTypeText(order.type) }}</td>
+              <td :class="amountClass(order.amount)">{{ formatAmount(order.amount) }}</td>
+              <td>{{ order.related_item_id || '-' }}</td>
+              <td>{{ formatTime(order.created_at) }}</td>
               <td>
-                <button class="edit-btn">编辑</button>
-                <button class="delete-btn">删除</button>
+                <button class="delete-btn" @click="handleDeleteOrder(order.id)">删除</button>
               </td>
             </tr>
           </tbody>
         </table>
+        
+        <div v-if="loadingMore" class="loading-more">
+          <div class="loading-spinner small"></div>
+          <p>加载更多...</p>
+        </div>
+        
+        <div v-if="!hasMore && orders.length > 0" class="end-msg">
+          <p>没有更多订单了</p>
+        </div>
+      </div>
+      
+      <!-- 删除确认弹窗 -->
+      <div v-if="showDeleteModal" class="modal-overlay" @click.self="cancelDeleteOrder">
+        <div class="modal-content">
+          <h3>⚠️ 删除订单</h3>
+          <p>确定要删除此订单吗？</p>
+          <p class="warning-text">删除订单无法找回，且其操作并不会撤回。</p>
+          <div class="modal-actions">
+            <button class="cancel-btn" @click="cancelDeleteOrder">取消</button>
+            <button class="confirm-btn" @click="confirmDeleteOrder">确定删除</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AdminSidebar from '@/components/AdminSidebar.vue'
 
 const router = useRouter()
 const orders = ref([])
+const loading = ref(true)
+const loadingMore = ref(false)
+const hasMore = ref(true)
+const page = ref(1)
+const limit = ref(10)
+const showDeleteModal = ref(false)
+const deletingOrderId = ref(null)
+
+// 订单类型中文映射
+const orderTypeMap = {
+  PURCHASE_SEED: '购买种子',
+  SELL_SEED: '卖出种子',
+  SELL_CROP: '卖出作物'
+}
+
+// 获取订单类型中文
+function orderTypeText(type) {
+  return orderTypeMap[type] || type
+}
+
+// 根据积分变化设置样式
+function amountClass(amount) {
+  return amount > 0 ? 'amount-positive' : 'amount-negative'
+}
+
+// 格式化积分变化
+function formatAmount(amount) {
+  return amount > 0 ? `+${amount}` : amount.toString()
+}
+
+// 格式化时间
+function formatTime(time) {
+  if (!time) return ''
+  const date = new Date(time)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
 
 // 加载订单数据
-async function loadOrders() {
+async function loadOrders(isLoadingMore = false) {
+  if (isLoadingMore) {
+    loadingMore.value = true
+  } else {
+    loading.value = true
+    page.value = 1
+    orders.value = []
+  }
+  
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders?page=${page.value}&limit=${limit.value}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     })
+    
     if (!response.ok) {
       throw new Error('获取订单列表失败，请检查网络连接')
     }
+    
     const data = await response.json()
-    orders.value = data
+    console.log('Order data:', data)
+    
+    if (isLoadingMore) {
+      orders.value = [...orders.value, ...data.orders]
+    } else {
+      orders.value = data.orders
+    }
+    
+    hasMore.value = data.pagination.hasMore
+    page.value = data.pagination.currentPage + 1
   } catch (error) {
     console.error('Failed to load orders:', error)
-    orders.value = []
-    alert(error.message || '加载订单数据失败，请检查网络连接')
+    if (!isLoadingMore) {
+      orders.value = []
+      alert(error.message || '加载订单数据失败，请检查网络连接')
+    }
+  } finally {
+    loading.value = false
+    loadingMore.value = false
   }
 }
 
-function handleLogout() {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('user_role')
-  router.push('/login')
+// 处理滚动加载
+function handleScroll() {
+  if (loadingMore.value || !hasMore.value) return
+  
+  const scrollTop = document.documentElement.scrollTop || document.body.scrollTop
+  const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight
+  const clientHeight = document.documentElement.clientHeight || window.innerHeight
+  
+  if (scrollTop + clientHeight >= scrollHeight - 100) {
+    loadOrders(true)
+  }
+}
+
+// 处理删除订单
+function handleDeleteOrder(orderId) {
+  deletingOrderId.value = orderId
+  showDeleteModal.value = true
+}
+
+// 确认删除订单
+async function confirmDeleteOrder() {
+  if (!deletingOrderId.value) return
+  
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders/${deletingOrderId.value}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('删除订单失败，请检查网络连接')
+    }
+    
+    // 重新加载订单列表
+    await loadOrders()
+    alert('订单删除成功')
+  } catch (error) {
+    console.error('Failed to delete order:', error)
+    alert(error.message || '删除订单失败，请检查网络连接')
+  } finally {
+    showDeleteModal.value = false
+    deletingOrderId.value = null
+  }
+}
+
+// 取消删除订单
+function cancelDeleteOrder() {
+  showDeleteModal.value = false
+  deletingOrderId.value = null
 }
 
 // 生命周期
 onMounted(() => {
   loadOrders()
+  window.addEventListener('scroll', handleScroll)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
 })
 </script>
 
@@ -89,129 +239,7 @@ onMounted(() => {
   background: #f5f5f5;
 }
 
-.admin-sidebar {
-  width: 200px;
-  background: #2c5a2a;
-  color: white;
-  padding: 20px;
-}
 
-.admin-sidebar h2 {
-  margin: 0 0 32px 0;
-  font-size: 1.5rem;
-}
-
-.admin-sidebar ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.admin-sidebar ul li {
-  margin-bottom: 12px;
-  padding: 12px 16px 12px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  position: relative;
-}
-
-.admin-sidebar ul li::before {
-  content: '•';
-  position: absolute;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-}
-
-.admin-sidebar ul li:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.admin-sidebar ul li a {
-  color: white;
-  text-decoration: none;
-  display: block;
-}
-
-/* 二级菜单样式 */
-.menu-item {
-  position: relative;
-}
-
-.menu-title {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 12px 24px;
-  border-radius: 8px;
-  transition: background-color 0.2s ease;
-  position: relative;
-}
-
-.menu-title::before {
-  content: '•';
-  position: absolute;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-}
-
-.menu-title:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.menu-arrow {
-  transition: transform 0.2s ease;
-  font-size: 0.8rem;
-}
-
-.menu-arrow.open {
-  transform: rotate(90deg);
-}
-
-.sub-menu {
-  margin: 8px 0 0 24px;
-  padding: 0;
-  list-style: none;
-  position: relative;
-}
-
-.sub-menu::before {
-  content: '';
-  position: absolute;
-  left: 12px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.sub-menu li {
-  margin-bottom: 4px;
-  padding: 8px 12px 8px 24px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  position: relative;
-}
-
-.sub-menu li::before {
-  content: '•';
-  position: absolute;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-}
-
-.sub-menu li:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.sub-menu li a {
-  display: block;
-  color: rgba(255, 255, 255, 0.9);
-}
 
 .admin-content {
   flex: 1;
@@ -304,16 +332,149 @@ onMounted(() => {
   background: #d32f2f;
 }
 
+/* 加载状态 */
+.loading,
+.loading-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  color: #666;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #4caf50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+.loading-spinner.small {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+  margin-bottom: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 空状态 */
+.empty-msg {
+  text-align: center;
+  padding: 60px 0;
+  color: #999;
+  font-size: 1.1rem;
+}
+
+/* 结束状态 */
+.end-msg {
+  text-align: center;
+  padding: 20px 0;
+  color: #999;
+  font-size: 0.9rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* 积分变化样式 */
+.amount-positive {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.amount-negative {
+  color: #f44336;
+  font-weight: bold;
+}
+
+/* 弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  text-align: center;
+}
+
+.modal-content h3 {
+  margin: 0 0 16px 0;
+  color: #2c5a2a;
+}
+
+.modal-content p {
+  margin: 0 0 16px 0;
+  color: #555;
+}
+
+.modal-content .warning-text {
+  color: #f44336;
+  font-weight: bold;
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.cancel-btn,
+.confirm-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.cancel-btn {
+  background: #9e9e9e;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #757575;
+}
+
+.confirm-btn {
+  background: #f44336;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background: #d32f2f;
+}
+
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .admin-page {
     background: #1a1a1a;
   }
   
-  .admin-sidebar {
-    background: #1a3a1a;
-  }
-  
+
   .admin-content h1 {
     color: #8bc34a;
   }
@@ -342,16 +503,64 @@ onMounted(() => {
     background: #333;
   }
   
-  .status-已完成 {
+  .loading,
+  .loading-more {
+    color: #aaa;
+  }
+  
+  .loading-spinner {
+    border-color: #333;
+    border-top-color: #8bc34a;
+  }
+  
+  .empty-msg {
+    color: #666;
+  }
+  
+  .end-msg {
+    color: #666;
+    border-top-color: #3a3a3a;
+  }
+  
+  .amount-positive {
     color: #8bc34a;
   }
   
-  .status-待支付 {
-    color: #ffb74d;
+  .amount-negative {
+    color: #ef5350;
   }
   
-  .status-已取消 {
+  /* 深色模式弹窗 */
+  .modal-content {
+    background: #333;
+  }
+  
+  .modal-content h3 {
+    color: #8bc34a;
+  }
+  
+  .modal-content p {
+    color: #ddd;
+  }
+  
+  .modal-content .warning-text {
     color: #ef5350;
+  }
+  
+  .cancel-btn {
+    background: #555;
+  }
+  
+  .cancel-btn:hover {
+    background: #444;
+  }
+  
+  .confirm-btn {
+    background: #d32f2f;
+  }
+  
+  .confirm-btn:hover {
+    background: #b71c1c;
   }
 }
 </style>

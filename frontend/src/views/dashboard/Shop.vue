@@ -90,11 +90,9 @@ function showBuyModal(item) {
 function handleBuyConfirm() {
     if (currentItem.value) {
         const item = currentItem.value
-        userStore.deductPoints(item.price).then(success => {
-            if (success) {
-                userStore.addSeed(item.rarity).then(() => {
-                    addToast(`🎉 购买成功！获得 ${item.name}`, 'success')
-                })
+        userStore.addSeed(item.rarity, item.price).then(result => {
+            if (result) {
+                addToast(`🎉 购买成功！获得 ${item.name}`, 'success')
             } else {
                 addToast(`💔 积分不足，还需要 ${item.price - userStore.points} 积分`, 'error')
             }
