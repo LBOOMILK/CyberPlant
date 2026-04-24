@@ -25,7 +25,6 @@
               <th>用户ID</th>
               <th>操作类型</th>
               <th>积分变化</th>
-              <th>相关物品ID</th>
               <th>创建时间</th>
               <th>操作</th>
             </tr>
@@ -36,7 +35,6 @@
               <td>{{ order.user_id }}</td>
               <td>{{ orderTypeText(order.type) }}</td>
               <td :class="amountClass(order.amount)">{{ formatAmount(order.amount) }}</td>
-              <td>{{ order.related_item_id || '-' }}</td>
               <td>{{ formatTime(order.created_at) }}</td>
               <td>
                 <button class="delete-btn" @click="handleDeleteOrder(order.id)">删除</button>

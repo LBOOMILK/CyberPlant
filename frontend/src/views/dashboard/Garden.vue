@@ -18,7 +18,7 @@
             <div v-else>
                 <div class="plant-emoji">{{ stageEmoji }}</div>
                 <div class="info-panel">
-                    <div class="info-row"><span>🏷️ 植物名称</span><span>{{ plant.name }}</span></div>
+                    <div class="info-row"><span>🏷️ 使用种子</span><span>{{ plant.name }}</span></div>
                     <div class="info-row"><span>⭐ 稀有度</span><span :class="['badge', rarityClass]">{{ rarityName
                             }}</span></div>
                     <div class="info-row"><span>🌱 成长阶段</span><span><strong>{{ stageName }}</strong> {{ stageEmoji
@@ -43,7 +43,7 @@
 
             <!-- 2x2 田字格按钮 -->
             <div class="button-grid">
-                <button class="grid-btn water-btn" @click="waterPlant" :disabled="!hasPlant || plant.dead || isMature">
+                <button class="grid-btn water-btn" @click="waterPlant" :disabled="!hasPlant || plant.dead">
                     💧 浇水
                 </button>
                 <button class="grid-btn harvest-btn" @click="showHarvestModal"
@@ -53,12 +53,12 @@
                 <button class="grid-btn plant-btn" @click="openPlantDialog">
                     🌱 种植
                 </button>
-                <button class="grid-btn remove-btn" @click="showRemoveModal" :disabled="!hasPlant">
+                <button class="grid-btn remove-btn" @click="showRemoveModal" :disabled="!hasPlant || (isMature && !plant.dead)">
                     🗑️ 铲除
                 </button>
             </div>
 
-            <div class="cooldown" v-if="hasPlant && !plant.dead && !isMature" v-html="cooldownMsg"></div>
+            <div class="cooldown" v-if="hasPlant && !plant.dead" v-html="cooldownMsg"></div>
             <footer>🌸 成熟后可以收获作物 | 作物可在背包中卖出</footer>
         </div>
 
@@ -71,10 +71,10 @@
                     <button @click="closePlantDialog" class="close-modal-btn">去商城购买</button>
                 </div>
                 <div v-else class="seeds-list">
-                    <div class="seed-item" @click="showPlantConfirmModal({ rarity: 'C', quantity: 6 })">
-                        <span class="seed-rarity rarity-C">C (6)</span>
-                        <span class="seed-name">普通种子</span>
-                        <span class="seed-price">💰 10</span>
+                    <div v-for="(quantity, rarity) in userStore.groupedSeeds" :key="rarity" class="seed-item" @click="showPlantConfirmModal({ rarity, quantity })">
+                        <span :class="['seed-rarity', `rarity-${rarity}`]">{{ rarity }} ({{ quantity }})</span>
+                        <span class="seed-name">{{ rarityConfig[rarity].name }}</span>
+                        <span class="seed-price">💰 {{ rarityConfig[rarity].buyPrice }}</span>
                     </div>
                 </div>
                 <button @click="closePlantDialog" class="cancel-btn">取消</button>
@@ -128,6 +128,7 @@ const userStore = useUserStore()
 const STAGES = ['种子', '发芽', '出叶', '初熟', '成熟']
 const STAGE_EMOJI = ['🥜', '🌱', '🌿', '🌻', '🌸']
 const COOLDOWN_SECONDS = 5
+const MATURE_COOLDOWN_SECONDS = 300 // 5分钟
 const DEATH_TIMEOUT_SECONDS = 60
 const MATURE_STAGE_INDEX = 4
 
@@ -167,50 +168,70 @@ const stageEmoji = computed(() => {
 })
 
 // ---------- 植物数据操作 ----------
-function getPlantKey() {
-    const userId = localStorage.getItem('user_id') || 'guest'
-    return `current_plant_${userId}`
-}
-
-function loadPlant() {
-    const key = getPlantKey()
-    const saved = localStorage.getItem(key)
-    if (saved) {
-        try {
-            const p = JSON.parse(saved)
-            // 检查死亡
-            const now = Date.now()
-            const secondsSinceWater = (now - p.lastWatered) / 1000
-            if (!p.dead && p.stageIdx !== MATURE_STAGE_INDEX && secondsSinceWater > DEATH_TIMEOUT_SECONDS) {
-                p.dead = true
-                savePlant(p)
+async function loadPlant() {
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
             }
-            plant.value = p
+        })
+        
+        if (!response.ok) {
+            throw new Error('获取花园状态失败')
+        }
+        
+        const data = await response.json()
+        
+        if (data.hasPlant) {
+            plant.value = {
+                name: `${rarityConfig[data.plant.rarity].name}`,
+                rarity: data.plant.rarity,
+                stageIdx: data.plant.stage - 1, // 后端stage从1开始，前端从0开始
+                lastWatered: new Date(data.plant.lastWateredAt).getTime(),
+                createdAt: new Date(data.plant.createdAt).getTime(),
+                dead: data.isWilted
+            }
             hasPlant.value = true
-        } catch (e) {
+        } else {
             hasPlant.value = false
             plant.value = null
         }
-    } else {
+    } catch (error) {
+        console.error('Failed to load plant:', error)
         hasPlant.value = false
         plant.value = null
+    } finally {
+        updateUI()
     }
-    updateUI()
 }
 
-function savePlant(p) {
-    const key = getPlantKey()
-    localStorage.setItem(key, JSON.stringify(p))
+async function savePlant(p) {
+    // 保存逻辑现在通过API调用实现
     plant.value = p
     hasPlant.value = true
 }
 
-function clearPlant() {
-    const key = getPlantKey()
-    localStorage.removeItem(key)
-    plant.value = null
-    hasPlant.value = false
-    updateUI()
+async function clearPlant() {
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/remove`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+        })
+        
+        if (!response.ok) {
+            throw new Error('铲除植物失败')
+        }
+        
+        plant.value = null
+        hasPlant.value = false
+    } catch (error) {
+        console.error('Failed to clear plant:', error)
+        addToast('铲除植物失败，请稍后再试', 'error')
+    } finally {
+        updateUI()
+    }
 }
 
 function createNewPlant(rarity) {
@@ -226,28 +247,54 @@ function createNewPlant(rarity) {
 }
 
 // ---------- 按钮功能 ----------
-function waterPlant() {
-    if (!hasPlant.value || plant.value.dead || isMature.value) return
+async function waterPlant() {
+    if (!hasPlant.value || plant.value.dead) return
 
     const now = Date.now()
     const secondsSinceWater = (now - plant.value.lastWatered) / 1000
+    const cooldownSeconds = isMature.value ? MATURE_COOLDOWN_SECONDS : COOLDOWN_SECONDS
 
-    if (secondsSinceWater < COOLDOWN_SECONDS) {
-        addToast(`💧 还需等待 ${Math.ceil(COOLDOWN_SECONDS - secondsSinceWater)} 秒`, 'warning')
+    if (secondsSinceWater < cooldownSeconds) {
+        addToast(`💧 还需等待 ${Math.ceil(cooldownSeconds - secondsSinceWater)} 秒`, 'warning')
         return
     }
 
-    plant.value.lastWatered = now
-    plant.value.stageIdx = Math.min(plant.value.stageIdx + 1, MATURE_STAGE_INDEX)
-    if (plant.value.dead) plant.value.dead = false
-    savePlant(plant.value)
-
-    if (plant.value.stageIdx === MATURE_STAGE_INDEX) {
-        addToast(`🎉 ${plant.value.name} 成熟了！可以收获了`, 'success')
-    } else {
-        addToast(`💧 浇水成功！${plant.value.name} 成长了`, 'success')
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/water`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                'Content-Type': 'application/json'
+            }
+        })
+        
+        if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || '浇水失败')
+        }
+        
+        const data = await response.json()
+        
+        // 更新前端数据
+        plant.value.lastWatered = now
+        if (!isMature.value) {
+            plant.value.stageIdx = data.stage - 1 // 后端stage从1开始，前端从0开始
+            if (plant.value.dead) plant.value.dead = false
+            
+            if (plant.value.stageIdx === MATURE_STAGE_INDEX) {
+                addToast(`🎉 ${plant.value.name} 成熟了！可以收获了`, 'success')
+            } else {
+                addToast(`💧 浇水成功！${plant.value.name} 成长了`, 'success')
+            }
+        } else {
+            addToast(`💧 浇水成功！${plant.value.name} 依然生机盎然`, 'success')
+        }
+    } catch (error) {
+        console.error('Failed to water plant:', error)
+        addToast(error.message || '浇水失败，请稍后再试', 'error')
+    } finally {
+        await loadPlant() // 重新加载植物状态
     }
-    updateUI()
 }
 
 function showHarvestModal() {
@@ -255,15 +302,35 @@ function showHarvestModal() {
     showHarvestModalVisible.value = true
 }
 
-function handleHarvestConfirm() {
+async function handleHarvestConfirm() {
     if (!hasPlant.value || !isMature.value || plant.value.dead) return
     
-    // 添加作物到背包
-    userStore.addCrop(plant.value.rarity)
-    // 清除当前植物
-    clearPlant()
-    addToast(`🏆 收获成功！获得 ${rarityConfig[plant.value?.rarity || 'C'].cropName}`, 'success')
-    showHarvestModalVisible.value = false
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/harvest`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                'Content-Type': 'application/json'
+            }
+        })
+        
+        if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || '收获失败')
+        }
+        
+        const data = await response.json()
+        
+        // 重新加载用户数据，更新背包
+        await userStore.loadFromLocal()
+        // 清除当前植物
+        await loadPlant()
+        addToast(`🏆 收获成功！获得 ${rarityConfig[data.crop || 'C'].cropName}`, 'success')
+        showHarvestModalVisible.value = false
+    } catch (error) {
+        console.error('Failed to harvest plant:', error)
+        addToast(error.message || '收获失败，请稍后再试', 'error')
+    }
 }
 
 function openPlantDialog() {
@@ -281,19 +348,56 @@ function showPlantConfirmModal(seedGroup) {
     showPlantConfirmModalVisible.value = true
 }
 
-function handlePlantConfirm() {
+async function handlePlantConfirm() {
     if (!currentSeed.value || currentSeed.value.quantity <= 0) return
     
-    // 创建新植物
-    const newPlant = createNewPlant(currentSeed.value.rarity)
-    savePlant(newPlant)
-    // 移除使用的种子
-    userStore.removeSeed(currentSeed.value.rarity)
-    closePlantDialog()
-    showPlantConfirmModalVisible.value = false
-    addToast(`🌱 种植成功！获得 ${newPlant.name}`, 'success')
-    updateUI()
-    currentSeed.value = null
+    // 如果当前有成熟的植物，先自动收获
+    if (hasPlant.value && isMature.value && !plant.value.dead) {
+        try {
+            const harvestResponse = await fetch(`${import.meta.env.VITE_API_URL}/garden/harvest`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            
+            if (harvestResponse.ok) {
+                const harvestData = await harvestResponse.json()
+                addToast(`🏆 自动收获成功！获得 ${rarityConfig[harvestData.crop || 'C'].cropName}`, 'success')
+            }
+        } catch (error) {
+            console.error('Failed to auto harvest:', error)
+        }
+    }
+    
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/plant`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ rarity: currentSeed.value.rarity })
+        })
+        
+        if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || '种植失败')
+        }
+        
+        // 重新加载用户数据，更新背包
+        await userStore.loadFromLocal()
+        // 重新加载植物状态
+        await loadPlant()
+        closePlantDialog()
+        showPlantConfirmModalVisible.value = false
+        addToast(`🌱 种植成功！获得 ${rarityConfig[currentSeed.value.rarity].name}`, 'success')
+        currentSeed.value = null
+    } catch (error) {
+        console.error('Failed to plant seed:', error)
+        addToast(error.message || '种植失败，请稍后再试', 'error')
+    }
 }
 
 function showRemoveModal() {
@@ -301,12 +405,30 @@ function showRemoveModal() {
     showRemoveModalVisible.value = true
 }
 
-function handleRemoveConfirm() {
+async function handleRemoveConfirm() {
     if (!hasPlant.value) return
     
-    clearPlant()
-    addToast(`🗑️ 已铲除植物`, 'info')
-    showRemoveModalVisible.value = false
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/remove`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+        })
+        
+        if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || '铲除失败')
+        }
+        
+        // 重新加载植物状态
+        await loadPlant()
+        addToast(`🗑️ 已铲除植物`, 'info')
+        showRemoveModalVisible.value = false
+    } catch (error) {
+        console.error('Failed to remove plant:', error)
+        addToast(error.message || '铲除失败，请稍后再试', 'error')
+    }
 }
 
 // ---------- UI 更新 ----------
@@ -320,9 +442,24 @@ function updateUI() {
     const secondsSinceWater = (now - plant.value.lastWatered) / 1000
     const secondsAgo = Math.floor(secondsSinceWater)
 
-    lastWaterDisplay.value = secondsAgo < 60
-        ? `${secondsAgo} 秒前`
-        : `${Math.floor(secondsAgo / 60)}分${secondsAgo % 60}秒前`
+    // 计算时间差的各个单位
+    const years = Math.floor(secondsAgo / (365 * 24 * 60 * 60))
+    const months = Math.floor((secondsAgo % (365 * 24 * 60 * 60)) / (30 * 24 * 60 * 60))
+    const days = Math.floor((secondsAgo % (30 * 24 * 60 * 60)) / (24 * 60 * 60))
+    const hours = Math.floor((secondsAgo % (24 * 60 * 60)) / (60 * 60))
+    const minutes = Math.floor((secondsAgo % (60 * 60)) / 60)
+    const seconds = secondsAgo % 60
+
+    // 构建时间差字符串
+    let timeDiff = ''
+    if (years > 0) timeDiff += `${years}年`
+    if (months > 0) timeDiff += `${months}月`
+    if (days > 0) timeDiff += `${days}天`
+    if (hours > 0) timeDiff += `${hours}小时`
+    if (minutes > 0) timeDiff += `${minutes}分`
+    if (seconds > 0 || timeDiff === '') timeDiff += `${seconds}秒`
+
+    lastWaterDisplay.value = timeDiff + '前'
 
     if (!plant.value.dead && !isMature.value) {
         const remainingSec = Math.max(0, DEATH_TIMEOUT_SECONDS - secondsSinceWater)
@@ -337,8 +474,9 @@ function updateUI() {
 
     if (plant.value.dead) {
         cooldownMsg.value = `🥀 植物已枯萎，请「铲除」后重新种植`
-    } else if (!isMature.value) {
-        const remainingCooldown = COOLDOWN_SECONDS - secondsSinceWater
+    } else {
+        const cooldownSeconds = isMature.value ? MATURE_COOLDOWN_SECONDS : COOLDOWN_SECONDS
+        const remainingCooldown = cooldownSeconds - secondsSinceWater
         cooldownMsg.value = remainingCooldown > 0
             ? `⏳ 浇水冷却中 · 还需 ${Math.ceil(remainingCooldown)} 秒`
             : `💧 可以浇水了！`
@@ -374,7 +512,7 @@ function startTimer() {
 onMounted(async () => {
     try {
         await userStore.loadFromLocal()
-        loadPlant()
+        await loadPlant()
         startTimer()
     } catch (error) {
         console.error('Failed to load user data:', error)
@@ -460,6 +598,7 @@ h1 {
     justify-content: space-between;
     padding: 10px 0;
     border-bottom: 1px solid #e9dbbc;
+    height: 33px;
 }
 
 .info-row:last-child {

@@ -59,12 +59,7 @@ async function initDatabase() {
       console.error('Error adding crops column:', error);
     }
 
-    // 检查并添加current_plant字段
-    try {
-      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS current_plant JSONB DEFAULT NULL');
-    } catch (error) {
-      console.error('Error adding current_plant column:', error);
-    }
+
 
     // 创建植物表
     await client.query(`
@@ -85,7 +80,20 @@ async function initDatabase() {
         user_id VARCHAR(50) NOT NULL,
         type VARCHAR(50) NOT NULL CHECK (type IN ('PURCHASE_SEED', 'SELL_SEED', 'SELL_CROP')),
         amount INTEGER NOT NULL,
-        related_item_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+    
+    // 创建花园表
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS garden (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER UNIQUE NOT NULL,
+        seed_id INTEGER,
+        rarity VARCHAR(50),
+        stage INTEGER DEFAULT 1,
+        last_watered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
       )
@@ -850,11 +858,11 @@ app.delete('/api/plants/:id', authenticateToken, requireAdmin, async (req, res) 
 });
 
 // 创建订单服务函数
-async function createOrder(userId, type, amount, relatedItemId = null) {
+async function createOrder(userId, type, amount) {
   try {
     const result = await client.query(
-      'INSERT INTO orders (user_id, type, amount, related_item_id) VALUES ($1, $2, $3, $4) RETURNING *',
-      [userId, type, amount, relatedItemId]
+      'INSERT INTO orders (user_id, type, amount) VALUES ($1, $2, $3) RETURNING *',
+      [userId, type, amount]
     );
     return result.rows[0];
   } catch (error) {
@@ -889,7 +897,6 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
       user_id: order.user_id,
       type: order.type,
       amount: order.amount,
-      related_item_id: order.related_item_id,
       created_at: order.created_at.toISOString().replace('T', ' ').slice(0, 19)
     }));
     
@@ -930,7 +937,6 @@ app.get('/api/admin/orders', authenticateToken, requireAdmin, async (req, res) =
       user_id: order.user_id,
       type: order.type,
       amount: order.amount,
-      related_item_id: order.related_item_id,
       created_at: order.created_at.toISOString().replace('T', ' ').slice(0, 19),
       user: {
         id: order.user_id,
@@ -1301,6 +1307,307 @@ app.put('/api/user/points', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Update points error:', error);
     res.status(500).json({ error: '更新积分失败，请稍后再试' });
+  }
+});
+
+// 花园路由
+// 获取当前种植状态
+app.get('/api/garden', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const result = await client.query(
+      'SELECT * FROM garden WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (result.rowCount === 0) {
+      return res.json({ hasPlant: false });
+    }
+    
+    const garden = result.rows[0];
+    const now = new Date();
+    const lastWateredAt = new Date(garden.last_watered_at);
+    const secondsSinceWater = (now - lastWateredAt) / 1000;
+    // 五阶段前一分钟不浇水则死亡，五阶段无论多久不浇水都不会死亡
+    const isWilted = garden.stage < 5 && secondsSinceWater > 60;
+    const canHarvest = garden.stage === 5 && !isWilted;
+    
+    res.json({
+      hasPlant: true,
+      plant: {
+        id: garden.id,
+        seedId: garden.seed_id,
+        rarity: garden.rarity,
+        stage: garden.stage,
+        lastWateredAt: garden.last_watered_at,
+        createdAt: garden.created_at
+      },
+      isWilted,
+      canHarvest
+    });
+  } catch (error) {
+    console.error('Get garden error:', error);
+    res.status(500).json({ error: '获取花园状态失败，请稍后再试' });
+  }
+});
+
+// 种植种子
+app.post('/api/garden/plant', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { rarity } = req.body;
+    
+    if (!rarity) {
+      return res.status(400).json({ error: '请提供种子稀有度' });
+    }
+    
+    // 开始事务
+    await client.query('BEGIN');
+    
+    try {
+      // 检查用户背包中是否有对应稀有度的种子
+      const userResult = await client.query(
+        'SELECT seeds FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      if (userResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: '用户不存在' });
+      }
+      
+      const user = userResult.rows[0];
+      const seeds = typeof user.seeds === 'object' && user.seeds !== null ? user.seeds : {};
+      
+      if (!seeds[rarity] || seeds[rarity] <= 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: '种子数量不足' });
+      }
+      
+      // 扣减种子数量
+      const updatedSeeds = { ...seeds };
+      updatedSeeds[rarity] -= 1;
+      if (updatedSeeds[rarity] === 0) {
+        delete updatedSeeds[rarity];
+      }
+      
+      // 更新用户背包
+      await client.query(
+        'UPDATE users SET seeds = $1 WHERE id = $2',
+        [updatedSeeds, userId]
+      );
+      
+      // 检查是否已有花园记录
+      const gardenResult = await client.query(
+        'SELECT * FROM garden WHERE user_id = $1',
+        [userId]
+      );
+      
+      if (gardenResult.rowCount > 0) {
+        // 更新花园记录
+        await client.query(
+          'UPDATE garden SET seed_id = $1, rarity = $2, stage = 1, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $3',
+          [1, rarity, userId] // 简化处理，使用固定的seed_id
+        );
+      } else {
+        // 创建花园记录
+        await client.query(
+          'INSERT INTO garden (user_id, seed_id, rarity, stage, last_watered_at) VALUES ($1, $2, $3, 1, CURRENT_TIMESTAMP)',
+          [userId, 1, rarity] // 简化处理，使用固定的seed_id
+        );
+      }
+      
+      // 提交事务
+      await client.query('COMMIT');
+      
+      res.json({ message: '种植成功' });
+    } catch (error) {
+      // 回滚事务
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Plant error:', error);
+    res.status(500).json({ error: '种植失败，请稍后再试' });
+  }
+});
+
+// 浇水
+app.post('/api/garden/water', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 开始事务
+    await client.query('BEGIN');
+    
+    try {
+      // 检查花园记录
+      const gardenResult = await client.query(
+        'SELECT * FROM garden WHERE user_id = $1',
+        [userId]
+      );
+      
+      if (gardenResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: '花园不存在' });
+      }
+      
+      const garden = gardenResult.rows[0];
+      
+      // 检查植物是否枯萎
+      const now = new Date();
+      const lastWateredAt = new Date(garden.last_watered_at);
+      const secondsSinceWater = (now - lastWateredAt) / 1000;
+      // 五阶段前一分钟不浇水则死亡，五阶段无论多久不浇水都不会死亡
+      const isWilted = garden.stage < 5 && secondsSinceWater > 60;
+      
+      // 检查浇水冷却时间
+      const cooldownSeconds = garden.stage === 5 ? 300 : 5; // 成熟植物5分钟冷却，其他5秒
+      
+      if (secondsSinceWater < cooldownSeconds) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `浇水过于频繁，请等待 ${Math.ceil(cooldownSeconds - secondsSinceWater)} 秒` });
+      }
+      
+      // 更新浇水时间和生长阶段
+      let updatedStage = garden.stage;
+      if (!isWilted && garden.stage < 5) {
+        updatedStage = garden.stage + 1;
+      }
+      
+      await client.query(
+        'UPDATE garden SET last_watered_at = CURRENT_TIMESTAMP, stage = $1 WHERE user_id = $2',
+        [updatedStage, userId]
+      );
+      
+      // 提交事务
+      await client.query('COMMIT');
+      
+      res.json({ message: '浇水成功', stage: updatedStage });
+    } catch (error) {
+      // 回滚事务
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Water error:', error);
+    res.status(500).json({ error: '浇水失败，请稍后再试' });
+  }
+});
+
+// 收获作物
+app.post('/api/garden/harvest', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 开始事务
+    await client.query('BEGIN');
+    
+    try {
+      // 检查花园记录
+      const gardenResult = await client.query(
+        'SELECT * FROM garden WHERE user_id = $1',
+        [userId]
+      );
+      
+      if (gardenResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: '花园不存在' });
+      }
+      
+      const garden = gardenResult.rows[0];
+      
+      // 检查植物是否成熟
+      if (garden.stage < 5) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: '植物尚未成熟' });
+      }
+      
+      // 检查植物是否枯萎
+      const now = new Date();
+      const lastWateredAt = new Date(garden.last_watered_at);
+      const secondsSinceWater = (now - lastWateredAt) / 1000;
+      // 五阶段前一分钟不浇水则死亡，五阶段无论多久不浇水都不会死亡
+      const isWilted = garden.stage < 5 && secondsSinceWater > 60;
+      
+      if (isWilted) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: '植物已枯萎' });
+      }
+      
+      // 获取用户背包
+      const userResult = await client.query(
+        'SELECT crops FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      const user = userResult.rows[0];
+      const crops = typeof user.crops === 'object' && user.crops !== null ? user.crops : {};
+      
+      // 添加作物到背包
+      const updatedCrops = { ...crops };
+      updatedCrops[garden.rarity] = (updatedCrops[garden.rarity] || 0) + 1;
+      
+      // 更新用户背包
+      await client.query(
+        'UPDATE users SET crops = $1 WHERE id = $2',
+        [updatedCrops, userId]
+      );
+      
+      // 重置花园记录
+      await client.query(
+        'UPDATE garden SET seed_id = NULL, rarity = NULL, stage = 0, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $1',
+        [userId]
+      );
+      
+      // 提交事务
+      await client.query('COMMIT');
+      
+      res.json({ message: '收获成功', crop: garden.rarity });
+    } catch (error) {
+      // 回滚事务
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Harvest error:', error);
+    res.status(500).json({ error: '收获失败，请稍后再试' });
+  }
+});
+
+// 铲除植物
+app.delete('/api/garden/remove', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 检查花园记录
+    const gardenResult = await client.query(
+      'SELECT * FROM garden WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (gardenResult.rowCount === 0) {
+      return res.status(404).json({ error: '花园不存在' });
+    }
+    
+    const garden = gardenResult.rows[0];
+    
+    // 检查植物是否成熟
+    if (garden.stage === 5) {
+      return res.status(400).json({ error: '植物已成熟，请先收获' });
+    }
+    
+    // 重置花园记录
+    await client.query(
+      'UPDATE garden SET seed_id = NULL, rarity = NULL, stage = 0, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $1',
+      [userId]
+    );
+    
+    res.json({ message: '铲除成功' });
+  } catch (error) {
+    console.error('Remove error:', error);
+    res.status(500).json({ error: '铲除失败，请稍后再试' });
   }
 });
 
