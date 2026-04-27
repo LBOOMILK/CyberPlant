@@ -15,13 +15,24 @@
           <div class="plant-icon">{{ plant.icon }}</div>
           <h3>{{ plant.name }}</h3>
           <p class="plant-rarity">{{ plant.rarity }}</p>
-          <p class="plant-price">¥{{ plant.price }}</p>
+          <p class="plant-price">{{ plant.price }}积分</p>
           <div class="plant-actions">
             <button class="edit-btn" @click="openEditModal(plant)">编辑</button>
-            <button class="delete-btn" @click="handleDeletePlant(plant.id)">删除</button>
+            <button class="delete-btn" @click="showDeleteModal(plant.id)">删除</button>
           </div>
         </div>
       </div>
+      
+      <!-- 删除确认弹窗 -->
+      <Modal
+        :visible="showDeleteModalVisible"
+        title="删除确认"
+        message="确定要删除这个商品吗？"
+        confirm-text="确定删除"
+        cancel-text="取消"
+        @confirm="handleDeleteConfirm"
+        @cancel="showDeleteModalVisible = false"
+      />
       
       <!-- 添加商品弹窗 -->
       <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
@@ -48,6 +59,13 @@
               </select>
             </div>
             <div class="form-group">
+              <label for="plants_role">商品类型</label>
+              <select id="plants_role" v-model="newPlant.plants_role" required>
+                <option value="seed">种子</option>
+                <option value="use">可使用物品</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label for="price">积分价格</label>
               <input type="number" id="price" v-model="newPlant.price" required placeholder="请输入积分价格" min="1">
             </div>
@@ -71,7 +89,7 @@
             <div class="form-group">
               <label for="edit-icon">商品图 (Emoji)</label>
               <input type="text" id="edit-icon" v-model="currentPlant.icon" required placeholder="请输入Emoji">
-              <p class="hint">例如：🌱 🌿 🌻 🌸</p>
+              <p class="hint">例如：🌱 🌾 🍃</p>
             </div>
             <div class="form-group">
               <label for="edit-rarity">稀有度</label>
@@ -81,6 +99,13 @@
                 <option value="A">A - 史诗</option>
                 <option value="S">S - 传说</option>
                 <option value="SSS">SSS - 神话</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-plants_role">商品类型</label>
+              <select id="edit-plants_role" v-model="currentPlant.plants_role" required>
+                <option value="seed">种子</option>
+                <option value="use">可使用物品</option>
               </select>
             </div>
             <div class="form-group">
@@ -103,16 +128,20 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Toast from '@/components/Toast.vue'
 import AdminSidebar from '@/components/AdminSidebar.vue'
+import Modal from '@/components/Modal.vue'
 
 const router = useRouter()
 const plants = ref([])
 const showAddModal = ref(false)
 const showEditModal = ref(false)
+const showDeleteModalVisible = ref(false)
 const currentPlant = ref(null)
+const plantToDelete = ref(null)
 const newPlant = ref({
   name: '',
   icon: '',
   rarity: 'C',
+  plants_role: 'seed',
   price: 0
 })
 const toastRef = ref(null)
@@ -156,6 +185,7 @@ async function handleAddPlant() {
         name: '',
         icon: '',
         rarity: 'C',
+        plants_role: 'seed',
         price: 0
       }
       if (toastRef.value) {
@@ -220,12 +250,18 @@ async function handleEditPlant() {
   }
 }
 
+// 显示删除确认弹窗
+function showDeleteModal(plantId) {
+  plantToDelete.value = plantId
+  showDeleteModalVisible.value = true
+}
+
 // 处理删除商品
-async function handleDeletePlant(plantId) {
-  if (!confirm('确定要删除这个商品吗？')) return
+async function handleDeleteConfirm() {
+  if (!plantToDelete.value) return
   
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants/${plantId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants/${plantToDelete.value}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -233,7 +269,7 @@ async function handleDeletePlant(plantId) {
     })
     
     if (response.ok) {
-      plants.value = plants.value.filter(p => p.id !== plantId)
+      plants.value = plants.value.filter(p => p.id !== plantToDelete.value)
       if (toastRef.value) {
         toastRef.value.addToast('删除商品成功', 'success')
       }
@@ -248,6 +284,9 @@ async function handleDeletePlant(plantId) {
     if (toastRef.value) {
       toastRef.value.addToast('网络错误，请稍后再试', 'error')
     }
+  } finally {
+    showDeleteModalVisible.value = false
+    plantToDelete.value = null
   }
 }
 

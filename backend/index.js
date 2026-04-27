@@ -5,16 +5,32 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { Client } = require('pg');
 require('dotenv').config();
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
 
 // 连接 PostgreSQL 数据库
 console.log('Connecting to PostgreSQL with URL:', process.env.DATABASE_URL);
 const client = new Client({
   connectionString: process.env.DATABASE_URL
 });
+
+
+// 生成用户ID的函数
+async function generateUserId(role) {
+  if (role === 'admin') {
+    // 获取最大的奇数ID
+    const maxAdminIdResult = await client.query('SELECT MAX(id::integer) as max_id FROM users WHERE role = \'admin\' AND id::integer % 2 = 1');
+    const maxAdminId = maxAdminIdResult.rows[0].max_id;
+    return maxAdminId ? maxAdminId + 2 : 1; // 下一个奇数
+  } else {
+    // 获取最大的偶数ID
+    const maxUserIdResult = await client.query('SELECT MAX(id::integer) as max_id FROM users WHERE role = \'user\' AND id::integer % 2 = 0');
+    const maxUserId = maxUserIdResult.rows[0].max_id;
+    return maxUserId ? maxUserId + 2 : 2; // 下一个偶数
+  }
+}
 
 // 初始化数据库
 async function initDatabase() {
@@ -34,17 +50,33 @@ async function initDatabase() {
         points INT DEFAULT 0,
         seeds JSONB DEFAULT '[]',
         crops JSONB DEFAULT '[]',
+        uses JSONB DEFAULT '[]',
+        last_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
+    // 检查并添加last_login_at字段
+    try {
+      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    } catch (error) {
+      console.error('Error adding last_login_at column:', error);
+    }
+
     // 检查并添加points字段
     try {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS points INT DEFAULT 0');
     } catch (error) {
       console.error('Error adding points column:', error);
     }
-    
+
+    // 检查并添加uses字段
+    try {
+      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS uses JSONB DEFAULT \'[]\'');
+    } catch (error) {
+      console.error('Error adding uses column:', error);
+    }
+
     // 检查并添加seeds字段
     try {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS seeds JSONB DEFAULT \'[]\'');
@@ -58,10 +90,17 @@ async function initDatabase() {
     } catch (error) {
       console.error('Error adding crops column:', error);
     }
+    
+    // 检查并添加uses字段
+    try {
+      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS uses JSONB DEFAULT \'[]\'');
+    } catch (error) {
+      console.error('Error adding uses column:', error);
+    }
 
 
 
-    // 创建植物表
+    // 创建商店
     await client.query(`
       CREATE TABLE IF NOT EXISTS plants (
         id SERIAL PRIMARY KEY,
@@ -69,16 +108,25 @@ async function initDatabase() {
         icon VARCHAR(50) NOT NULL,
         rarity VARCHAR(50) NOT NULL,
         price INTEGER NOT NULL,
+        plants_role VARCHAR(50) DEFAULT 'seed',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     
+        // 检查并添加plants_role字段
+    try {
+      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS plants_role VARCHAR(50) DEFAULT \'seeds\'');
+    } catch (error) {
+      console.error('Error adding plants_role column:', error);
+    }
+
+
     // 创建订单表
     await client.query(`
       CREATE TABLE IF NOT EXISTS orders (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR(50) NOT NULL,
-        type VARCHAR(50) NOT NULL CHECK (type IN ('PURCHASE_SEED', 'SELL_SEED', 'SELL_CROP')),
+        type VARCHAR(50) NOT NULL CHECK (type IN ('PURCHASE_SEED', 'SELL_SEED', 'SELL_CROP', 'PURCHASE_USE')),
         amount INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
@@ -104,36 +152,41 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_orders_user_id_created_at ON orders(user_id, created_at)
     `);
     
+
+    
     // 检查是否已有管理员用户
     const adminCheck = await client.query('SELECT * FROM users WHERE email = $1', ['admin@example.com']);
     if (adminCheck.rowCount === 0) {
-      // 创建管理员用户
+      // 创建管理员用户，使用奇数ID
       const hashedPassword = await bcrypt.hash('admin123', 10);
+      const adminId = await generateUserId('admin');
       await client.query(
         'INSERT INTO users (id, name, email, password, role) VALUES ($1, $2, $3, $4, $5)',
-        ['01', 'Admin', 'admin@example.com', hashedPassword, 'admin']
+        [adminId, 'Admin', 'admin@example.com', hashedPassword, 'admin']
       );
     }
     
     // 检查是否已有普通用户
     const userCheck = await client.query('SELECT * FROM users WHERE email = $1', ['user@example.com']);
     if (userCheck.rowCount === 0) {
-      // 创建普通用户
+      // 创建普通用户，使用偶数ID
       const hashedPassword = await bcrypt.hash('admin123', 10);
+      const userId = await generateUserId('user');
       await client.query(
         'INSERT INTO users (id, name, email, password, role) VALUES ($1, $2, $3, $4, $5)',
-        ['11', 'User', 'user@example.com', hashedPassword, 'user']
+        [userId, 'User', 'user@example.com', hashedPassword, 'user']
       );
     }
     
     // 检查是否已有演示用户
     const demoCheck = await client.query('SELECT * FROM users WHERE email = $1', ['demo@example.com']);
     if (demoCheck.rowCount === 0) {
-      // 创建演示用户
+      // 创建演示用户，使用偶数ID
       const hashedPassword = await bcrypt.hash('admin123', 10);
+      const demoId = await generateUserId('user');
       await client.query(
         'INSERT INTO users (id, name, email, password, role) VALUES ($1, $2, $3, $4, $5)',
-        ['12', 'Demo User', 'demo@example.com', hashedPassword, 'user']
+        [demoId, 'Demo User', 'demo@example.com', hashedPassword, 'user']
       );
     }
     
@@ -142,16 +195,21 @@ async function initDatabase() {
     if (plantsCheck.rowCount === 0) {
       // 创建植物数据
       const plantData = [
-        ['普通种子', '🌱', 'C', 10],
-        ['稀有种子', '🌿', 'B', 30],
-        ['史诗种子', '🌻', 'A', 50],
-        ['传说种子', '🌺', 'S', 100],
-        ['神级种子', '✨', 'SSS', 300]
+        ['普通种子', '🌱', 'C', 10, 'seed'],
+        ['稀有种子', '🌿', 'B', 30, 'seed'],
+        ['史诗种子', '🌻', 'A', 50, 'seed'],
+        ['传说种子', '🌺', 'S', 100, 'seed'],
+        ['神级种子', '✨', 'SSS', 300, 'seed'],
+        ['普通肥料', '💩', 'C', 20, 'use'],
+        ['稀有肥料', '🧪', 'B', 60, 'use'],
+        ['史诗肥料', '⚗️', 'A', 100, 'use'],
+        ['传说肥料', '🌟', 'S', 200, 'use'],
+        ['神级肥料', '💎', 'SSS', 600, 'use']
       ];
       
       for (const plant of plantData) {
         await client.query(
-          'INSERT INTO plants (name, icon, rarity, price) VALUES ($1, $2, $3, $4)',
+          'INSERT INTO plants (name, icon, rarity, price, plants_role) VALUES ($1, $2, $3, $4, $5)',
           plant
         );
       }
@@ -171,6 +229,12 @@ app.use(cors({
 }));
 app.use(helmet());
 app.use(express.json());
+
+// 记录所有HTTP请求
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
 // JWT 验证中间件
 function authenticateToken(req, res, next) {
@@ -237,27 +301,19 @@ app.post('/api/auth/register', async (req, res) => {
     // 哈希密码
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // 生成用户ID，以1开头
-    const userResult = await client.query('SELECT MAX(id) as max_id FROM users WHERE id::text LIKE \'1%\'');
-    const maxUserId = userResult.rows[0].max_id;
-    let nextId;
-    if (maxUserId) {
-      // 提取数字部分并加1
-      const numPart = parseInt(maxUserId.toString().substring(1)) || 0;
-      nextId = `1${numPart + 1}`;
-    } else {
-      nextId = '11'; // 第一个用户
-    }
+    // 生成用户ID，使用偶数
+    const nextId = await generateUserId('user');
     console.log('Next user ID:', nextId);
     
-    // 初始化背包数据，为所有稀有度的种子和作物设置初始数量为0
+    // 初始化背包数据，为所有稀有度的种子、作物和可使用物品设置初始数量为0
     const initialSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
     const initialCrops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    const initialUses = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
     
     // 创建用户
     const newUser = await client.query(
-      'INSERT INTO users (id, name, email, password, role, points, seeds, crops) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [nextId, username, email, hashedPassword, 'user', 100, initialSeeds, initialCrops]
+      'INSERT INTO users (id, name, email, password, role, points, seeds, crops, uses) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [nextId, username, email, hashedPassword, 'user', 100, initialSeeds, initialCrops, initialUses]
     );
     
     const user = newUser.rows[0];
@@ -323,77 +379,50 @@ app.post('/api/auth/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    console.log('Token generated:', token);
 
-    // 只对普通用户执行背包内容的格式化操作，管理员不需要
-    if (user.role === 'user') {
-      // 确保seeds和crops始终是对象，为所有稀有度的种子和作物设置初始数量为0
-      // 同时移除旧的存储方式的数据（数字键的对象）
-      const requiredRarities = ['C', 'B', 'A', 'S', 'SSS'];
-      
-      // 处理seeds字段
-      if (typeof user.seeds !== 'object' || user.seeds === null || Array.isArray(user.seeds)) {
-        user.seeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
-        // 更新数据库
-        await client.query('UPDATE users SET seeds = $1 WHERE id = $2', [user.seeds, user.id]);
-        console.log('Updated seeds to default object');
-      } else {
-        // 统计旧的存储方式中的种子数量
-        let seedCounts = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
-        for (const key in user.seeds) {
-          if (!isNaN(key)) {
-            // 旧的存储方式，key是数字
-            const seed = user.seeds[key];
-            if (seed && typeof seed === 'object' && seed.rarity) {
-              const rarity = seed.rarity;
-              if (requiredRarities.includes(rarity)) {
-                seedCounts[rarity]++;
-              }
-            }
-          } else if (requiredRarities.includes(key)) {
-            // 新的存储方式，key是稀有度
-            seedCounts[key] = user.seeds[key] || 0;
-          }
+    // 更新最后登录时间
+    await client.query('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+
+    // 确保用户背包数据格式正确
+    const requiredRarities = ['C', 'B', 'A', 'S', 'SSS'];
+    const defaultBackpack = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+
+    // 初始化seeds字段
+    if (typeof user.seeds !== 'object' || user.seeds === null || Array.isArray(user.seeds)) {
+      user.seeds = { ...defaultBackpack };
+      await client.query('UPDATE users SET seeds = $1 WHERE id = $2', [user.seeds, user.id]);
+    } else {
+      for (const rarity of requiredRarities) {
+        if (user.seeds[rarity] === undefined) {
+          user.seeds[rarity] = 0;
         }
-        // 使用新的存储方式
-        user.seeds = seedCounts;
-        // 更新数据库
-        await client.query('UPDATE users SET seeds = $1 WHERE id = $2', [user.seeds, user.id]);
-        console.log('Updated seeds to new format:', user.seeds);
-      }
-      
-      // 处理crops字段
-      if (typeof user.crops !== 'object' || user.crops === null || Array.isArray(user.crops)) {
-        user.crops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
-        // 更新数据库
-        await client.query('UPDATE users SET crops = $1 WHERE id = $2', [user.crops, user.id]);
-        console.log('Updated crops to default object');
-      } else {
-        // 统计旧的存储方式中的作物数量
-        let cropCounts = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
-        for (const key in user.crops) {
-          if (!isNaN(key)) {
-            // 旧的存储方式，key是数字
-            const crop = user.crops[key];
-            if (crop && typeof crop === 'object' && crop.rarity) {
-              const rarity = crop.rarity;
-              if (requiredRarities.includes(rarity)) {
-                cropCounts[rarity]++;
-              }
-            }
-          } else if (requiredRarities.includes(key)) {
-            // 新的存储方式，key是稀有度
-            cropCounts[key] = user.crops[key] || 0;
-          }
-        }
-        // 使用新的存储方式
-        user.crops = cropCounts;
-        // 更新数据库
-        await client.query('UPDATE users SET crops = $1 WHERE id = $2', [user.crops, user.id]);
-        console.log('Updated crops to new format:', user.crops);
       }
     }
-    
+
+    // 初始化crops字段
+    if (typeof user.crops !== 'object' || user.crops === null || Array.isArray(user.crops)) {
+      user.crops = { ...defaultBackpack };
+      await client.query('UPDATE users SET crops = $1 WHERE id = $2', [user.crops, user.id]);
+    } else {
+      for (const rarity of requiredRarities) {
+        if (user.crops[rarity] === undefined) {
+          user.crops[rarity] = 0;
+        }
+      }
+    }
+
+    // 初始化uses字段
+    if (typeof user.uses !== 'object' || user.uses === null || Array.isArray(user.uses)) {
+      user.uses = { ...defaultBackpack };
+      await client.query('UPDATE users SET uses = $1 WHERE id = $2', [user.uses, user.id]);
+    } else {
+      for (const rarity of requiredRarities) {
+        if (user.uses[rarity] === undefined) {
+          user.uses[rarity] = 0;
+        }
+      }
+    }
+
     const response = {
       user: {
         id: user.id,
@@ -454,12 +483,14 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
 // 用户路由
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const usersResult = await client.query('SELECT id, name, email, role, points, seeds, crops, created_at FROM users');
+    const usersResult = await client.query('SELECT id, name, email, role, points, seeds, crops, uses, created_at, last_login_at FROM users');
     const users = usersResult.rows.map(user => ({
       ...user,
-      created_at: user.created_at.toISOString().split('T')[0],
+      created_at: user.created_at ? user.created_at.toISOString().split('T')[0] : null,
+      last_login_at: user.last_login_at ? user.last_login_at.toISOString() : null,
       seeds: typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {},
-      crops: typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {}
+      crops: typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {},
+      uses: typeof user.uses === 'object' && user.uses !== null && !Array.isArray(user.uses) ? user.uses : {}
     }));
     res.json(users);
   } catch (error) {
@@ -490,42 +521,20 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     // 哈希密码
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // 生成ID，管理员以0开头，用户以1开头
-    let nextId;
-    if (role === 'admin') {
-      // 获取最大的管理员ID（将id转换为字符串再进行LIKE操作）
-      const adminResult = await client.query('SELECT MAX(id) as max_id FROM users WHERE id::text LIKE \'0%\'');
-      const maxAdminId = adminResult.rows[0].max_id;
-      if (maxAdminId) {
-        // 提取数字部分并加1
-        const numPart = parseInt(maxAdminId.toString().substring(1)) || 0;
-        nextId = `0${numPart + 1}`;
-      } else {
-        nextId = '01'; // 第一个管理员
-      }
-    } else {
-      // 获取最大的用户ID（将id转换为字符串再进行LIKE操作）
-      const userResult = await client.query('SELECT MAX(id) as max_id FROM users WHERE id::text LIKE \'1%\'');
-      const maxUserId = userResult.rows[0].max_id;
-      if (maxUserId) {
-        // 提取数字部分并加1
-        const numPart = parseInt(maxUserId.toString().substring(1)) || 0;
-        nextId = `1${numPart + 1}`;
-      } else {
-        nextId = '11'; // 第一个用户
-      }
-    }
+    // 生成ID，管理员使用奇数，用户使用偶数
+    const nextId = await generateUserId(role);
     
     // 创建用户，用户名使用邮箱前缀
     const username = email.split('@')[0];
     
-    // 初始化背包数据，为所有稀有度的种子和作物设置初始数量为0
+    // 初始化背包数据，为所有稀有度的种子、作物和可使用物品设置初始数量为0
     const initialSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
     const initialCrops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    const initialUses = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
     
     const newUser = await client.query(
-      'INSERT INTO users (id, name, email, password, role, points, seeds, crops) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [nextId, username, email, hashedPassword, role || 'user', req.body.points || 100, initialSeeds, initialCrops]
+      'INSERT INTO users (id, name, email, password, role, points, seeds, crops, uses) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [nextId, username, email, hashedPassword, role || 'user', req.body.points || 100, initialSeeds, initialCrops, initialUses]
     );
     
     res.status(201).json(newUser.rows[0]);
@@ -543,7 +552,7 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     
     const result = await client.query(
-      'SELECT id, name, email, role, points, seeds, crops, created_at FROM users WHERE id = $1',
+      'SELECT id, name, email, role, points, seeds, crops, uses, created_at FROM users WHERE id = $1',
       [userId]
     );
     
@@ -554,14 +563,16 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
     
     const user = result.rows[0];
     console.log('User data from database:', user);
-    // 确保seeds和crops始终是对象
+    // 确保seeds、crops和uses始终是对象
     const seeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
     const crops = typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {};
+    const uses = typeof user.uses === 'object' && user.uses !== null && !Array.isArray(user.uses) ? user.uses : {};
     const response = {
       ...user,
       created_at: user.created_at.toISOString().split('T')[0],
       seeds,
-      crops
+      crops,
+      uses
     };
     console.log('GET /api/users/me response:', response);
     res.json(response);
@@ -620,53 +631,54 @@ app.put('/api/users/me', authenticateToken, async (req, res) => {
 app.get('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('Fetching user with id:', id);
-    const userResult = await client.query('SELECT id, name, email, role, points, seeds, crops, created_at FROM users WHERE id = $1', [id]);
-    
+    const userResult = await client.query('SELECT id, name, email, role, points, seeds, crops, uses, created_at FROM users WHERE id = $1', [id]);
+
     if (userResult.rowCount === 0) {
-      console.log('User not found:', id);
       return res.status(404).json({ error: '用户不存在' });
     }
-    
+
     const user = userResult.rows[0];
-    console.log('User data from database:', user);
-    
-    // 确保seeds和crops始终是对象
+
+    // 初始化背包数据格式
     const requiredRarities = ['C', 'B', 'A', 'S', 'SSS'];
-    let processedSeeds = user.seeds || {};
-    let processedCrops = user.crops || {};
-    
+    const defaultBackpack = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+
     // 处理seeds字段
+    let processedSeeds = user.seeds || {};
     if (typeof processedSeeds !== 'object' || processedSeeds === null || Array.isArray(processedSeeds)) {
-      console.log('Processing seeds as array or null:', processedSeeds);
-      processedSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+      processedSeeds = { ...defaultBackpack };
     } else {
-      // 确保所有稀有度都有值
       for (const rarity of requiredRarities) {
         if (processedSeeds[rarity] === undefined) {
           processedSeeds[rarity] = 0;
         }
       }
     }
-    
+
     // 处理crops字段
+    let processedCrops = user.crops || {};
     if (typeof processedCrops !== 'object' || processedCrops === null || Array.isArray(processedCrops)) {
-      console.log('Processing crops as array or null:', processedCrops);
-      processedCrops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+      processedCrops = { ...defaultBackpack };
     } else {
-      // 确保所有稀有度都有值
       for (const rarity of requiredRarities) {
         if (processedCrops[rarity] === undefined) {
           processedCrops[rarity] = 0;
         }
       }
     }
-    
-    // 打印处理后的背包数据，以便调试
-    console.log('Processed seeds:', processedSeeds);
-    console.log('Processed crops:', processedCrops);
-    
-    // 确保返回的对象包含处理后的seeds和crops字段
+
+    // 处理uses字段
+    let processedUses = user.uses || {};
+    if (typeof processedUses !== 'object' || processedUses === null || Array.isArray(processedUses)) {
+      processedUses = { ...defaultBackpack };
+    } else {
+      for (const rarity of requiredRarities) {
+        if (processedUses[rarity] === undefined) {
+          processedUses[rarity] = 0;
+        }
+      }
+    }
+
     const responseUser = {
       id: user.id,
       name: user.name,
@@ -675,11 +687,9 @@ app.get('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
       points: user.points,
       created_at: user.created_at.toISOString().split('T')[0],
       seeds: processedSeeds,
-      crops: processedCrops
+      crops: processedCrops,
+      uses: processedUses
     };
-    
-    // 打印返回的用户数据，以便调试
-    console.log('Response user data:', responseUser);
     
     res.json(responseUser);
   } catch (error) {
@@ -757,10 +767,20 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
   try {
     const { id } = req.params;
     
-    // 不能删除管理员用户
+    // 检查用户是否存在
     const userResult = await client.query('SELECT role FROM users WHERE id = $1', [id]);
-    if (userResult.rowCount > 0 && userResult.rows[0].role === 'admin') {
-      return res.status(400).json({ error: '不能删除管理员用户' });
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    // 验证逻辑：id为1的管理员无法被删除
+    if (id === '1' && userResult.rows[0].role === 'admin') {
+      return res.status(400).json({ error: 'id为1的管理员无法被删除' });
+    }
+    
+    // 验证逻辑：管理员不能删除自己
+    if (id.toString() === req.user.id.toString()) {
+      return res.status(400).json({ error: '不能删除自己' });
     }
     
     const deletedUser = await client.query(
@@ -782,7 +802,7 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
 // 植物路由
 app.get('/api/plants', async (req, res) => {
   try {
-    const plantsResult = await client.query('SELECT * FROM plants');
+    const plantsResult = await client.query('SELECT * FROM plants ORDER BY id');
     res.json(plantsResult.rows);
   } catch (error) {
     console.error('Fetch plants error:', error);
@@ -792,15 +812,15 @@ app.get('/api/plants', async (req, res) => {
 
 app.post('/api/plants', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, icon, rarity, price } = req.body;
+    const { name, icon, rarity, price, plants_role = 'seed' } = req.body;
     
     if (!name || !icon || !rarity || !price) {
       return res.status(400).json({ error: '请填写所有必填字段' });
     }
     
     const newPlant = await client.query(
-      'INSERT INTO plants (name, icon, rarity, price) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, icon, rarity, price]
+      'INSERT INTO plants (name, icon, rarity, price, plants_role) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name, icon, rarity, price, plants_role]
     );
     
     res.status(201).json(newPlant.rows[0]);
@@ -814,15 +834,15 @@ app.post('/api/plants', authenticateToken, requireAdmin, async (req, res) => {
 app.put('/api/plants/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, icon, rarity, price } = req.body;
+    const { name, icon, rarity, price, plants_role } = req.body;
     
     if (!name || !icon || !rarity || !price) {
       return res.status(400).json({ error: '请填写所有必填字段' });
     }
     
     const updatedPlant = await client.query(
-      'UPDATE plants SET name = $1, icon = $2, rarity = $3, price = $4 WHERE id = $5 RETURNING *',
-      [name, icon, rarity, price, id]
+      'UPDATE plants SET name = $1, icon = $2, rarity = $3, price = $4, plants_role = $5 WHERE id = $6 RETURNING *',
+      [name, icon, rarity, price, plants_role || 'seed', id]
     );
     
     if (updatedPlant.rowCount === 0) {
@@ -860,9 +880,11 @@ app.delete('/api/plants/:id', authenticateToken, requireAdmin, async (req, res) 
 // 创建订单服务函数
 async function createOrder(userId, type, amount) {
   try {
+    // 将userId转换为integer类型，以匹配orders表的user_id列类型
+    const integerUserId = parseInt(userId);
     const result = await client.query(
       'INSERT INTO orders (user_id, type, amount) VALUES ($1, $2, $3) RETURNING *',
-      [userId, type, amount]
+      [integerUserId, type, amount]
     );
     return result.rows[0];
   } catch (error) {
@@ -876,6 +898,8 @@ async function createOrder(userId, type, amount) {
 app.get('/api/orders', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    // 将userId转换为integer类型，以匹配orders表的user_id列类型
+    const integerUserId = parseInt(userId);
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -885,7 +909,7 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
       WHERE user_id = $1 
       ORDER BY created_at DESC 
       LIMIT $2 OFFSET $3
-    `, [userId, limit, offset]);
+    `, [integerUserId, limit, offset]);
     
     const totalResult = await client.query(
       'SELECT COUNT(*) as total FROM orders WHERE user_id = $1',
@@ -912,6 +936,72 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Fetch orders error:', error);
     res.status(500).json({ error: '获取订单列表失败，请稍后再试' });
+  }
+});
+
+// 管理员创建新管理员用户
+app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: '请填写所有必填字段' });
+    }
+    
+    // 检查邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: '请输入有效的邮箱地址' });
+    }
+    
+    // 如果没有提供name，使用邮箱前缀作为用户名
+    const username = name || email.split('@')[0];
+    
+    // 检查邮箱是否已存在
+    const existingUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (existingUser.rowCount > 0) {
+      return res.status(400).json({ error: '该邮箱已被注册' });
+    }
+    
+    // 哈希密码
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // 生成管理员用户ID，使用奇数
+    const nextId = await generateUserId('admin');
+    
+    // 初始化背包数据
+    const initialSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    const initialCrops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    const initialUses = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    
+    // 创建管理员用户
+    await client.query(
+      'INSERT INTO users (id, name, email, password, role, points, seeds, crops, uses) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+      [nextId, username, email, hashedPassword, 'admin', 0, initialSeeds, initialCrops, initialUses]
+    );
+    
+    res.status(201).json({ message: '管理员用户创建成功', userId: nextId });
+  } catch (error) {
+    console.error('Create admin user error:', error);
+    res.status(500).json({ error: '创建管理员用户失败，请稍后再试' });
+  }
+});
+
+// 管理员获取今日活跃用户数
+app.get('/api/admin/active-users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const result = await client.query(
+      'SELECT COUNT(*) as count FROM users WHERE last_login_at IS NOT NULL AND last_login_at >= $1 AND role = $2',
+      [today, 'user']
+    );
+
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (error) {
+    console.error('Get active users error:', error);
+    res.status(500).json({ error: '获取活跃用户数失败' });
   }
 });
 
@@ -991,7 +1081,7 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
     
     // 获取用户数据
     const userResult = await client.query(
-      'SELECT seeds, crops FROM users WHERE id = $1',
+      'SELECT seeds, crops, uses FROM users WHERE id = $1',
       [stringUserId]
     );
     
@@ -1001,13 +1091,15 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
     
     const user = userResult.rows[0];
     
-    // 确保seeds和crops始终是对象
+    // 确保seeds、crops和uses始终是对象
     const seeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
     const crops = typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {};
+    const uses = typeof user.uses === 'object' && user.uses !== null && !Array.isArray(user.uses) ? user.uses : {};
     
     res.json({
       seeds,
-      crops
+      crops,
+      uses
     });
   } catch (error) {
     console.error('Fetch backpack error:', error);
@@ -1019,11 +1111,14 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
 app.post('/api/user/seeds', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { rarity, price } = req.body;
+    const { rarity, price, quantity = 1 } = req.body;
     
     if (!rarity || !price) {
       return res.status(400).json({ error: '请提供种子稀有度和价格' });
     }
+    
+    const buyQuantity = Math.max(1, Math.min(parseInt(quantity) || 1, 99));
+    const totalPrice = price * buyQuantity;
     
     // 确保userId是字符串类型
     const stringUserId = String(userId);
@@ -1042,7 +1137,7 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
       const user = userResult.rows[0];
       
       // 检查积分是否足够
-      if (user.points < price) {
+      if (user.points < totalPrice) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: '积分不足' });
       }
@@ -1052,10 +1147,10 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
       
       // 增加对应稀有度的数量
       const updatedSeeds = { ...currentSeeds };
-      updatedSeeds[rarity] = (updatedSeeds[rarity] || 0) + 1;
+      updatedSeeds[rarity] = (updatedSeeds[rarity] || 0) + buyQuantity;
       
       // 扣除积分
-      const updatedPoints = user.points - price;
+      const updatedPoints = user.points - totalPrice;
       
       // 更新用户数据
       await client.query(
@@ -1064,7 +1159,7 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
       );
       
       // 创建订单
-      await createOrder(stringUserId, 'PURCHASE_SEED', -price);
+      await createOrder(stringUserId, 'PURCHASE_SEED', -totalPrice);
       
       // 提交事务
       await client.query('COMMIT');
@@ -1081,10 +1176,82 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
   }
 });
 
-// 记录所有HTTP请求
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
+// 购买可使用物品（包含积分扣除和订单创建）
+app.post('/api/user/uses', authenticateToken, async (req, res) => {
+  try {
+    console.log('POST /api/user/uses request:', req.body);
+    const userId = req.user.id;
+    const { rarity, price, quantity = 1 } = req.body;
+    
+    if (!rarity || !price) {
+      console.log('Missing rarity or price');
+      return res.status(400).json({ error: '请提供物品稀有度和价格' });
+    }
+    
+    const buyQuantity = Math.max(1, Math.min(parseInt(quantity) || 1, 99));
+    const totalPrice = price * buyQuantity;
+
+    // 确保userId是字符串类型
+    const stringUserId = String(userId);
+
+    // 开始事务
+    await client.query('BEGIN');
+
+    try {
+      // 获取用户当前数据
+      const userResult = await client.query('SELECT * FROM users WHERE id = $1', [stringUserId]);
+      if (userResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: '用户不存在' });
+      }
+
+      const user = userResult.rows[0];
+
+      // 检查积分是否足够
+      if (user.points < totalPrice) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: '积分不足' });
+      }
+
+      // 处理uses字段
+      let currentUses = user.uses;
+      if (typeof currentUses !== 'object' || currentUses === null || Array.isArray(currentUses)) {
+        currentUses = {};
+      }
+
+      // 增加对应稀有度的数量
+      const updatedUses = { ...currentUses };
+      updatedUses[rarity] = (updatedUses[rarity] || 0) + buyQuantity;
+
+      // 扣除积分
+      const updatedPoints = user.points - totalPrice;
+
+      // 更新用户数据
+      await client.query(
+        'UPDATE users SET uses = $1, points = $2 WHERE id = $3',
+        [updatedUses, updatedPoints, stringUserId]
+      );
+
+      // 提交事务
+      await client.query('COMMIT');
+
+      // 创建订单（在事务之外）
+      try {
+        await createOrder(stringUserId, 'PURCHASE_USE', -totalPrice);
+      } catch (error) {
+        console.error('Error creating order:', error);
+      }
+
+      res.status(201).json({ rarity, quantity: updatedUses[rarity], points: updatedPoints });
+    } catch (error) {
+      // 回滚事务
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Add use error:', error);
+    res.status(500).json({ error: '添加物品失败，请稍后再试' });
+  }
 });
 
 // 卖出种子（包含积分增加和订单创建）

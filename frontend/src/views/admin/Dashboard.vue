@@ -3,21 +3,14 @@
     <Toast ref="toastRef" />
     <AdminSidebar />
 
-    
+
     <!-- 退出登录弹窗 -->
-    <Modal
-      :visible="showLogoutModal"
-      title="🚪 退出登录"
-      message="确定要退出登录吗？"
-      confirm-text="确定退出"
-      cancel-text="取消"
-      @confirm="handleLogout"
-      @cancel="showLogoutModal = false"
-    />
-    
+    <Modal :visible="showLogoutModal" title="🚪 退出登录" message="确定要退出登录吗？" confirm-text="确定退出" cancel-text="取消"
+      @confirm="handleLogout" @cancel="showLogoutModal = false" />
+
     <div class="admin-content">
       <h1>仪表盘</h1>
-      
+
       <div class="stats-grid">
         <div class="stat-card">
           <h3>总用户数</h3>
@@ -33,11 +26,11 @@
           <p class="stat-value">{{ stats.totalOrders }}</p>
         </div>
         <div class="stat-card">
-          <h3>总收入</h3>
-          <p class="stat-value">¥{{ stats.totalRevenue.toLocaleString() }}</p>
+          <h3>今日活跃用户</h3>
+          <p class="stat-value">{{ stats.todayActiveUsers }}</p>
         </div>
       </div>
-      
+
       <div class="recent-activity">
         <h2>最近活动</h2>
         <div class="activity-list">
@@ -67,7 +60,7 @@ const stats = ref({
   totalSeeds: 0,
   totalPoints: 0,
   totalOrders: 0,
-  totalRevenue: 0
+  todayActiveUsers: 0
 })
 const currentStatIndex = ref(0)
 const statTypes = ['totalPlants', 'totalSeeds', 'totalPoints']
@@ -99,7 +92,7 @@ function nextStat() {
 async function fetchDashboardData() {
   try {
     const token = localStorage.getItem('auth_token')
-    
+
     // 获取用户数量
     const usersResponse = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
       headers: {
@@ -108,31 +101,43 @@ async function fetchDashboardData() {
     })
     const usersData = await usersResponse.json()
     stats.value.totalUsers = usersData.length
-    
+
     // 获取植物数量
     const plantsResponse = await fetch(`${import.meta.env.VITE_API_URL}/plants`)
     const plantsData = await plantsResponse.json()
     stats.value.totalPlants = plantsData.length
-    
+
     // 计算总种子数（这里使用模拟数据，实际应从数据库中获取）
     // 假设每个用户平均有10个种子
     stats.value.totalSeeds = usersData.length * 10
-    
+
     // 计算总积分（从用户数据中获取，排除管理员）
     stats.value.totalPoints = usersData
       .filter(user => user.role !== 'admin')
       .reduce((total, user) => total + (user.points || 0), 0)
-    
-    // 获取订单数量和总收入
-    const ordersResponse = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+
+    // 获取订单数量
+    const ordersResponse = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     })
     const ordersData = await ordersResponse.json()
-    stats.value.totalOrders = ordersData.length
-    stats.value.totalRevenue = ordersData.reduce((total, order) => total + order.amount, 0)
-    
+    if (ordersData && Array.isArray(ordersData.orders)) {
+      stats.value.totalOrders = ordersData.orders.length
+    } else {
+      stats.value.totalOrders = 0
+    }
+
+    // 获取今日活跃用户数
+    const activeUsersResponse = await fetch(`${import.meta.env.VITE_API_URL}/admin/active-users`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    const activeUsersData = await activeUsersResponse.json()
+    stats.value.todayActiveUsers = activeUsersData.count || 0
+
     // 模拟最近活动数据
     recentActivity.value = [
       { time: new Date().toLocaleString(), content: '系统初始化完成' },
@@ -250,50 +255,66 @@ onMounted(() => {
   .admin-page {
     background: #1a1a1a;
   }
-  
+
   .admin-sidebar {
     background: #1a3a1a;
   }
-  
+
   .admin-content h1,
   .admin-content h2 {
     color: #8bc34a;
   }
-  
+
   .stat-card {
     background: #2a2a2a;
   }
-  
+
   .stat-card h3 {
     color: #aaa;
   }
-  
+
   .stat-value {
     color: #8bc34a;
   }
-  
+
   .stat-hint {
     color: #777;
   }
-  
+
   .stat-card:hover {
     background: #333;
   }
-  
+
   .activity-list {
     background: #2a2a2a;
   }
-  
+
   .activity-item {
     border-bottom: 1px solid #3a3a3a;
   }
-  
+
   .activity-time {
     color: #777;
   }
-  
+
   .activity-content {
     color: #e0e0e0;
   }
+}
+
+.sub-menu li {
+  margin-bottom: 4px;
+  padding: 15px 12px 15px 1px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  position: relative;
+}
+
+.sub-menu li {
+  margin-bottom: 4px;
+  padding: 15px 12px 15px 1px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  position: relative;
 }
 </style>

@@ -9,6 +9,9 @@
             <button :class="{ active: activeTab === 'crops' }" @click="activeTab = 'crops'">
                 🌾 作物 ({{ userStore.cropCount }})
             </button>
+            <button :class="{ active: activeTab === 'uses' }" @click="activeTab = 'uses'">
+                📦 可使用物品 ({{ userStore.useCount }})
+            </button>
         </div>
 
         <!-- 种子列表 -->
@@ -69,7 +72,7 @@
         </div>
 
         <!-- 作物列表 -->
-        <div v-else class="items-grid">
+        <div v-else-if="activeTab === 'crops'" class="items-grid">
             <div class="item-card" v-if="userStore.groupedCrops.C > 0">
                 <div class="item-icon">{{ cropIcon('C') }}</div>
                 <div class="item-name">{{ rarityConfig.C.cropName }}</div>
@@ -125,6 +128,63 @@
             </div>
         </div>
 
+        <!-- 可使用物品列表 -->
+        <div v-else-if="activeTab === 'uses'" class="items-grid">
+            <div class="item-card" v-if="userStore.groupedUses.C > 0">
+                <div class="item-icon">{{ useIcon('C') }}</div>
+                <div class="item-name">{{ fertilizerConfig.C.name }}</div>
+                <div class="item-rarity rarity-C">C ({{ userStore.groupedUses.C }})</div>
+                <div class="item-price">💰 卖出价 {{ fertilizerConfig.C.price }} 积分</div>
+                <div class="sell-buttons">
+                    <button @click="showSellModal('use', { rarity: 'C', type: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
+                    <button @click="showSellModal('use', { rarity: 'C', type: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
+                </div>
+            </div>
+            <div class="item-card" v-if="userStore.groupedUses.B > 0">
+                <div class="item-icon">{{ useIcon('B') }}</div>
+                <div class="item-name">{{ fertilizerConfig.B.name }}</div>
+                <div class="item-rarity rarity-B">B ({{ userStore.groupedUses.B }})</div>
+                <div class="item-price">💰 卖出价 {{ fertilizerConfig.B.price }} 积分</div>
+                <div class="sell-buttons">
+                    <button @click="showSellModal('use', { rarity: 'B', type: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
+                    <button @click="showSellModal('use', { rarity: 'B', type: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
+                </div>
+            </div>
+            <div class="item-card" v-if="userStore.groupedUses.A > 0">
+                <div class="item-icon">{{ useIcon('A') }}</div>
+                <div class="item-name">{{ fertilizerConfig.A.name }}</div>
+                <div class="item-rarity rarity-A">A ({{ userStore.groupedUses.A }})</div>
+                <div class="item-price">💰 卖出价 {{ fertilizerConfig.A.price }} 积分</div>
+                <div class="sell-buttons">
+                    <button @click="showSellModal('use', { rarity: 'A', type: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
+                    <button @click="showSellModal('use', { rarity: 'A', type: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
+                </div>
+            </div>
+            <div class="item-card" v-if="userStore.groupedUses.S > 0">
+                <div class="item-icon">{{ useIcon('S') }}</div>
+                <div class="item-name">{{ fertilizerConfig.S.name }}</div>
+                <div class="item-rarity rarity-S">S ({{ userStore.groupedUses.S }})</div>
+                <div class="item-price">💰 卖出价 {{ fertilizerConfig.S.price }} 积分</div>
+                <div class="sell-buttons">
+                    <button @click="showSellModal('use', { rarity: 'S', type: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
+                    <button @click="showSellModal('use', { rarity: 'S', type: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
+                </div>
+            </div>
+            <div class="item-card" v-if="userStore.groupedUses.SSS > 0">
+                <div class="item-icon">{{ useIcon('SSS') }}</div>
+                <div class="item-name">{{ fertilizerConfig.SSS.name }}</div>
+                <div class="item-rarity rarity-SSS">SSS ({{ userStore.groupedUses.SSS }})</div>
+                <div class="item-price">💰 卖出价 {{ fertilizerConfig.SSS.price }} 积分</div>
+                <div class="sell-buttons">
+                    <button @click="showSellModal('use', { rarity: 'SSS', type: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
+                    <button @click="showSellModal('use', { rarity: 'SSS', type: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
+                </div>
+            </div>
+            <div v-if="userStore.useCount === 0" class="empty-msg">
+                还没有可使用物品，去商店买点吧~
+            </div>
+        </div>
+
         <Toast ref="toastRef" />
         
         <!-- 卖出确认弹窗 -->
@@ -177,6 +237,7 @@ const sellQuantity = ref(0)
 const maxQuantity = ref(0)
 
 const rarityConfig = userStore.rarityConfig
+const fertilizerConfig = userStore.fertilizerConfig
 
 // 生成稀有度数组
 const rarities = ['C', 'B', 'A', 'S', 'SSS']
@@ -191,6 +252,9 @@ onMounted(async () => {
         console.log('userStore.groupedCrops:', userStore.groupedCrops)
         console.log('userStore.cropCount:', userStore.cropCount)
         console.log('userStore.crops:', userStore.crops)
+        console.log('userStore.groupedUses:', userStore.groupedUses)
+        console.log('userStore.useCount:', userStore.useCount)
+        console.log('userStore.uses:', userStore.uses)
     } catch (error) {
         console.error('Failed to load user data:', error)
         if (toastRef.value) {
@@ -207,6 +271,11 @@ function seedIcon(rarity) {
 function cropIcon(rarity) {
     const icons = { C: '🌾', B: '🍚', A: '🌻', S: '🏵️', SSS: '👑' }
     return icons[rarity] || '🌾'
+}
+
+function useIcon(rarity) {
+    const icons = { C: '💩', B: '🧪', A: '⚗️', S: '🌟', SSS: '💎' }
+    return icons[rarity] || '💩'
 }
 
 function addToast(message, type = 'info') {
@@ -232,11 +301,22 @@ function showSellModal(type, item) {
             const qty = userStore.crops[item.rarity]
             const totalPrice = price * qty
             sellModalMessage.value = `确认卖出全部 ${qty} 个 ${rarityConfig[item.rarity].cropName}？\n获得 ${totalPrice} 积分`
+        } else if (type === 'use') {
+            const price = rarityConfig[item.rarity].buyPrice
+            const qty = userStore.uses[item.rarity]
+            const totalPrice = price * qty
+            sellModalMessage.value = `确认卖出全部 ${qty} 个 ${rarityConfig[item.rarity].useName || '物品'}？\n获得 ${totalPrice} 积分`
         }
         showSellModalVisible.value = true
     } else if (sellType.value === 'part') {
         // 部分卖出，显示数量输入弹窗
-        maxQuantity.value = type === 'seed' ? userStore.seeds[item.rarity] : userStore.crops[item.rarity]
+        if (type === 'seed') {
+            maxQuantity.value = userStore.seeds[item.rarity]
+        } else if (type === 'crop') {
+            maxQuantity.value = userStore.crops[item.rarity]
+        } else if (type === 'use') {
+            maxQuantity.value = userStore.uses[item.rarity]
+        }
         sellQuantity.value = 1
         showQuantityModalVisible.value = true
     }
@@ -260,6 +340,15 @@ async function handleSellConfirm() {
             // 卖出所有该稀有度的作物
             for (let i = 0; i < quantity; i++) {
                 await userStore.sellCrop(currentItem.value.rarity)
+            }
+            addToast(`💰 卖出成功！获得 ${totalPrice} 积分`, 'success')
+        } else if (currentItemType.value === 'use') {
+            const price = rarityConfig[currentItem.value.rarity].buyPrice
+            const quantity = userStore.uses[currentItem.value.rarity]
+            const totalPrice = price * quantity
+            // 卖出所有该稀有度的可使用物品
+            for (let i = 0; i < quantity; i++) {
+                await userStore.sellUse(currentItem.value.rarity)
             }
             addToast(`💰 卖出成功！获得 ${totalPrice} 积分`, 'success')
         }
@@ -286,6 +375,14 @@ async function handlePartSellConfirm() {
             // 卖出指定数量的作物
             for (let i = 0; i < sellQuantity.value; i++) {
                 await userStore.sellCrop(currentItem.value.rarity)
+            }
+            addToast(`💰 卖出成功！获得 ${totalPrice} 积分`, 'success')
+        } else if (currentItemType.value === 'use') {
+            const price = rarityConfig[currentItem.value.rarity].buyPrice
+            const totalPrice = price * sellQuantity.value
+            // 卖出指定数量的可使用物品
+            for (let i = 0; i < sellQuantity.value; i++) {
+                await userStore.sellUse(currentItem.value.rarity)
             }
             addToast(`💰 卖出成功！获得 ${totalPrice} 积分`, 'success')
         }
@@ -400,20 +497,25 @@ async function handlePartSellConfirm() {
     margin: 8px 0;
 }
 
-.sell-buttons {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-}
-
 .sell-btn {
     flex: 1;
     border: none;
-    padding: 6px 12px;
-    border-radius: 40px;
+    padding: 8px 4px;
+    border-radius: 12px;
     cursor: pointer;
     font-weight: bold;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+}
+
+.sell-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
 }
 
 .all-sell-btn {

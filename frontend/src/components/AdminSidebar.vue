@@ -1,21 +1,31 @@
 <template>
   <div class="admin-sidebar">
     <h2>管理中心</h2>
-    <ul>
-      <li><router-link to="/admin/dashboard">仪表盘</router-link></li>
+    <ul class="menu-container">
       <li class="menu-item">
-        <span class="menu-title" @click="toggleUserMenu">
+        <router-link to="/admin/dashboard" class="menu-link">仪表盘</router-link>
+      </li>
+      <li class="menu-item">
+        <div class="menu-title" @click="toggleUserMenu">
           <span>用户管理</span>
           <span class="menu-arrow" :class="{ open: userMenuOpen }">&#9660;</span>
-        </span>
+        </div>
         <ul v-if="userMenuOpen" class="sub-menu">
-          <li @click="preventBubble"><router-link to="/admin/users">普通用户</router-link></li>
-          <li @click="preventBubble"><router-link to="/admin/admins">管理员</router-link></li>
+          <li class="menu-item">
+            <router-link to="/admin/users" class="menu-link" @click="preventBubble">普通用户</router-link>
+          </li>
+          <li class="menu-item">
+            <router-link to="/admin/admins" class="menu-link" @click="preventBubble">管理员</router-link>
+          </li>
         </ul>
       </li>
-      <li><router-link to="/admin/plants">植物管理</router-link></li>
-      <li><router-link to="/admin/orders">订单管理</router-link></li>
-      <li @click="showLogoutModal = true">退出登录</li>
+      <li class="menu-item">
+        <router-link to="/admin/plants" class="menu-link">植物管理</router-link>
+      </li>
+      <li class="menu-item">
+        <router-link to="/admin/orders" class="menu-link">订单管理</router-link>
+      </li>
+      <li class="logout-item" @click="showLogoutModal = true">退出登录</li>
     </ul>
     
     <!-- 退出登录弹窗 -->
@@ -24,8 +34,8 @@
         <h3>🚪 退出登录</h3>
         <p>确定要退出登录吗？</p>
         <div class="modal-actions">
-          <button class="cancel-btn" @click="showLogoutModal = false">取消</button>
-          <button class="confirm-btn" @click="handleLogout">确定退出</button>
+          <button class="modal-btn cancel" @click="showLogoutModal = false">取消</button>
+          <button class="modal-btn confirm" @click="handleLogout">确定退出</button>
         </div>
       </div>
     </div>
@@ -74,65 +84,64 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 主侧边栏样式 */
 .admin-sidebar {
   width: 200px;
   background: #2c5a2a;
   color: white;
   padding: 20px;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .admin-sidebar h2 {
   margin: 0 0 32px 0;
   font-size: 1.5rem;
+  text-align: center;
 }
 
-.admin-sidebar ul {
+/* 菜单容器 */
+.menu-container {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.admin-sidebar ul li {
-  margin-bottom: 12px;
-  padding: 12px 16px;
+/* 菜单项通用样式 */
+.menu-item {
+  margin-bottom: 8px;
   border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  position: relative;
+  overflow: hidden;
 }
 
-.admin-sidebar ul li:hover {
+/* 菜单项链接 */
+.menu-link {
+  display: block;
+  padding: 12px 16px;
+  color: white;
+  text-decoration: none;
+  transition: background-color 0.2s ease;
+}
+
+.menu-link:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.admin-sidebar ul li a {
-  color: white;
-  text-decoration: none;
-  display: block;
-}
-
-/* 二级菜单样式 */
-.menu-item {
-  position: relative;
-}
-
+/* 菜单标题（带下拉箭头） */
 .menu-title {
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0;
-  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
   transition: background-color 0.2s ease;
-  position: relative;
-  width: 100%;
-  height: 100%;
 }
 
 .menu-title:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* 下拉箭头 */
 .menu-arrow {
   transition: transform 0.2s ease;
   font-size: 0.8rem;
@@ -142,34 +151,50 @@ onMounted(() => {
   transform: rotate(180deg);
 }
 
+/* 二级菜单 */
 .sub-menu {
-  margin: 12px 0 0 16px;
-  padding: 0;
   list-style: none;
-  position: relative;
-}
-
-.sub-menu li {
-  margin-bottom: 4px;
-  padding: 8px 12px;
+  padding: 0;
+  margin: 4px 0 0 0;
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 6px;
+  overflow: hidden;
+}
+
+.sub-menu .menu-item {
+  margin-bottom: 0;
+  border-radius: 0;
+}
+
+.sub-menu .menu-link {
+  padding: 10px 16px 10px 24px;
   font-size: 0.9rem;
-  position: relative;
-}
-
-.sub-menu li:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.sub-menu li a {
-  display: block;
   color: rgba(255, 255, 255, 0.9);
+}
+
+/* 退出登录按钮 */
+.logout-item {
+  margin-top: 40px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  text-align: center;
+  color: #ff0000;
+}
+
+.logout-item:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .admin-sidebar {
     background: #1a3a1a;
+  }
+  
+  .sub-menu {
+    background: rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -213,8 +238,7 @@ onMounted(() => {
   justify-content: center;
 }
 
-.cancel-btn,
-.confirm-btn {
+.modal-btn {
   padding: 10px 24px;
   border: none;
   border-radius: 8px;
@@ -224,21 +248,21 @@ onMounted(() => {
   transition: background-color 0.2s ease;
 }
 
-.cancel-btn {
+.modal-btn.cancel {
   background: #9e9e9e;
   color: white;
 }
 
-.cancel-btn:hover {
+.modal-btn.cancel:hover {
   background: #757575;
 }
 
-.confirm-btn {
+.modal-btn.confirm {
   background: #f44336;
   color: white;
 }
 
-.confirm-btn:hover {
+.modal-btn.confirm:hover {
   background: #d32f2f;
 }
 
@@ -256,19 +280,19 @@ onMounted(() => {
     color: #ddd;
   }
   
-  .cancel-btn {
+  .modal-btn.cancel {
     background: #555;
   }
   
-  .cancel-btn:hover {
+  .modal-btn.cancel:hover {
     background: #444;
   }
   
-  .confirm-btn {
+  .modal-btn.confirm {
     background: #d32f2f;
   }
   
-  .confirm-btn:hover {
+  .modal-btn.confirm:hover {
     background: #b71c1c;
   }
 }

@@ -26,7 +26,9 @@
               <td>{{ admin.email }}</td>
               <td>{{ admin.created_at }}</td>
               <td>
-                <button class="delete-btn" @click="handleDeleteAdmin(admin.id)">删除</button>
+                <button class="edit-btn" @click="showEditEmailModal(admin.id, admin.email)">编辑邮箱</button>
+                <button class="edit-btn" @click="showChangePasswordModal(admin.id, admin.email)">修改密码</button>
+                <button class="delete-btn" @click="showDeleteModal(admin.id)">删除</button>
               </td>
             </tr>
           </tbody>
@@ -78,6 +80,67 @@
         @confirm="handleLogout"
         @cancel="showLogoutModal = false"
       />
+      
+      <!-- 修改密码弹窗 -->
+      <div v-if="showChangePasswordModalVisible" class="modal-overlay" @click.self="showChangePasswordModalVisible = false">
+        <div class="modal-content">
+          <h3>修改密码</h3>
+          <form @submit.prevent="handleChangePassword">
+            <div class="form-group password-group">
+              <label for="new-password">新密码</label>
+              <div class="password-input-container">
+                <input :type="showNewPassword ? 'text' : 'password'" id="new-password" v-model="changePasswordForm.newPassword" required placeholder="请输入新密码">
+                <button type="button" class="password-toggle" @click="showNewPassword = !showNewPassword">
+                  {{ showNewPassword ? '🙈' : '👁️' }}
+                </button>
+              </div>
+            </div>
+            <div class="form-group password-group">
+              <label for="confirm-new-password">确认新密码</label>
+              <div class="password-input-container">
+                <input :type="showConfirmNewPassword ? 'text' : 'password'" id="confirm-new-password" v-model="changePasswordForm.confirmNewPassword" required placeholder="请再次输入新密码">
+                <button type="button" class="password-toggle" @click="showConfirmNewPassword = !showConfirmNewPassword">
+                  {{ showConfirmNewPassword ? '🙈' : '👁️' }}
+                </button>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="cancel-btn" @click="showChangePasswordModalVisible = false">取消</button>
+              <button type="submit" class="confirm-btn">确认修改</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <!-- 编辑邮箱弹窗 -->
+      <div v-if="showEditEmailModalVisible" class="modal-overlay" @click.self="showEditEmailModalVisible = false">
+        <div class="modal-content">
+          <h3>编辑邮箱</h3>
+          <form @submit.prevent="handleEditEmail">
+            <div class="form-group">
+              <label for="edit-email">新邮箱</label>
+              <input type="email" id="edit-email" v-model="editEmailForm.email" required placeholder="请输入新邮箱" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" title="请输入有效的邮箱地址">
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="cancel-btn" @click="showEditEmailModalVisible = false">取消</button>
+              <button type="submit" class="confirm-btn">确认修改</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <!-- 删除确认弹窗 -->
+      <div v-if="showDeleteModalVisible" class="modal-overlay" @click.self="cancelDeleteAdmin">
+        <div class="modal-content">
+          <h3>⚠️ 删除管理员</h3>
+          <p>确定要删除这个管理员吗？</p>
+          <p class="warning-text">删除管理员无法找回，且其所有数据将被清除。</p>
+          <div class="modal-actions">
+            <button class="cancel-btn" @click="cancelDeleteAdmin">取消</button>
+            <button class="confirm-btn" @click="confirmDeleteAdmin">确定删除</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -98,9 +161,24 @@ const newAdmin = ref({
   password: '',
   confirmPassword: ''
 })
+const changePasswordForm = ref({
+  id: '',
+  newPassword: '',
+  confirmNewPassword: ''
+})
+const editEmailForm = ref({
+  id: '',
+  email: ''
+})
+const showChangePasswordModalVisible = ref(false)
+const showEditEmailModalVisible = ref(false)
+const showDeleteModalVisible = ref(false)
+const deletingAdminId = ref(null)
 const toastRef = ref(null)
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
+const showNewPassword = ref(false)
+const showConfirmNewPassword = ref(false)
 
 // 加载管理员数据
 async function loadAdmins() {
@@ -118,6 +196,64 @@ async function loadAdmins() {
     console.error('Failed to load admins:', error)
     if (toastRef.value) {
       toastRef.value.addToast('加载管理员数据失败', 'error')
+    }
+  }
+}
+
+// 显示编辑邮箱弹窗
+function showEditEmailModal(adminId, email) {
+  editEmailForm.value = {
+    id: adminId,
+    email: email
+  }
+  showEditEmailModalVisible.value = true
+}
+
+// 处理编辑邮箱
+async function handleEditEmail() {
+  // 验证邮箱格式
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  if (!emailRegex.test(editEmailForm.value.email)) {
+    if (toastRef.value) {
+      toastRef.value.addToast('请输入有效的邮箱地址', 'error')
+    }
+    return
+  }
+  
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${editEmailForm.value.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        email: editEmailForm.value.email
+      })
+    })
+    
+    if (response.ok) {
+      const updatedAdmin = await response.json()
+      // 更新本地数据
+      const index = admins.value.findIndex(admin => admin.id === editEmailForm.value.id)
+      if (index !== -1) {
+        admins.value[index] = updatedAdmin
+      }
+      showEditEmailModalVisible.value = false
+      if (toastRef.value) {
+        toastRef.value.addToast('邮箱修改成功', 'success')
+      }
+    } else {
+      const errorData = await response.json()
+      if (toastRef.value) {
+        toastRef.value.addToast(errorData.error || '邮箱修改失败', 'error')
+      }
+    }
+  } catch (error) {
+    console.error('Error editing email:', error)
+    if (toastRef.value) {
+      toastRef.value.addToast('网络错误，请稍后再试', 'error')
     }
   }
 }
@@ -142,6 +278,7 @@ async function handleAddAdmin() {
       body: JSON.stringify({
         email: newAdmin.value.email,
         password: newAdmin.value.password,
+        confirmPassword: newAdmin.value.confirmPassword,
         role: 'admin',
         points: 0
       })
@@ -174,13 +311,70 @@ async function handleAddAdmin() {
   }
 }
 
-// 处理删除管理员
-async function handleDeleteAdmin(adminId) {
-  if (!confirm('确定要删除这个管理员吗？')) return
+// 显示修改密码弹窗
+function showChangePasswordModal(adminId, email) {
+  changePasswordForm.value = {
+    id: adminId,
+    newPassword: '',
+    confirmNewPassword: ''
+  }
+  showChangePasswordModalVisible.value = true
+}
+
+// 处理修改密码
+async function handleChangePassword() {
+  if (changePasswordForm.value.newPassword !== changePasswordForm.value.confirmNewPassword) {
+    if (toastRef.value) {
+      toastRef.value.addToast('两次输入的密码不一致', 'error')
+    }
+    return
+  }
   
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${adminId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${changePasswordForm.value.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        password: changePasswordForm.value.newPassword
+      })
+    })
+    
+    if (response.ok) {
+      showChangePasswordModalVisible.value = false
+      if (toastRef.value) {
+        toastRef.value.addToast('密码修改成功', 'success')
+      }
+    } else {
+      const errorData = await response.json()
+      if (toastRef.value) {
+        toastRef.value.addToast(errorData.error || '密码修改失败', 'error')
+      }
+    }
+  } catch (error) {
+    console.error('Error changing password:', error)
+    if (toastRef.value) {
+      toastRef.value.addToast('网络错误，请稍后再试', 'error')
+    }
+  }
+}
+
+// 显示删除确认弹窗
+function showDeleteModal(adminId) {
+  deletingAdminId.value = adminId
+  showDeleteModalVisible.value = true
+}
+
+// 确认删除管理员
+async function confirmDeleteAdmin() {
+  if (!deletingAdminId.value) return
+  
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${deletingAdminId.value}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -188,7 +382,7 @@ async function handleDeleteAdmin(adminId) {
     })
     
     if (response.ok) {
-      admins.value = admins.value.filter(u => u.id !== adminId)
+      admins.value = admins.value.filter(u => u.id !== deletingAdminId.value)
       if (toastRef.value) {
         toastRef.value.addToast('删除管理员成功', 'success')
       }
@@ -203,7 +397,16 @@ async function handleDeleteAdmin(adminId) {
     if (toastRef.value) {
       toastRef.value.addToast('网络错误，请稍后再试', 'error')
     }
+  } finally {
+    showDeleteModalVisible.value = false
+    deletingAdminId.value = null
   }
+}
+
+// 取消删除管理员
+function cancelDeleteAdmin() {
+  showDeleteModalVisible.value = false
+  deletingAdminId.value = null
 }
 
 function handleLogout() {

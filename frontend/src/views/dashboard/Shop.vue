@@ -21,6 +21,10 @@
             :message="buyModalMessage"
             confirm-text="确认购买"
             cancel-text="取消"
+            :showQuantity="true"
+            :unitPrice="currentItem?.price || 0"
+            :initialQuantity="buyQuantity"
+            :maxQuantity="maxBuyQuantity"
             @confirm="handleBuyConfirm"
             @cancel="showBuyModalVisible = false"
         />
@@ -39,6 +43,8 @@ const showBuyModalVisible = ref(false)
 const currentItem = ref(null)
 const buyModalMessage = ref('')
 const shopItems = ref([])
+const buyQuantity = ref(1)
+const maxBuyQuantity = ref(99)
 
 // 从后端API获取植物数据
 async function loadShopItems() {
@@ -56,6 +62,7 @@ async function loadShopItems() {
             name: `${plant.icon} ${plant.name}`,
             price: plant.price,
             icon: plant.icon,
+            plants_role: plant.plants_role || 'seed',
             sellPrice: plant.price * 2 // 假设售价是价格的两倍
         }))
     } catch (error) {
@@ -83,18 +90,37 @@ function addToast(message, type = 'info') {
 
 function showBuyModal(item) {
     currentItem.value = item
-    buyModalMessage.value = `购买 ${item.name}？\n价格：${item.price} 积分`
+    buyQuantity.value = 1
+    maxBuyQuantity.value = Math.max(1, Math.floor(userStore.points / item.price))
+    buyModalMessage.value = `购买 ${item.name}？`
     showBuyModalVisible.value = true
 }
 
-function handleBuyConfirm() {
+function handleBuyConfirm(quantity) {
     if (currentItem.value) {
         const item = currentItem.value
-        userStore.addSeed(item.rarity, item.price).then(result => {
+        const totalPrice = item.price * quantity
+        let addMethod
+        
+        if (item.plants_role === 'use') {
+            addMethod = userStore.addUse
+        } else {
+            addMethod = userStore.addSeed
+        }
+        
+        if (userStore.points < totalPrice) {
+            const neededPoints = totalPrice - userStore.points
+            addToast(`💔 积分不足，还需要 ${neededPoints} 积分`, 'error')
+            showBuyModalVisible.value = false
+            currentItem.value = null
+            return
+        }
+        
+        addMethod(item.rarity, totalPrice).then(result => {
             if (result) {
-                addToast(`🎉 购买成功！获得 ${item.name}`, 'success')
+                addToast(`🎉 购买成功！获得 ${item.name} x${quantity}`, 'success')
             } else {
-                addToast(`💔 积分不足，还需要 ${item.price - userStore.points} 积分`, 'error')
+                addToast(`💔 购买失败，请稍后再试`, 'error')
             }
             showBuyModalVisible.value = false
             currentItem.value = null

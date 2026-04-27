@@ -55,7 +55,8 @@ const computedOrders = computed(() => {
 const orderTypeMap = {
   PURCHASE_SEED: '购买种子',
   SELL_SEED: '卖出种子',
-  SELL_CROP: '卖出作物'
+  SELL_CROP: '卖出作物',
+  PURCHASE_USE: '购买肥料'
 }
 
 // 获取订单类型文本
@@ -72,6 +73,8 @@ function orderTypeClass(type) {
       return 'type-sell'
     case 'SELL_CROP':
       return 'type-sell'
+    case 'PURCHASE_USE':
+      return 'type-purchase'
     default:
       return ''
   }
@@ -268,7 +271,7 @@ onUnmounted(() => {
 }
 
 .type-purchase {
-  background: #e3f2fd;
+  background: rgba(25, 118, 210, 0.2);
   color: #1976d2;
 }
 

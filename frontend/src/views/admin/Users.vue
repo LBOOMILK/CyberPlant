@@ -30,10 +30,12 @@
               <td>{{ user.points || 0 }}</td>
               <td>{{ user.created_at }}</td>
               <td>
-                <button class="edit-btn" @click="openEditModal(user)">编辑</button>
-                <button class="edit-btn" @click="() => openBackpackModal(user)">背包</button>
-                <button class="edit-btn" @click="openPasswordModal(user)">修改密码</button>
-                <button class="delete-btn" @click="handleDeleteUser(user.id)">删除</button>
+                <div class="action-buttons">
+                  <button class="edit-btn" @click="openEditModal(user)">编辑</button>
+                  <button class="edit-btn" @click="() => openBackpackModal(user)">背包</button>
+                  <button class="edit-btn" @click="openPasswordModal(user)">修改密码</button>
+                  <button class="delete-btn" @click="showDeleteModal(user.id)">删除</button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -231,6 +233,19 @@
           </form>
         </div>
       </div>
+      
+      <!-- 删除确认弹窗 -->
+      <div v-if="showDeleteModalVisible" class="modal-overlay" @click.self="cancelDeleteUser">
+        <div class="modal-content">
+          <h3>⚠️ 删除用户</h3>
+          <p>确定要删除这个用户吗？</p>
+          <p class="warning-text">删除用户无法找回，且其所有数据将被清除。</p>
+          <div class="modal-actions">
+            <button class="cancel-btn" @click="cancelDeleteUser">取消</button>
+            <button class="confirm-btn" @click="confirmDeleteUser">确定删除</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -264,6 +279,8 @@ const showNewPassword = ref(false)
 const showBackpackModal = ref(false)
 const showAddSeedModal = ref(false)
 const showAddCropModal = ref(false)
+const showDeleteModalVisible = ref(false)
+const deletingUserId = ref(null)
 const backpackUser = ref(null)
 const backpackTab = ref('seeds')
 const newSeed = ref({ rarity: 'C' })
@@ -450,13 +467,19 @@ async function handleEditUser() {
   }
 }
 
-// 处理删除用户
-async function handleDeleteUser(userId) {
-  if (!confirm('确定要删除这个用户吗？')) return
+// 显示删除确认弹窗
+function showDeleteModal(userId) {
+  deletingUserId.value = userId
+  showDeleteModalVisible.value = true
+}
+
+// 确认删除用户
+async function confirmDeleteUser() {
+  if (!deletingUserId.value) return
   
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${userId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${deletingUserId.value}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -464,7 +487,7 @@ async function handleDeleteUser(userId) {
     })
     
     if (response.ok) {
-      users.value = users.value.filter(u => u.id !== userId)
+      users.value = users.value.filter(u => u.id !== deletingUserId.value)
       if (toastRef.value) {
         toastRef.value.addToast('删除用户成功', 'success')
       }
@@ -479,7 +502,16 @@ async function handleDeleteUser(userId) {
     if (toastRef.value) {
       toastRef.value.addToast('网络错误，请稍后再试', 'error')
     }
+  } finally {
+    showDeleteModalVisible.value = false
+    deletingUserId.value = null
   }
+}
+
+// 取消删除用户
+function cancelDeleteUser() {
+  showDeleteModalVisible.value = false
+  deletingUserId.value = null
 }
 
 // 打开修改密码弹窗
@@ -543,10 +575,6 @@ function handleLogout() {
 function formatUserId(id) {
   // 确保ID是字符串
   const idStr = String(id)
-  // 如果ID以1开头，显示第二位数字
-  if (idStr.startsWith('1')) {
-    return idStr[1] || idStr
-  }
   return idStr
 }
 
@@ -1075,6 +1103,12 @@ onMounted(() => {
   background: #d32f2f;
 }
 
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .admin-page {
@@ -1156,6 +1190,11 @@ onMounted(() => {
   
   .confirm-btn:hover {
     background: #2e7d32;
+  }
+
+  .action-buttons {
+    flex-wrap: wrap;
+    gap: 6px;
   }
 }
 
