@@ -673,17 +673,20 @@ function formatDate(dateString) {
   return date.toLocaleString()
 }
 
+const MAX_ITEM_COUNT = 999
+
 function updateSeedQuantity(rarity, delta) {
   if (backpackUser.value && backpackUser.value.seeds) {
-    const newValue = (backpackUser.value.seeds[rarity] || 0) + delta
-    backpackUser.value.seeds[rarity] = Math.max(0, newValue)
+    const currentValue = backpackUser.value.seeds[rarity] || 0
+    const newValue = currentValue + delta
+    backpackUser.value.seeds[rarity] = Math.min(Math.max(0, newValue), MAX_ITEM_COUNT)
   }
 }
 
 function handleSeedInput(rarity, event) {
   const value = parseInt(event.target.value) || 0
   if (backpackUser.value && backpackUser.value.seeds) {
-    backpackUser.value.seeds[rarity] = Math.max(0, value)
+    backpackUser.value.seeds[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
   }
 }
 
@@ -697,44 +700,46 @@ function handleSeedBlur(rarity, event) {
 
 function updateCropQuantity(rarity, delta) {
   if (backpackUser.value && backpackUser.value.crops) {
-    const newValue = (backpackUser.value.crops[rarity] || 0) + delta
-    backpackUser.value.crops[rarity] = Math.max(0, newValue)
+    const currentValue = backpackUser.value.crops[rarity] || 0
+    const newValue = currentValue + delta
+    backpackUser.value.crops[rarity] = Math.min(Math.max(0, newValue), MAX_ITEM_COUNT)
   }
 }
 
 function handleCropInput(rarity, event) {
   const value = parseInt(event.target.value) || 0
   if (backpackUser.value && backpackUser.value.crops) {
-    backpackUser.value.crops[rarity] = Math.max(0, value)
+    backpackUser.value.crops[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
   }
 }
 
 function handleCropBlur(rarity, event) {
   const value = parseInt(event.target.value) || 0
   if (backpackUser.value && backpackUser.value.crops) {
-    backpackUser.value.crops[rarity] = Math.max(0, value)
+    backpackUser.value.crops[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
     event.target.value = backpackUser.value.crops[rarity]
   }
 }
 
 function updateUseQuantity(rarity, delta) {
   if (backpackUser.value && backpackUser.value.uses) {
-    const newValue = (backpackUser.value.uses[rarity] || 0) + delta
-    backpackUser.value.uses[rarity] = Math.max(0, newValue)
+    const currentValue = backpackUser.value.uses[rarity] || 0
+    const newValue = currentValue + delta
+    backpackUser.value.uses[rarity] = Math.min(Math.max(0, newValue), MAX_ITEM_COUNT)
   }
 }
 
 function handleUseInput(rarity, event) {
   const value = parseInt(event.target.value) || 0
   if (backpackUser.value && backpackUser.value.uses) {
-    backpackUser.value.uses[rarity] = Math.max(0, value)
+    backpackUser.value.uses[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
   }
 }
 
 function handleUseBlur(rarity, event) {
   const value = parseInt(event.target.value) || 0
   if (backpackUser.value && backpackUser.value.uses) {
-    backpackUser.value.uses[rarity] = Math.max(0, value)
+    backpackUser.value.uses[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
     event.target.value = backpackUser.value.uses[rarity]
   }
 }

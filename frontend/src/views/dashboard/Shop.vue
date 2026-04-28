@@ -131,16 +131,28 @@ function showBuyModal(item) {
     showBuyModalVisible.value = true
 }
 
+const MAX_ITEM_COUNT = 999
+
 function handleBuyConfirm(quantity) {
     if (currentItem.value) {
         const item = currentItem.value
         const totalPrice = item.price * quantity
         let addMethod
+        let currentCount = 0
         
         if (item.plants_role === 'use') {
             addMethod = userStore.addUse
+            currentCount = userStore.uses[item.rarity] || 0
         } else {
             addMethod = userStore.addSeed
+            currentCount = userStore.seeds[item.rarity] || 0
+        }
+        
+        if (currentCount + quantity > MAX_ITEM_COUNT) {
+            addToast(`💔 该物品持有数量已达上限(${MAX_ITEM_COUNT})，无法继续购买`, 'error')
+            showBuyModalVisible.value = false
+            currentItem.value = null
+            return
         }
         
         if (userStore.points < totalPrice) {

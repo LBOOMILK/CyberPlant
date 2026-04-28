@@ -348,8 +348,19 @@ function showHarvestModal() {
     showHarvestModalVisible.value = true
 }
 
+const MAX_ITEM_COUNT = 999
+
 async function handleHarvestConfirm() {
     if (!hasPlant.value || !isMature.value || plant.value.dead) return
+    
+    // 检查作物数量是否已达上限
+    const cropRarity = plant.value.rarity || 'C'
+    const currentCropCount = userStore.crops[cropRarity] || 0
+    if (currentCropCount >= MAX_ITEM_COUNT) {
+        addToast(`💔 背包中${rarityConfig[cropRarity].cropName}已达上限(${MAX_ITEM_COUNT})，请先清理背包再收获`, 'error')
+        showHarvestModalVisible.value = false
+        return
+    }
     
     try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/harvest`, {

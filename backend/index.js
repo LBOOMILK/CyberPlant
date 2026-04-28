@@ -792,10 +792,12 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (typeof processedSeeds !== 'object' || processedSeeds === null || Array.isArray(processedSeeds)) {
       processedSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
     } else {
-      // 确保所有稀有度都有值
+      // 确保所有稀有度都有值，并限制数量不超过最大值
       for (const rarity of requiredRarities) {
         if (processedSeeds[rarity] === undefined) {
           processedSeeds[rarity] = 0;
+        } else {
+          processedSeeds[rarity] = Math.min(Math.max(0, parseInt(processedSeeds[rarity]) || 0), MAX_ITEM_COUNT);
         }
       }
     }
@@ -804,10 +806,12 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (typeof processedCrops !== 'object' || processedCrops === null || Array.isArray(processedCrops)) {
       processedCrops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
     } else {
-      // 确保所有稀有度都有值
+      // 确保所有稀有度都有值，并限制数量不超过最大值
       for (const rarity of requiredRarities) {
         if (processedCrops[rarity] === undefined) {
           processedCrops[rarity] = 0;
+        } else {
+          processedCrops[rarity] = Math.min(Math.max(0, parseInt(processedCrops[rarity]) || 0), MAX_ITEM_COUNT);
         }
       }
     }
@@ -816,10 +820,12 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (typeof processedUses !== 'object' || processedUses === null || Array.isArray(processedUses)) {
       processedUses = { C: 0, B: 0, A: 0, S: 0 };
     } else {
-      // 确保所有稀有度都有值
+      // 确保所有稀有度都有值，并限制数量不超过最大值
       for (const rarity of useRarities) {
         if (processedUses[rarity] === undefined) {
           processedUses[rarity] = 0;
+        } else {
+          processedUses[rarity] = Math.min(Math.max(0, parseInt(processedUses[rarity]) || 0), MAX_ITEM_COUNT);
         }
       }
     }
@@ -1290,6 +1296,8 @@ app.get('/api/user/sell-price', authenticateToken, async (req, res) => {
 });
 
 // 购买种子（包含积分扣除和订单创建）
+const MAX_ITEM_COUNT = 999;
+
 app.post('/api/user/seeds', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1327,9 +1335,16 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
       // 确保seeds字段是对象
       const currentSeeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
       
+      // 检查数量是否超过上限
+      const currentCount = currentSeeds[rarity] || 0;
+      if (currentCount + buyQuantity > MAX_ITEM_COUNT) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `种子数量已达上限(${MAX_ITEM_COUNT})` });
+      }
+      
       // 增加对应稀有度的数量
       const updatedSeeds = { ...currentSeeds };
-      updatedSeeds[rarity] = (updatedSeeds[rarity] || 0) + buyQuantity;
+      updatedSeeds[rarity] = currentCount + buyQuantity;
       
       // 扣除积分
       const updatedPoints = user.points - totalPrice;
@@ -1399,6 +1414,13 @@ app.post('/api/user/uses', authenticateToken, async (req, res) => {
       let currentUses = user.uses;
       if (typeof currentUses !== 'object' || currentUses === null || Array.isArray(currentUses)) {
         currentUses = {};
+      }
+      
+      // 检查数量是否超过上限
+      const currentCount = currentUses[rarity] || 0;
+      if (currentCount + buyQuantity > MAX_ITEM_COUNT) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `肥料数量已达上限(${MAX_ITEM_COUNT})` });
       }
 
       // 增加对应稀有度的数量
@@ -2116,6 +2138,14 @@ app.post('/api/garden/harvest', authenticateToken, async (req, res) => {
       
       const user = userResult.rows[0];
       const crops = typeof user.crops === 'object' && user.crops !== null ? user.crops : {};
+      
+      // 检查作物数量是否超过上限
+      const cropRarity = garden.rarity || 'C';
+      const currentCropCount = crops[cropRarity] || 0;
+      if (currentCropCount >= MAX_ITEM_COUNT) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `背包中${cropRarity}级作物已达上限(${MAX_ITEM_COUNT})，请先清理背包再收获` });
+      }
       
       // 添加作物到背包
       const updatedCrops = { ...crops };
