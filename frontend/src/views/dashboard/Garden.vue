@@ -725,7 +725,7 @@ h1 {
     justify-content: space-between;
     padding: 10px 0;
     border-bottom: 1px solid #e9dbbc;
-    height: 33px;
+    height: 50px;
 }
 
 .info-row:last-child {
