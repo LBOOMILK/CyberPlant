@@ -775,16 +775,18 @@ app.get('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, role, points, seeds, crops, password } = req.body;
+    const { name, email, role, points, seeds, crops, uses, password } = req.body;
     
     if (!email) {
       return res.status(400).json({ error: '请填写邮箱' });
     }
     
-    // 确保seeds和crops始终是对象
+    // 确保seeds、crops和uses始终是对象
     const requiredRarities = ['C', 'B', 'A', 'S', 'SSS'];
+    const useRarities = ['C', 'B', 'A', 'S'];
     let processedSeeds = seeds || {};
     let processedCrops = crops || {};
+    let processedUses = uses || {};
     
     // 处理seeds字段
     if (typeof processedSeeds !== 'object' || processedSeeds === null || Array.isArray(processedSeeds)) {
@@ -810,8 +812,20 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
       }
     }
     
-    let query = 'UPDATE users SET name = $1, email = $2, role = $3, points = $4, seeds = $5, crops = $6';
-    let params = [name || email.split('@')[0], email, role || 'user', points || 0, processedSeeds, processedCrops, id];
+    // 处理uses字段
+    if (typeof processedUses !== 'object' || processedUses === null || Array.isArray(processedUses)) {
+      processedUses = { C: 0, B: 0, A: 0, S: 0 };
+    } else {
+      // 确保所有稀有度都有值
+      for (const rarity of useRarities) {
+        if (processedUses[rarity] === undefined) {
+          processedUses[rarity] = 0;
+        }
+      }
+    }
+    
+    let query = 'UPDATE users SET name = $1, email = $2, role = $3, points = $4, seeds = $5, crops = $6, uses = $7';
+    let params = [name || email.split('@')[0], email, role || 'user', points || 0, processedSeeds, processedCrops, processedUses, id];
     
     if (password) {
       // 哈希密码
