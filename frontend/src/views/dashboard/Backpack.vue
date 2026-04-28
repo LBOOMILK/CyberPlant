@@ -7,10 +7,10 @@
                 🌱 种子 ({{ userStore.seedCount }})
             </button>
             <button :class="{ active: activeTab === 'crops' }" @click="activeTab = 'crops'">
-                🌾 作物 ({{ userStore.cropCount }})
+                🍚 作物 ({{ userStore.cropCount }})
             </button>
             <button :class="{ active: activeTab === 'uses' }" @click="activeTab = 'uses'">
-                📦 可使用物品 ({{ userStore.useCount }})
+                💩 肥料 ({{ userStore.useCount }})
             </button>
         </div>
 
@@ -133,7 +133,7 @@
             </div>
         </div>
 
-        <!-- 可使用物品列表 -->
+        <!-- 肥料列表 -->
         <div v-else-if="activeTab === 'uses'" class="items-grid">
             <div class="item-card" v-if="userStore.groupedUses.C > 0">
                 <div class="item-icon">{{ useIcon('C') }}</div>
@@ -311,17 +311,17 @@ async function loadPrices() {
 }
 
 function seedIcon(rarity) {
-    const icons = { C: '🌱', B: '🍃', A: '🌿', S: '🌺', SSS: '✨' }
+    const icons = { C: '🌱', B: '🌾', A: '🌿', S: '🌺', SSS: '✨' }
     return icons[rarity] || '🌱'
 }
 
 function cropIcon(rarity) {
-    const icons = { C: '🌾', B: '🍚', A: '🌻', S: '🏵️', SSS: '👑' }
-    return icons[rarity] || '🌾'
+    const icons = { C: '🍃', B: '🍚', A: '🌻', S: '🏵️', SSS: '👑' }
+    return icons[rarity] || '🍚'
 }
 
 function useIcon(rarity) {
-    const icons = { C: '💩', B: '🧪', A: '⚗️', S: '🌟', SSS: '💎' }
+    const icons = { C: '💩', B: '🧪', A: '⚗️', S: '🌟' }
     return icons[rarity] || '💩'
 }
 

@@ -105,7 +105,7 @@
               <label for="edit-plants_role">商品类型</label>
               <select id="edit-plants_role" v-model="currentPlant.plants_role" required>
                 <option value="seed">种子</option>
-                <option value="use">可使用物品</option>
+                <option value="use">肥料</option>
               </select>
             </div>
             <div class="form-group">
