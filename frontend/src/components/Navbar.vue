@@ -95,11 +95,13 @@ onUnmounted(() => {
     min-height: 100vh;
     position: relative;
     background: transparent;
+    overflow-y: visible;
 }
 
 .main-content {
     min-height: 100vh;
     width: 100%;
+    overflow-y: visible;
 }
 
 /* ========== 移动端底部导航栏样式 ========== */
