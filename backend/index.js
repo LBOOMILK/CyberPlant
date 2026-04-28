@@ -1693,10 +1693,13 @@ app.delete('/api/user/crops/:rarity', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { rarity } = req.params;
-    const { quantity, price } = req.body || { quantity: 1, price: 0 };
+    const { quantity } = req.body || { quantity: 1 };
     
-    if (!price) {
-      return res.status(400).json({ error: '请提供作物价格' });
+    // 后端自己计算卖出价格，不依赖前端传入
+    const price = await calculateSellPrice('crop', rarity);
+    
+    if (!price || price <= 0) {
+      return res.status(400).json({ error: '无法计算作物价格' });
     }
     
     // 确保userId是字符串类型
@@ -1736,7 +1739,7 @@ app.delete('/api/user/crops/:rarity', authenticateToken, async (req, res) => {
         updatedCrops[rarity] = 0;
       }
       
-      // 计算增加的积分
+      // 计算增加的积分（使用后端计算的价格）
       const totalPrice = price * quantity;
       const updatedPoints = (user.points || 0) + totalPrice;
       
