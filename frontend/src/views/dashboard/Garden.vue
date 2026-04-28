@@ -228,9 +228,9 @@ async function loadPlant() {
         
         const data = await response.json()
         
-        if (data.hasPlant) {
+        if (data.hasPlant && data.plant && data.plant.rarity) {
             plant.value = {
-                name: `${rarityConfig[data.plant.rarity].name}`,
+                name: `${rarityConfig[data.plant.rarity]?.name || '未知植物'}`,
                 rarity: data.plant.rarity,
                 stageIdx: data.plant.stage - 1, // 后端stage从1开始，前端从0开始
                 lastWatered: new Date(data.plant.lastWateredAt).getTime(),
@@ -928,26 +928,35 @@ footer {
     background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
     border: 2px solid #4caf50;
     box-shadow: 0 0 40px rgba(76, 175, 80, 0.4);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
 }
 
 .confirm-modal h3 {
-    color: #1b5e20;
-    margin-top: 0;
+    color: #bac52b;
+    margin: 0 0 10px 0;
+    font-size: 1.2rem;
+    line-height: 30px;
+    height: 31px;
+    padding-right: 10px;
 }
 
 .confirm-modal p {
     white-space: pre-line;
-    color: #2e7d32;
+    color: #509a47;
     font-size: 1rem;
     line-height: 1.6;
+    margin: 0 0 20px 0;
 }
 
 .modal-actions {
     display: flex;
+    gap: 12px;
     justify-content: center;
     align-items: center;
-    gap: 16px;
-    margin-top: 0px;
 }
 
 .modal-actions .cancel-btn,
@@ -961,17 +970,37 @@ footer {
     font-weight: normal;
     height: 42px;
     box-sizing: border-box;
+    transition: all 0.2s ease;
 }
 
 .modal-actions .cancel-btn {
-    background: #ccc;
+    background: #e0e0e0;
     color: #333;
-    margin-top: 0px;
+}
+
+.modal-actions .cancel-btn:hover {
+    background: #d0d0d0;
 }
 
 .modal-actions .confirm-btn {
     background: #4caf50;
     color: white;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.6), 0 0 30px rgba(76, 175, 80, 0.4);
+    animation: pulse-green 2s infinite;
+}
+
+.modal-actions .confirm-btn:hover {
+    background: #388e3c;
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.8), 0 0 40px rgba(76, 175, 80, 0.5);
+}
+
+@keyframes pulse-green {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(76, 175, 80, 0.6), 0 0 30px rgba(76, 175, 80, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(76, 175, 80, 0.8), 0 0 45px rgba(76, 175, 80, 0.6);
+    }
 }
 
 /* 深色模式 */

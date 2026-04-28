@@ -268,7 +268,7 @@ const groupedUses = computed(() => {
     }
   }
 
-  async function removeSeed(rarity) {
+  async function removeSeed(rarity, quantity = 1) {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
@@ -279,7 +279,7 @@ const groupedUses = computed(() => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ quantity: 1 })
+          body: JSON.stringify({ quantity: quantity })
         })
         
         if (response.ok) {
@@ -295,15 +295,16 @@ const groupedUses = computed(() => {
         }
       } else {
         // 本地模式（无token）
-        const sellPrice = rarityConfig[rarity]?.buyPrice ? Math.floor(rarityConfig[rarity].buyPrice * 0.5) : 0
-        if (seeds.value[rarity] > 0) {
-          seeds.value[rarity]--
-          if (seeds.value[rarity] === 0) {
-            delete seeds.value[rarity]
+        const unitPrice = rarityConfig[rarity]?.buyPrice ? Math.floor(rarityConfig[rarity].buyPrice * 0.5) : 0
+        const totalPrice = unitPrice * quantity
+        if (seeds.value[rarity] >= quantity) {
+          seeds.value[rarity] -= quantity
+          if (seeds.value[rarity] <= 0) {
+            seeds.value[rarity] = 0
           }
-          points.value += sellPrice
+          points.value += totalPrice
           saveToLocalStorage()
-          return { success: true, price: sellPrice }
+          return { success: true, price: totalPrice }
         }
         return { success: false }
       }
@@ -313,9 +314,9 @@ const groupedUses = computed(() => {
     }
   }
 
-  async function sellSeed(rarity) {
-    if (seeds.value[rarity] > 0) {
-      const result = await removeSeed(rarity)
+  async function sellSeed(rarity, quantity = 1) {
+    if (seeds.value[rarity] >= quantity) {
+      const result = await removeSeed(rarity, quantity)
       if (result.success) {
         saveToLocalStorage()
         return { success: true, price: result.price }
@@ -360,7 +361,7 @@ const groupedUses = computed(() => {
     }
   }
 
-  async function removeCrop(rarity, price = 0) {
+  async function removeCrop(rarity, price = 0, quantity = 1) {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
@@ -370,7 +371,7 @@ const groupedUses = computed(() => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ quantity: 1, price })
+          body: JSON.stringify({ quantity: quantity, price })
         })
         
         if (response.ok) {
@@ -383,13 +384,13 @@ const groupedUses = computed(() => {
       }
       
       // API失败时使用本地删除
-      if (crops.value[rarity] > 0) {
-        crops.value[rarity]--
-        if (crops.value[rarity] === 0) {
-          delete crops.value[rarity]
+      if (crops.value[rarity] >= quantity) {
+        crops.value[rarity] -= quantity
+        if (crops.value[rarity] <= 0) {
+          crops.value[rarity] = 0
         }
         if (price) {
-          points.value += price
+          points.value += price * quantity
         }
         saveToLocalStorage()
         return true
@@ -413,14 +414,14 @@ const groupedUses = computed(() => {
     }
   }
 
-  async function sellCrop(rarity) {
-    if (crops.value[rarity] > 0) {
+  async function sellCrop(rarity, quantity = 1) {
+    if (crops.value[rarity] >= quantity) {
       const priceData = await getSellPrice('crop', rarity)
       if (!priceData || !priceData.sellPrice) {
         console.error('Failed to get crop sell price')
         return { success: false }
       }
-      const success = await removeCrop(rarity, priceData.sellPrice)
+      const success = await removeCrop(rarity, priceData.sellPrice, quantity)
       if (success) {
         saveToLocalStorage()
         return { success: true, price: priceData.sellPrice }
@@ -430,7 +431,7 @@ const groupedUses = computed(() => {
     return { success: false }
   }
 
-  async function removeUse(rarity) {
+  async function removeUse(rarity, quantity = 1) {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
@@ -441,7 +442,7 @@ const groupedUses = computed(() => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ quantity: 1 })
+          body: JSON.stringify({ quantity: quantity })
         })
         
         if (response.ok) {
@@ -457,15 +458,16 @@ const groupedUses = computed(() => {
         }
       } else {
         // 本地模式（无token）
-        const sellPrice = fertilizerConfig[rarity]?.price ? Math.floor(fertilizerConfig[rarity].price * 0.5) : 0
-        if (uses.value[rarity] > 0) {
-          uses.value[rarity]--
-          if (uses.value[rarity] === 0) {
-            delete uses.value[rarity]
+        const unitPrice = fertilizerConfig[rarity]?.price ? Math.floor(fertilizerConfig[rarity].price * 0.5) : 0
+        const totalPrice = unitPrice * quantity
+        if (uses.value[rarity] >= quantity) {
+          uses.value[rarity] -= quantity
+          if (uses.value[rarity] <= 0) {
+            uses.value[rarity] = 0
           }
-          points.value += sellPrice
+          points.value += totalPrice
           saveToLocalStorage()
-          return { success: true, price: sellPrice }
+          return { success: true, price: totalPrice }
         }
         return { success: false }
       }
@@ -476,9 +478,9 @@ const groupedUses = computed(() => {
   }
 
   // 卖出可使用物品
-  async function sellUse(rarity) {
-    if (uses.value[rarity] > 0) {
-      const result = await removeUse(rarity)
+  async function sellUse(rarity, quantity = 1) {
+    if (uses.value[rarity] >= quantity) {
+      const result = await removeUse(rarity, quantity)
       if (result.success) {
         saveToLocalStorage()
         return { success: true, price: result.price }

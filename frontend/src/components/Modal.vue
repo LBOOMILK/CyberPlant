@@ -6,6 +6,9 @@
       </div>
       <div class="modal-body">
         <p class="modal-message">{{ message }}</p>
+        <div v-if="warningMessage" class="warning-message">
+          ⚠️ {{ warningMessage }}
+        </div>
         <div v-if="showQuantity" class="quantity-section">
           <div class="quantity-selector">
             <button @click="decreaseQuantity" class="quantity-btn" :disabled="quantity <= 1">-</button>
@@ -26,7 +29,7 @@
       </div>
       <div class="modal-footer">
         <button class="cancel-btn" @click="handleCancel">{{ cancelText }}</button>
-        <button class="confirm-btn" @click="handleConfirm">{{ confirmText }}</button>
+        <button :class="['confirm-btn', { 'confirm-btn-danger': danger }]" @click="handleConfirm">{{ confirmText }}</button>
       </div>
     </div>
   </div>
@@ -71,6 +74,14 @@ const props = defineProps({
   maxQuantity: {
     type: Number,
     default: 99
+  },
+  danger: {
+    type: Boolean,
+    default: false
+  },
+  warningMessage: {
+    type: String,
+    default: ''
   }
 })
 
@@ -150,17 +161,18 @@ function handleCancel() {
   color: #2c5a2a;
   margin: 0 0 16px 0;
   font-size: 1.2rem;
+  padding-right: 10px;
 }
 
 .modal-body {
   padding: 0;
-  margin: 0;
+  margin: 0 0 20px 0;
 }
 
 .modal-message {
   color: #555;
   font-size: 1rem;
-  margin: 0 0 20px 0;
+  margin: 0 0 12px 0;
   line-height: 1.6;
   text-align: center;
 }
@@ -197,6 +209,38 @@ function handleCancel() {
 
 .confirm-btn:hover {
   background: #1b5e20;
+}
+
+.confirm-btn-danger {
+  background: #d32f2f;
+  box-shadow: 0 0 15px rgba(211, 47, 47, 0.6), 0 0 30px rgba(211, 47, 47, 0.4);
+  animation: pulse-danger 2s infinite;
+}
+
+.confirm-btn-danger:hover {
+  background: #c62828;
+  box-shadow: 0 0 20px rgba(211, 47, 47, 0.8), 0 0 40px rgba(211, 47, 47, 0.5);
+}
+
+.warning-message {
+  background: rgba(255, 193, 7, 0.15);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+  margin-bottom: 8px;
+  color: #8d6e63;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+@keyframes pulse-danger {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(211, 47, 47, 0.6), 0 0 30px rgba(211, 47, 47, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(211, 47, 47, 0.8), 0 0 45px rgba(211, 47, 47, 0.6);
+  }
 }
 
 .quantity-section {
@@ -257,6 +301,16 @@ function handleCancel() {
 .quantity-input:focus {
   outline: none;
   border-color: #2e7d32;
+}
+
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.quantity-input[type=number] {
+  -moz-appearance: textfield;
 }
 
 .total-price {
