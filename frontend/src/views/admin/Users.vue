@@ -1333,6 +1333,8 @@ onMounted(() => {
   font-weight: bold;
   outline: none;
   transition: border-color 0.2s ease;
+  background-color: rgba(0, 0, 0, 0.3);
+  color: #39b620;
 }
 
 .quantity-input:focus {
