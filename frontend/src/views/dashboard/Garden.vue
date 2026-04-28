@@ -46,6 +46,9 @@
                 <button class="grid-btn water-btn" @click="waterPlant" :disabled="!hasPlant || plant.dead">
                     💧 浇水
                 </button>
+                <button class="grid-btn fertilize-btn" @click="openFertilizeDialog" :disabled="!canFertilize">
+                    🧪 施肥
+                </button>
                 <button class="grid-btn harvest-btn" @click="showHarvestModal"
                     :disabled="!hasPlant || !isMature || plant.dead">
                     🏆 收获
@@ -81,6 +84,25 @@
             </div>
         </div>
         
+        <!-- 施肥弹窗 -->
+        <div v-if="showFertilizeDialog" class="modal-overlay" @click.self="closeFertilizeDialog">
+            <div class="modal-content">
+                <h3>🧪 选择肥料</h3>
+                <div v-if="userStore.useCount === 0" class="empty-seeds">
+                    <p>背包里没有肥料</p>
+                    <button @click="closeFertilizeDialog" class="close-modal-btn">去商城购买</button>
+                </div>
+                <div v-else class="seeds-list">
+                    <div v-for="(quantity, rarity) in userStore.groupedUses" :key="rarity" class="seed-item" @click="handleFertilize(rarity)">
+                        <span :class="['seed-rarity', `rarity-${rarity}`]">{{ rarity }} ({{ quantity }})</span>
+                        <span class="seed-name">{{ userStore.fertilizerConfig[rarity].name }}</span>
+                        <span class="seed-price">🌿 加速成长</span>
+                    </div>
+                </div>
+                <button @click="closeFertilizeDialog" class="cancel-btn">取消</button>
+            </div>
+        </div>
+        
         <!-- 收获确认弹窗 -->
         <Modal
             :visible="showHarvestModalVisible"
@@ -113,6 +135,18 @@
             @confirm="handlePlantConfirm"
             @cancel="showPlantConfirmModalVisible = false"
         />
+        
+        <!-- 施肥二次确认弹窗 -->
+        <div v-if="showFertilizeConfirmModal" class="modal-overlay confirm-overlay" @click.self="cancelFertilizeConfirm">
+            <div class="modal-content confirm-modal">
+                <h3>⚠️ 确认施肥</h3>
+                <p>{{ confirmMessage }}</p>
+                <div class="modal-actions">
+                    <button @click="cancelFertilizeConfirm" class="cancel-btn">取消</button>
+                    <button @click="confirmFertilize" class="confirm-btn">确认使用</button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -136,19 +170,31 @@ const MATURE_STAGE_INDEX = 4
 const plant = ref(null)
 const hasPlant = ref(false)
 const showPlantDialog = ref(false)
+const showFertilizeDialog = ref(false)
 const showHarvestModalVisible = ref(false)
 const showRemoveModalVisible = ref(false)
 const showPlantConfirmModalVisible = ref(false)
+const showFertilizeConfirmModal = ref(false)
 const currentSeed = ref(null)
 const toastRef = ref(null)
 const cooldownMsg = ref('')
 const lastWaterDisplay = ref('')
 const deathRemainHtml = ref('')
+const confirmMessage = ref('')
+const pendingFertilize = ref(null)
 
 let timer = null
 
 // 计算属性
 const isMature = computed(() => hasPlant.value && plant.value?.stageIdx === MATURE_STAGE_INDEX)
+const canFertilize = computed(() => {
+    return hasPlant.value && 
+           plant.value && 
+           !plant.value.dead && 
+           plant.value.stageIdx >= 0 && 
+           plant.value.stageIdx < MATURE_STAGE_INDEX && 
+           userStore.useCount > 0
+})
 const rarityConfig = userStore.rarityConfig
 const rarityName = computed(() => {
     if (!hasPlant.value) return ''
@@ -341,6 +387,87 @@ function openPlantDialog() {
 
 function closePlantDialog() {
     showPlantDialog.value = false
+}
+
+function openFertilizeDialog() {
+    showFertilizeDialog.value = true
+}
+
+function closeFertilizeDialog() {
+    showFertilizeDialog.value = false
+}
+
+async function handleFertilize(rarity) {
+    if (!hasPlant.value || !plant.value || plant.value.dead) return
+    
+    const fertilizerBoost = { C: 1, B: 2, A: 3, S: 4 }
+    const boost = fertilizerBoost[rarity]
+    
+    const stagesToMature = MATURE_STAGE_INDEX - plant.value.stageIdx
+    
+    if (boost > stagesToMature) {
+        confirmMessage.value = `当前植物距离成熟还需要 ${stagesToMature} 个阶段，\n您使用的${userStore.fertilizerConfig[rarity].name}将提升 ${boost} 个阶段，\n是否确认使用？`
+        pendingFertilize.value = { rarity }
+        showFertilizeConfirmModal.value = true
+        return
+    }
+    
+    await doFertilize(rarity)
+}
+
+async function doFertilize(rarity) {
+    if (!hasPlant.value || !plant.value || plant.value.dead) return
+    
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/fertilize`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ rarity })
+        })
+        
+        if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || '施肥失败')
+        }
+        
+        const data = await response.json()
+        
+        // 更新前端数据
+        plant.value.stageIdx = data.stage - 1 // 后端stage从1开始，前端从0开始
+        plant.value.lastWatered = Date.now()
+        
+        // 重新加载用户数据，更新背包
+        await userStore.loadFromLocal()
+        
+        if (plant.value.stageIdx === MATURE_STAGE_INDEX) {
+            addToast(`🎉 ${plant.value.name} 成熟了！可以收获了`, 'success')
+        } else {
+            addToast(`🧪 施肥成功！${plant.value.name} 成长了`, 'success')
+        }
+        
+        closeFertilizeDialog()
+    } catch (error) {
+        console.error('Failed to fertilize:', error)
+        addToast(error.message || '施肥失败，请稍后再试', 'error')
+    } finally {
+        await loadPlant()
+    }
+}
+
+function confirmFertilize() {
+    if (pendingFertilize.value) {
+        showFertilizeConfirmModal.value = false
+        doFertilize(pendingFertilize.value.rarity)
+        pendingFertilize.value = null
+    }
+}
+
+function cancelFertilizeConfirm() {
+    showFertilizeConfirmModal.value = false
+    pendingFertilize.value = null
 }
 
 function showPlantConfirmModal(seedGroup) {
@@ -764,6 +891,61 @@ footer {
 .empty-seeds {
     padding: 20px;
     color: #666;
+}
+
+/* 施肥二次确认弹窗样式 */
+.confirm-overlay {
+    z-index: 2000;
+}
+
+.confirm-modal {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border: 2px solid #4caf50;
+    box-shadow: 0 0 40px rgba(76, 175, 80, 0.4);
+}
+
+.confirm-modal h3 {
+    color: #1b5e20;
+    margin-top: 0;
+}
+
+.confirm-modal p {
+    white-space: pre-line;
+    color: #2e7d32;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 0px;
+}
+
+.modal-actions .cancel-btn,
+.modal-actions .confirm-btn {
+    padding: 10px 24px;
+    border-radius: 40px;
+    border: none;
+    cursor: pointer;
+    min-width: 100px;
+    font-size: 1rem;
+    font-weight: normal;
+    height: 42px;
+    box-sizing: border-box;
+}
+
+.modal-actions .cancel-btn {
+    background: #ccc;
+    color: #333;
+    margin-top: 0px;
+}
+
+.modal-actions .confirm-btn {
+    background: #4caf50;
+    color: white;
 }
 
 /* 深色模式 */

@@ -17,6 +17,31 @@ const client = new Client({
 });
 
 
+// 稀有度排序顺序：C < B < A < S < SSS
+const rarityOrder = ['C', 'B', 'A', 'S', 'SSS'];
+
+// 按稀有度排序对象（确保JSON字段按正确顺序存储）
+function sortByRarity(obj) {
+  const sorted = {};
+  for (const rarity of rarityOrder) {
+    if (obj[rarity] !== undefined) {
+      sorted[rarity] = obj[rarity];
+    }
+  }
+  return sorted;
+}
+
+// 过滤背包数据（只保留数量>0的物品）并按稀有度排序
+function filterAndSortBackpack(obj) {
+  const filtered = {};
+  for (const rarity of rarityOrder) {
+    if (obj[rarity] && obj[rarity] > 0) {
+      filtered[rarity] = obj[rarity];
+    }
+  }
+  return filtered;
+}
+
 // 生成用户ID的函数
 async function generateUserId(role) {
   if (role === 'admin') {
@@ -209,8 +234,7 @@ async function initDatabase() {
         ['普通肥料', '💩', 'C', 20, 'use'],
         ['稀有肥料', '🧪', 'B', 60, 'use'],
         ['史诗肥料', '⚗️', 'A', 100, 'use'],
-        ['传说肥料', '🌟', 'S', 200, 'use'],
-        ['神级肥料', '💎', 'SSS', 600, 'use']
+        ['传说肥料', '🌟', 'S', 200, 'use']
       ];
       
       for (const plant of plantData) {
@@ -390,42 +414,85 @@ app.post('/api/auth/login', async (req, res) => {
     await client.query('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
 
     // 确保用户背包数据格式正确
-    const requiredRarities = ['C', 'B', 'A', 'S', 'SSS'];
-    const defaultBackpack = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    const seedRarities = ['C', 'B', 'A', 'S', 'SSS'];
+    const useRarities = ['C', 'B', 'A', 'S']; // 肥料不包含SSS等级
+    const defaultSeedBackpack = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
+    const defaultUseBackpack = { C: 0, B: 0, A: 0, S: 0 };
 
-    // 初始化seeds字段
+    // 初始化seeds字段（确保按稀有度顺序存储）
     if (typeof user.seeds !== 'object' || user.seeds === null || Array.isArray(user.seeds)) {
-      user.seeds = { ...defaultBackpack };
+      user.seeds = { ...defaultSeedBackpack };
       await client.query('UPDATE users SET seeds = $1 WHERE id = $2', [user.seeds, user.id]);
     } else {
-      for (const rarity of requiredRarities) {
+      let needsUpdate = false;
+      for (const rarity of seedRarities) {
         if (user.seeds[rarity] === undefined) {
           user.seeds[rarity] = 0;
+          needsUpdate = true;
         }
+      }
+      // 检查是否需要排序
+      const originalKeys = Object.keys(user.seeds);
+      const sortedKeys = Object.keys(sortByRarity(user.seeds));
+      if (JSON.stringify(originalKeys) !== JSON.stringify(sortedKeys)) {
+        needsUpdate = true;
+      }
+      // 只有在需要更新时才操作数据库
+      if (needsUpdate) {
+        user.seeds = sortByRarity(user.seeds);
+        await client.query('UPDATE users SET seeds = $1 WHERE id = $2', [user.seeds, user.id]);
       }
     }
 
-    // 初始化crops字段
+    // 初始化crops字段（确保按稀有度顺序存储）
     if (typeof user.crops !== 'object' || user.crops === null || Array.isArray(user.crops)) {
-      user.crops = { ...defaultBackpack };
+      user.crops = { ...defaultSeedBackpack };
       await client.query('UPDATE users SET crops = $1 WHERE id = $2', [user.crops, user.id]);
     } else {
-      for (const rarity of requiredRarities) {
+      let needsUpdate = false;
+      for (const rarity of seedRarities) {
         if (user.crops[rarity] === undefined) {
           user.crops[rarity] = 0;
+          needsUpdate = true;
         }
+      }
+      const originalKeys = Object.keys(user.crops);
+      const sortedKeys = Object.keys(sortByRarity(user.crops));
+      if (JSON.stringify(originalKeys) !== JSON.stringify(sortedKeys)) {
+        needsUpdate = true;
+      }
+      if (needsUpdate) {
+        user.crops = sortByRarity(user.crops);
+        await client.query('UPDATE users SET crops = $1 WHERE id = $2', [user.crops, user.id]);
       }
     }
 
-    // 初始化uses字段
+    // 初始化uses字段（确保按稀有度顺序存储，肥料不包含SSS）
     if (typeof user.uses !== 'object' || user.uses === null || Array.isArray(user.uses)) {
-      user.uses = { ...defaultBackpack };
+      user.uses = { ...defaultUseBackpack };
       await client.query('UPDATE users SET uses = $1 WHERE id = $2', [user.uses, user.id]);
     } else {
-      for (const rarity of requiredRarities) {
+      let needsUpdate = false;
+      // 只初始化C/B/A/S四个等级，不包含SSS
+      for (const rarity of useRarities) {
         if (user.uses[rarity] === undefined) {
           user.uses[rarity] = 0;
+          needsUpdate = true;
         }
+      }
+      // 如果存在SSS等级的肥料，删除它
+      if (user.uses['SSS'] !== undefined) {
+        delete user.uses['SSS'];
+        needsUpdate = true;
+      }
+      const originalKeys = Object.keys(user.uses);
+      const sortedKeys = Object.keys(sortByRarity(user.uses));
+      if (JSON.stringify(originalKeys) !== JSON.stringify(sortedKeys)) {
+        needsUpdate = true;
+      }
+      if (needsUpdate) {
+        user.uses = sortByRarity(user.uses);
+        await client.query('UPDATE users SET uses = $1 WHERE id = $2', [user.uses, user.id]);
       }
     }
 
@@ -569,10 +636,10 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
     
     const user = result.rows[0];
     console.log('User data from database:', user);
-    // 确保seeds、crops和uses始终是对象
-    const seeds = typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {};
-    const crops = typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {};
-    const uses = typeof user.uses === 'object' && user.uses !== null && !Array.isArray(user.uses) ? user.uses : {};
+    // 确保seeds、crops和uses始终是对象，并只保留数量大于0的物品，按稀有度排序
+    const seeds = filterAndSortBackpack(typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds) ? user.seeds : {});
+    const crops = filterAndSortBackpack(typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops) ? user.crops : {});
+    const uses = filterAndSortBackpack(typeof user.uses === 'object' && user.uses !== null && !Array.isArray(user.uses) ? user.uses : {});
     const response = {
       ...user,
       created_at: user.created_at.toISOString().split('T')[0],
@@ -1308,8 +1375,9 @@ app.delete('/api/user/uses/:rarity', authenticateToken, async (req, res) => {
       // 减少对应稀有度的数量
       const updatedUses = { ...currentUses };
       updatedUses[rarity] -= quantity;
-      if (updatedUses[rarity] === 0) {
-        delete updatedUses[rarity];
+      // 保留数量为0的字段，避免登录时重复初始化
+      if (updatedUses[rarity] < 0) {
+        updatedUses[rarity] = 0;
       }
       console.log('Updated uses:', updatedUses);
       
@@ -1390,8 +1458,9 @@ app.delete('/api/user/seeds/:rarity', authenticateToken, async (req, res) => {
       // 减少对应稀有度的数量
       const updatedSeeds = { ...currentSeeds };
       updatedSeeds[rarity] -= quantity;
-      if (updatedSeeds[rarity] === 0) {
-        delete updatedSeeds[rarity];
+      // 保留数量为0的字段，避免登录时重复初始化
+      if (updatedSeeds[rarity] < 0) {
+        updatedSeeds[rarity] = 0;
       }
       console.log('Updated seeds:', updatedSeeds);
       
@@ -1508,8 +1577,9 @@ app.delete('/api/user/crops/:rarity', authenticateToken, async (req, res) => {
       // 减少对应稀有度的数量
       const updatedCrops = { ...currentCrops };
       updatedCrops[rarity] -= quantity;
-      if (updatedCrops[rarity] === 0) {
-        delete updatedCrops[rarity];
+      // 保留数量为0的字段，避免登录时重复初始化
+      if (updatedCrops[rarity] < 0) {
+        updatedCrops[rarity] = 0;
       }
       
       // 计算增加的积分
@@ -1642,8 +1712,9 @@ app.post('/api/garden/plant', authenticateToken, async (req, res) => {
       // 扣减种子数量
       const updatedSeeds = { ...seeds };
       updatedSeeds[rarity] -= 1;
-      if (updatedSeeds[rarity] === 0) {
-        delete updatedSeeds[rarity];
+      // 保留数量为0的字段，避免登录时重复初始化
+      if (updatedSeeds[rarity] < 0) {
+        updatedSeeds[rarity] = 0;
       }
       
       // 更新用户背包
@@ -1747,6 +1818,121 @@ app.post('/api/garden/water', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Water error:', error);
     res.status(500).json({ error: '浇水失败，请稍后再试' });
+  }
+});
+
+// 施肥
+app.post('/api/garden/fertilize', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { rarity } = req.body;
+    
+    if (!rarity) {
+      return res.status(400).json({ error: '请提供肥料稀有度' });
+    }
+    
+    // 肥料等级对应的成长阶段提升数量（施肥可绕过冷却时间）
+    const fertilizerBoost = {
+      'C': 1,   // 普通肥料：提升1个阶段
+      'B': 2,   // 稀有肥料：提升2个阶段
+      'A': 3,   // 史诗肥料：提升3个阶段
+      'S': 4    // 传说肥料：提升4个阶段
+    };
+    
+    // 检查肥料等级是否有效
+    if (!fertilizerBoost[rarity]) {
+      return res.status(400).json({ error: '无效的肥料等级' });
+    }
+    
+    // 开始事务
+    await client.query('BEGIN');
+    
+    try {
+      // 检查花园记录
+      const gardenResult = await client.query(
+        'SELECT * FROM garden WHERE user_id = $1',
+        [userId]
+      );
+      
+      if (gardenResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: '花园不存在' });
+      }
+      
+      const garden = gardenResult.rows[0];
+      
+      // 检查植物是否存在且处于1-4阶段（未成熟）
+      if (garden.stage < 1 || garden.stage >= 5) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: '施肥只能在植物生长阶段（1-4阶段）进行' });
+      }
+      
+      // 检查植物是否枯萎
+      const now = new Date();
+      const lastWateredAt = new Date(garden.last_watered_at);
+      const secondsSinceWater = (now - lastWateredAt) / 1000;
+      const isWilted = secondsSinceWater > 60;
+      
+      if (isWilted) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: '植物已枯萎，请先浇水复活' });
+      }
+      
+      // 获取用户背包中的肥料
+      const userResult = await client.query(
+        'SELECT uses FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      if (userResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: '用户不存在' });
+      }
+      
+      const user = userResult.rows[0];
+      const uses = typeof user.uses === 'object' && user.uses !== null ? user.uses : {};
+      
+      // 检查肥料是否足够
+      if (!uses[rarity] || uses[rarity] < 1) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: '肥料不足' });
+      }
+      
+      // 扣除肥料
+      const updatedUses = { ...uses };
+      updatedUses[rarity] -= 1;
+      // 保留数量为0的字段，避免登录时重复初始化
+      if (updatedUses[rarity] < 0) {
+        updatedUses[rarity] = 0;
+      }
+      
+      // 根据肥料等级计算提升的阶段数
+      const boostAmount = fertilizerBoost[rarity];
+      const updatedStage = Math.min(garden.stage + boostAmount, 5);
+      
+      // 更新用户肥料数量
+      await client.query(
+        'UPDATE users SET uses = $1 WHERE id = $2',
+        [updatedUses, userId]
+      );
+      
+      // 更新花园状态（施肥可绕过冷却时间，直接更新浇水时间）
+      await client.query(
+        'UPDATE garden SET stage = $1, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $2',
+        [updatedStage, userId]
+      );
+      
+      // 提交事务
+      await client.query('COMMIT');
+      
+      res.json({ message: '施肥成功', stage: updatedStage });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Fertilize error:', error);
+    res.status(500).json({ error: '施肥失败，请稍后再试' });
   }
 });
 

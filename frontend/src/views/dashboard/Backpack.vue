@@ -170,16 +170,6 @@
                     <button @click="showSellModal('use', { rarity: 'S', type: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
                 </div>
             </div>
-            <div class="item-card" v-if="userStore.groupedUses.SSS > 0">
-                <div class="item-icon">{{ useIcon('SSS') }}</div>
-                <div class="item-name">{{ fertilizerConfig.SSS.name }}</div>
-                <div class="item-rarity rarity-SSS">SSS ({{ userStore.groupedUses.SSS }})</div>
-                <div class="item-price">💰 卖出价 {{ fertilizerConfig.SSS.price }} 积分</div>
-                <div class="sell-buttons">
-                    <button @click="showSellModal('use', { rarity: 'SSS', type: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
-                    <button @click="showSellModal('use', { rarity: 'SSS', type: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
-                </div>
-            </div>
             <div v-if="userStore.useCount === 0" class="empty-msg">
                 还没有可使用物品，去商店买点吧~
             </div>

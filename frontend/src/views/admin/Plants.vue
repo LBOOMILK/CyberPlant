@@ -55,7 +55,7 @@
                 <option value="B">B - 稀有</option>
                 <option value="A">A - 史诗</option>
                 <option value="S">S - 传说</option>
-                <option value="SSS">SSS - 神话</option>
+                <option value="SSS" v-if="newPlant.plants_role !== 'use'">SSS - 神话</option>
               </select>
             </div>
             <div class="form-group">
@@ -98,7 +98,7 @@
                 <option value="B">B - 稀有</option>
                 <option value="A">A - 史诗</option>
                 <option value="S">S - 传说</option>
-                <option value="SSS">SSS - 神话</option>
+                <option value="SSS" v-if="currentPlant.plants_role !== 'use'">SSS - 神话</option>
               </select>
             </div>
             <div class="form-group">
@@ -124,7 +124,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Toast from '@/components/Toast.vue'
 import AdminSidebar from '@/components/AdminSidebar.vue'
@@ -145,6 +145,13 @@ const newPlant = ref({
   price: 0
 })
 const toastRef = ref(null)
+
+// 监听商品类型变化，当选择可使用物品时自动切换稀有度
+watch(() => newPlant.value.plants_role, (newRole) => {
+  if (newRole === 'use' && newPlant.value.rarity === 'SSS') {
+    newPlant.value.rarity = 'S'
+  }
+})
 
 // 加载植物数据
 async function loadPlants() {

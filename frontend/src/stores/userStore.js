@@ -24,8 +24,7 @@ export const useUserStore = defineStore('user', () => {
     C: { price: 20, name: '普通肥料' },
     B: { price: 60, name: '稀有肥料' },
     A: { price: 100, name: '史诗肥料' },
-    S: { price: 200, name: '传说肥料' },
-    SSS: { price: 600, name: '神级肥料' }
+    S: { price: 200, name: '传说肥料' }
   }
 
   // ========== 计算属性 ==========
@@ -51,20 +50,34 @@ export const useUserStore = defineStore('user', () => {
     }, 0)
   })
   
-  // 按稀有度分组的种子（直接返回种子数量映射）
-  const groupedSeeds = computed(() => {
-    return { ...seeds.value }
-  })
-  
-  // 按稀有度分组的作物（直接返回作物数量映射）
-  const groupedCrops = computed(() => {
-    return { ...crops.value }
-  })
-  
-  // 按稀有度分组的可使用物品（直接返回可使用物品数量映射）
-  const groupedUses = computed(() => {
-    return { ...uses.value }
-  })
+  // 稀有度排序顺序：C < B < A < S < SSS
+const rarityOrder = ['C', 'B', 'A', 'S', 'SSS']
+
+// 按稀有度排序对象
+function sortByRarity(obj) {
+  const sorted = {}
+  for (const rarity of rarityOrder) {
+    if (obj[rarity]) {
+      sorted[rarity] = obj[rarity]
+    }
+  }
+  return sorted
+}
+
+// 按稀有度分组的种子（按品质从低到高排序）
+const groupedSeeds = computed(() => {
+  return sortByRarity(seeds.value)
+})
+
+// 按稀有度分组的作物（按品质从低到高排序）
+const groupedCrops = computed(() => {
+  return sortByRarity(crops.value)
+})
+
+// 按稀有度分组的可使用物品（按品质从低到高排序）
+const groupedUses = computed(() => {
+  return sortByRarity(uses.value)
+})
 
   // ========== 初始化 ==========
   async function loadFromLocal() {
