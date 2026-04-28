@@ -137,10 +137,8 @@
               <button :class="{ active: backpackTab === 'crops' }" @click="backpackTab = 'crops'">
                 🌾 作物
               </button>
-            </div>
-            <div class="backpack-actions">
-              <button class="add-btn" @click="backpackTab === 'seeds' ? showAddSeedModal = true : showAddCropModal = true">
-                {{ backpackTab === 'seeds' ? '添加种子' : '添加作物' }}
+              <button :class="{ active: backpackTab === 'uses' }" @click="backpackTab = 'uses'">
+                🧪 肥料
               </button>
             </div>
           </div>
@@ -148,35 +146,68 @@
           <!-- 种子管理 -->
           <div v-if="backpackTab === 'seeds'" class="backpack-content">
             <div class="backpack-items">
-              <template v-for="(quantity, rarity) in backpackUser?.seeds || {}" :key="rarity">
-                <div v-if="quantity && Number(quantity) > 0" class="backpack-item">
-                  <div class="item-info">
-                    <span :class="['item-rarity', rarity]">{{ rarity }}</span>
-                    <span class="item-quantity">数量: {{ Number(quantity) }}</span>
-                  </div>
-                  <button class="delete-btn" @click="removeSeed(rarity)">删除</button>
+              <div v-for="rarity in ['C', 'B', 'A', 'S', 'SSS']" :key="rarity" class="backpack-item">
+                <div class="item-info">
+                  <span :class="['item-rarity', rarity]">{{ rarity }}</span>
                 </div>
-              </template>
-              <div v-if="backpackUser && Object.values(backpackUser.seeds || {}).every(q => Number(q) === 0)" class="empty-msg">
-                暂无种子
+                <div class="quantity-control">
+                  <button class="qty-btn minus-btn" @click="updateSeedQuantity(rarity, -1)">-</button>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    class="quantity-input" 
+                    :value="backpackUser?.seeds?.[rarity] || 0"
+                    @input="handleSeedInput(rarity, $event)"
+                    @blur="handleSeedBlur(rarity, $event)"
+                  />
+                  <button class="qty-btn plus-btn" @click="updateSeedQuantity(rarity, 1)">+</button>
+                </div>
               </div>
             </div>
           </div>
           
           <!-- 作物管理 -->
+          <div v-else-if="backpackTab === 'crops'" class="backpack-content">
+            <div class="backpack-items">
+              <div v-for="rarity in ['C', 'B', 'A', 'S', 'SSS']" :key="rarity" class="backpack-item">
+                <div class="item-info">
+                  <span :class="['item-rarity', rarity]">{{ rarity }}</span>
+                </div>
+                <div class="quantity-control">
+                  <button class="qty-btn minus-btn" @click="updateCropQuantity(rarity, -1)">-</button>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    class="quantity-input" 
+                    :value="backpackUser?.crops?.[rarity] || 0"
+                    @input="handleCropInput(rarity, $event)"
+                    @blur="handleCropBlur(rarity, $event)"
+                  />
+                  <button class="qty-btn plus-btn" @click="updateCropQuantity(rarity, 1)">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 肥料管理 -->
           <div v-else class="backpack-content">
             <div class="backpack-items">
-              <template v-for="(quantity, rarity) in backpackUser?.crops || {}" :key="rarity">
-                <div v-if="quantity && Number(quantity) > 0" class="backpack-item">
-                  <div class="item-info">
-                    <span :class="['item-rarity', rarity]">{{ rarity }}</span>
-                    <span class="item-quantity">数量: {{ Number(quantity) }}</span>
-                  </div>
-                  <button class="delete-btn" @click="removeCrop(rarity)">删除</button>
+              <div v-for="rarity in ['C', 'B', 'A', 'S']" :key="rarity" class="backpack-item">
+                <div class="item-info">
+                  <span :class="['item-rarity', rarity]">{{ rarity }}</span>
                 </div>
-              </template>
-              <div v-if="backpackUser && Object.values(backpackUser.crops || {}).every(q => Number(q) === 0)" class="empty-msg">
-                暂无作物
+                <div class="quantity-control">
+                  <button class="qty-btn minus-btn" @click="updateUseQuantity(rarity, -1)">-</button>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    class="quantity-input" 
+                    :value="backpackUser?.uses?.[rarity] || 0"
+                    @input="handleUseInput(rarity, $event)"
+                    @blur="handleUseBlur(rarity, $event)"
+                  />
+                  <button class="qty-btn plus-btn" @click="updateUseQuantity(rarity, 1)">+</button>
+                </div>
               </div>
             </div>
           </div>
@@ -188,51 +219,7 @@
         </div>
       </div>
       
-      <!-- 添加种子弹窗 -->
-      <div v-if="showAddSeedModal" class="modal-overlay" @click.self="showAddSeedModal = false">
-        <div class="modal-content">
-          <h3>添加种子</h3>
-          <form @submit.prevent="handleAddSeed">
-            <div class="form-group">
-              <label for="seed-rarity">稀有度</label>
-              <select id="seed-rarity" v-model="newSeed.rarity" required>
-                <option value="C">C (普通)</option>
-                <option value="B">B (稀有)</option>
-                <option value="A">A (史诗)</option>
-                <option value="S">S (传说)</option>
-                <option value="SSS">SSS (神级)</option>
-              </select>
-            </div>
-            <div class="modal-actions">
-              <button type="button" class="cancel-btn" @click="showAddSeedModal = false">取消</button>
-              <button type="submit" class="confirm-btn">确认添加</button>
-            </div>
-          </form>
-        </div>
-      </div>
-      
-      <!-- 添加作物弹窗 -->
-      <div v-if="showAddCropModal" class="modal-overlay" @click.self="showAddCropModal = false">
-        <div class="modal-content">
-          <h3>添加作物</h3>
-          <form @submit.prevent="handleAddCrop">
-            <div class="form-group">
-              <label for="crop-rarity">稀有度</label>
-              <select id="crop-rarity" v-model="newCrop.rarity" required>
-                <option value="C">C (普通)</option>
-                <option value="B">B (稀有)</option>
-                <option value="A">A (史诗)</option>
-                <option value="S">S (传说)</option>
-                <option value="SSS">SSS (神级)</option>
-              </select>
-            </div>
-            <div class="modal-actions">
-              <button type="button" class="cancel-btn" @click="showAddCropModal = false">取消</button>
-              <button type="submit" class="confirm-btn">确认添加</button>
-            </div>
-          </form>
-        </div>
-      </div>
+
       
       <!-- 删除确认弹窗 -->
       <div v-if="showDeleteModalVisible" class="modal-overlay" @click.self="cancelDeleteUser">
@@ -277,14 +264,10 @@ const showNewPassword = ref(false)
 
 // 背包管理相关
 const showBackpackModal = ref(false)
-const showAddSeedModal = ref(false)
-const showAddCropModal = ref(false)
 const showDeleteModalVisible = ref(false)
 const deletingUserId = ref(null)
 const backpackUser = ref(null)
 const backpackTab = ref('seeds')
-const newSeed = ref({ rarity: 'C' })
-const newCrop = ref({ rarity: 'C' })
 
 // 加载用户数据
 async function loadUsers() {
@@ -340,7 +323,20 @@ async function loadUsers() {
         // 如果user.crops不存在或不是对象，使用默认值
         console.log('User crops not found or invalid, using default')
       }
-      // 创建新对象，确保seeds和crops字段被正确添加
+      // 确保uses字段是对象格式，并且稀有度值是数字类型
+      let uses = { C: 0, B: 0, A: 0, S: 0 }
+      if (user.uses && typeof user.uses === 'object' && user.uses !== null && !Array.isArray(user.uses)) {
+        const rarities = ['C', 'B', 'A', 'S']
+        for (const rarity of rarities) {
+          if (user.uses[rarity] !== undefined && !isNaN(user.uses[rarity])) {
+            uses[rarity] = Number(user.uses[rarity])
+          }
+        }
+      } else {
+        // 如果user.uses不存在或不是对象，使用默认值
+        console.log('User uses not found or invalid, using default')
+      }
+      // 创建新对象，确保seeds、crops和uses字段被正确添加
       const result = {
         id: user.id,
         name: user.name,
@@ -349,7 +345,8 @@ async function loadUsers() {
         points: user.points || 0,
         created_at: user.created_at,
         seeds: seeds,
-        crops: crops
+        crops: crops,
+        uses: uses
       }
       console.log('Seeds:', seeds)
       console.log('Crops:', crops)
@@ -358,6 +355,14 @@ async function loadUsers() {
       console.log('Processed user:', result)
       return result
     })
+    
+    // 按ID升序排序
+    users.value.sort((a, b) => {
+      const idA = Number(a.id)
+      const idB = Number(b.id)
+      return idA - idB
+    })
+    
     // 打印用户数据，以便调试
     console.log('Loaded users after map:', users.value)
     console.log('Users value length:', users.value.length)
@@ -597,11 +602,12 @@ async function openBackpackModal(user) {
     const fullUser = users.value.find(u => u.id === user.id)
     console.log('Full user from users array:', fullUser)
     
-    // 手动构建背包数据，确保seeds和crops字段被正确处理
+    // 手动构建背包数据，确保seeds、crops和uses字段被正确处理
     let seeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 }
     let crops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 }
+    let uses = { C: 0, B: 0, A: 0, S: 0 }
     
-    // 尝试从fullUser对象中获取seeds和crops数据
+    // 尝试从fullUser对象中获取seeds数据
     if (fullUser && fullUser.seeds && typeof fullUser.seeds === 'object' && fullUser.seeds !== null && !Array.isArray(fullUser.seeds)) {
       const rarities = ['C', 'B', 'A', 'S', 'SSS']
       for (const rarity of rarities) {
@@ -611,11 +617,22 @@ async function openBackpackModal(user) {
       }
     }
     
+    // 尝试从fullUser对象中获取crops数据
     if (fullUser && fullUser.crops && typeof fullUser.crops === 'object' && fullUser.crops !== null && !Array.isArray(fullUser.crops)) {
       const rarities = ['C', 'B', 'A', 'S', 'SSS']
       for (const rarity of rarities) {
         if (fullUser.crops[rarity] !== undefined && !isNaN(fullUser.crops[rarity])) {
           crops[rarity] = Number(fullUser.crops[rarity])
+        }
+      }
+    }
+    
+    // 尝试从fullUser对象中获取uses数据
+    if (fullUser && fullUser.uses && typeof fullUser.uses === 'object' && fullUser.uses !== null && !Array.isArray(fullUser.uses)) {
+      const rarities = ['C', 'B', 'A', 'S']
+      for (const rarity of rarities) {
+        if (fullUser.uses[rarity] !== undefined && !isNaN(fullUser.uses[rarity])) {
+          uses[rarity] = Number(fullUser.uses[rarity])
         }
       }
     }
@@ -629,7 +646,8 @@ async function openBackpackModal(user) {
       points: user.points || 0,
       created_at: user.created_at,
       seeds: seeds,
-      crops: crops
+      crops: crops,
+      uses: uses
     }
     
     console.log('User seeds:', user.seeds)
@@ -655,45 +673,69 @@ function formatDate(dateString) {
   return date.toLocaleString()
 }
 
-function removeSeed(rarity) {
+function updateSeedQuantity(rarity, delta) {
   if (backpackUser.value && backpackUser.value.seeds) {
-    if (backpackUser.value.seeds[rarity] > 1) {
-      backpackUser.value.seeds[rarity]--
-    } else {
-      delete backpackUser.value.seeds[rarity]
-    }
+    const newValue = (backpackUser.value.seeds[rarity] || 0) + delta
+    backpackUser.value.seeds[rarity] = Math.max(0, newValue)
   }
 }
 
-function removeCrop(rarity) {
+function handleSeedInput(rarity, event) {
+  const value = parseInt(event.target.value) || 0
+  if (backpackUser.value && backpackUser.value.seeds) {
+    backpackUser.value.seeds[rarity] = Math.max(0, value)
+  }
+}
+
+function handleSeedBlur(rarity, event) {
+  const value = parseInt(event.target.value) || 0
+  if (backpackUser.value && backpackUser.value.seeds) {
+    backpackUser.value.seeds[rarity] = Math.max(0, value)
+    event.target.value = backpackUser.value.seeds[rarity]
+  }
+}
+
+function updateCropQuantity(rarity, delta) {
   if (backpackUser.value && backpackUser.value.crops) {
-    if (backpackUser.value.crops[rarity] > 1) {
-      backpackUser.value.crops[rarity]--
-    } else {
-      delete backpackUser.value.crops[rarity]
-    }
+    const newValue = (backpackUser.value.crops[rarity] || 0) + delta
+    backpackUser.value.crops[rarity] = Math.max(0, newValue)
   }
 }
 
-async function handleAddSeed() {
-  if (backpackUser.value && newSeed.value.rarity) {
-    if (!backpackUser.value.seeds) {
-      backpackUser.value.seeds = {}
-    }
-    backpackUser.value.seeds[newSeed.value.rarity] = (backpackUser.value.seeds[newSeed.value.rarity] || 0) + 1
-    showAddSeedModal.value = false
-    newSeed.value = { rarity: 'C' }
+function handleCropInput(rarity, event) {
+  const value = parseInt(event.target.value) || 0
+  if (backpackUser.value && backpackUser.value.crops) {
+    backpackUser.value.crops[rarity] = Math.max(0, value)
   }
 }
 
-async function handleAddCrop() {
-  if (backpackUser.value && newCrop.value.rarity) {
-    if (!backpackUser.value.crops) {
-      backpackUser.value.crops = {}
-    }
-    backpackUser.value.crops[newCrop.value.rarity] = (backpackUser.value.crops[newCrop.value.rarity] || 0) + 1
-    showAddCropModal.value = false
-    newCrop.value = { rarity: 'C' }
+function handleCropBlur(rarity, event) {
+  const value = parseInt(event.target.value) || 0
+  if (backpackUser.value && backpackUser.value.crops) {
+    backpackUser.value.crops[rarity] = Math.max(0, value)
+    event.target.value = backpackUser.value.crops[rarity]
+  }
+}
+
+function updateUseQuantity(rarity, delta) {
+  if (backpackUser.value && backpackUser.value.uses) {
+    const newValue = (backpackUser.value.uses[rarity] || 0) + delta
+    backpackUser.value.uses[rarity] = Math.max(0, newValue)
+  }
+}
+
+function handleUseInput(rarity, event) {
+  const value = parseInt(event.target.value) || 0
+  if (backpackUser.value && backpackUser.value.uses) {
+    backpackUser.value.uses[rarity] = Math.max(0, value)
+  }
+}
+
+function handleUseBlur(rarity, event) {
+  const value = parseInt(event.target.value) || 0
+  if (backpackUser.value && backpackUser.value.uses) {
+    backpackUser.value.uses[rarity] = Math.max(0, value)
+    event.target.value = backpackUser.value.uses[rarity]
   }
 }
 
@@ -714,7 +756,8 @@ async function saveBackpackChanges() {
         role: backpackUser.value.role,
         points: backpackUser.value.points,
         seeds: backpackUser.value.seeds || {},
-        crops: backpackUser.value.crops || {}
+        crops: backpackUser.value.crops || {},
+        uses: backpackUser.value.uses || {}
       })
     })
     
@@ -1227,12 +1270,6 @@ onMounted(() => {
   color: white;
 }
 
-.backpack-actions {
-  margin-bottom: 16px;
-  display: flex;
-  justify-content: flex-end;
-}
-
 .backpack-items {
   max-height: 300px;
   overflow-y: auto;
@@ -1255,6 +1292,74 @@ onMounted(() => {
   gap: 16px;
 }
 
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qty-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qty-btn.plus-btn {
+  background: #4caf50;
+  color: white;
+}
+
+.qty-btn.plus-btn:hover {
+  background: #45a049;
+}
+
+.qty-btn.minus-btn {
+  background: #f44336;
+  color: white;
+}
+
+.quantity-input {
+  width: 60px;
+  height: 32px;
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: bold;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.quantity-input:focus {
+  border-color: #4caf50;
+}
+
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.quantity-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.qty-btn.minus-btn:hover {
+  background: #da190b;
+}
+
+.item-quantity {
+  min-width: 40px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
 .backpack-header {
   display: flex;
   justify-content: space-between;
@@ -1267,11 +1372,6 @@ onMounted(() => {
 .tabs {
   display: flex;
   gap: 12px;
-}
-
-.backpack-actions {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .item-rarity {
