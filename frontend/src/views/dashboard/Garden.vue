@@ -765,45 +765,59 @@ h1 {
     color: #2d2b15;
 }
 
-/* 2x2 田字格按钮 */
+/* 按钮网格布局 */
 .button-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
     margin: 24px 0 16px;
 }
 
 .grid-btn {
-    padding: 14px 0;
-    font-size: 1.1rem;
-    font-weight: bold;
+    padding: 14px 24px;
+    font-size: 1rem;
+    font-weight: 600;
     border: none;
     border-radius: 60px;
     cursor: pointer;
-    transition: all 0.1s ease;
+    transition: all 0.2s ease;
+    min-width: 110px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.grid-btn:active {
-    transform: scale(0.96);
+.grid-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.grid-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .water-btn {
-    background: #2e7d32;
+    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+    color: white;
+}
+
+.fertilize-btn {
+    background: linear-gradient(135deg, #7b1fa2 0%, #5c1078 100%);
     color: white;
 }
 
 .harvest-btn {
-    background: #ff9800;
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
     color: white;
 }
 
 .plant-btn {
-    background: #5c6bc0;
+    background: linear-gradient(135deg, #5c6bc0 0%, #3949ab 100%);
     color: white;
 }
 
 .remove-btn {
-    background: #f44336;
+    background: linear-gradient(135deg, #ef5350 0%, #c62828 100%);
     color: white;
 }
 
@@ -811,6 +825,7 @@ h1 {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+    box-shadow: none;
 }
 
 .cooldown {
