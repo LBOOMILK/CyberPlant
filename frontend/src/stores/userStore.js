@@ -19,7 +19,7 @@ export const useUserStore = defineStore('user', () => {
     SSS: { buyPrice: 300, sellPrice: 600, name: '神级种子', cropName: '神级作物' }
   }
 
-  // 肥料价格配置（买卖价格相同，避免刷分）
+  // 肥料价格配置（仅用于显示名称，价格由后端计算）
   const fertilizerConfig = {
     C: { price: 20, name: '普通肥料' },
     B: { price: 60, name: '稀有肥料' },
@@ -268,64 +268,57 @@ const groupedUses = computed(() => {
     }
   }
 
-  async function removeSeed(rarity, price = 0) {
+  async function removeSeed(rarity) {
     try {
       const token = localStorage.getItem('auth_token')
-      console.log('removeSeed called with:', rarity, 'price:', price, 'token:', token)
       if (token) {
         const url = `${import.meta.env.VITE_API_URL}/user/seeds/${rarity}`
-        console.log('Fetch URL:', url)
         const response = await fetch(url, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ quantity: 1, price })
+          body: JSON.stringify({ quantity: 1 })
         })
         
-        console.log('Response status:', response.status, response.statusText)
         if (response.ok) {
           const data = await response.json()
           seeds.value[rarity] = data.quantity
+          const earnedPoints = data.points - (points.value || 0)
           points.value = data.points || points.value
           saveToLocalStorage()
-          return true
+          return { success: true, price: earnedPoints }
         } else {
-          // API失败时返回失败消息
           console.error('API delete failed:', response.status, response.statusText)
-          return false
+          return { success: false }
         }
       } else {
-        // 没有token时使用本地删除
-        console.log('No token, using local delete')
+        // 本地模式（无token）
+        const sellPrice = rarityConfig[rarity]?.buyPrice ? Math.floor(rarityConfig[rarity].buyPrice * 0.5) : 0
         if (seeds.value[rarity] > 0) {
           seeds.value[rarity]--
           if (seeds.value[rarity] === 0) {
             delete seeds.value[rarity]
           }
-          if (price) {
-            points.value += price
-          }
+          points.value += sellPrice
           saveToLocalStorage()
-          return true
+          return { success: true, price: sellPrice }
         }
-        return false
+        return { success: false }
       }
     } catch (error) {
       console.error('Failed to remove seed:', error)
-      // 错误时返回失败消息
-      return false
+      return { success: false }
     }
   }
 
   async function sellSeed(rarity) {
     if (seeds.value[rarity] > 0) {
-      const price = rarityConfig[rarity].buyPrice
-      const success = await removeSeed(rarity, price)
-      if (success) {
+      const result = await removeSeed(rarity)
+      if (result.success) {
         saveToLocalStorage()
-        return { success: true, price }
+        return { success: true, price: result.price }
       }
       return { success: false }
     }
@@ -433,7 +426,7 @@ const groupedUses = computed(() => {
     return { success: false }
   }
 
-  async function removeUse(rarity, price = 0) {
+  async function removeUse(rarity) {
     try {
       const token = localStorage.getItem('auth_token')
       if (token) {
@@ -444,47 +437,47 @@ const groupedUses = computed(() => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ quantity: 1, price })
+          body: JSON.stringify({ quantity: 1 })
         })
         
         if (response.ok) {
           const data = await response.json()
           uses.value[rarity] = data.quantity
+          const earnedPoints = data.points - (points.value || 0)
           points.value = data.points || points.value
           saveToLocalStorage()
-          return true
+          return { success: true, price: earnedPoints }
         } else {
           console.error('API delete failed:', response.status, response.statusText)
-          return false
+          return { success: false }
         }
       } else {
+        // 本地模式（无token）
+        const sellPrice = fertilizerConfig[rarity]?.price ? Math.floor(fertilizerConfig[rarity].price * 0.5) : 0
         if (uses.value[rarity] > 0) {
           uses.value[rarity]--
           if (uses.value[rarity] === 0) {
             delete uses.value[rarity]
           }
-          if (price) {
-            points.value += price
-          }
+          points.value += sellPrice
           saveToLocalStorage()
-          return true
+          return { success: true, price: sellPrice }
         }
-        return false
+        return { success: false }
       }
     } catch (error) {
       console.error('Failed to remove use:', error)
-      return false
+      return { success: false }
     }
   }
 
   // 卖出可使用物品
   async function sellUse(rarity) {
     if (uses.value[rarity] > 0) {
-      const price = fertilizerConfig[rarity].price
-      const success = await removeUse(rarity, price)
-      if (success) {
+      const result = await removeUse(rarity)
+      if (result.success) {
         saveToLocalStorage()
-        return { success: true, price }
+        return { success: true, price: result.price }
       }
       return { success: false }
     }
@@ -544,7 +537,36 @@ const groupedUses = computed(() => {
     }
   }
 
-  // 重置所有数据
+  // 获取物品卖出价格（种子和肥料基于同品质最低购买价的50%）
+  // 每次都从后端获取最新价格，不使用缓存
+  async function getSellPrice(itemType, rarity) {
+    // 作物不适用动态价格，保持原有逻辑
+    if (itemType === 'crop') {
+      return { minBuyPrice: rarityConfig[rarity].buyPrice, sellPrice: rarityConfig[rarity].sellPrice }
+    }
+    
+    try {
+      const token = localStorage.getItem('auth_token')
+      if (!token) return null
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/user/sell-price?itemType=${itemType}&rarity=${rarity}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      )
+      
+      if (response.ok) {
+        const data = await response.json()
+        return { minBuyPrice: data.minBuyPrice, sellPrice: data.sellPrice }
+      }
+    } catch (error) {
+      console.error('Failed to get sell price:', error)
+    }
+    return null
+  }
   function resetAllData() {
     username.value = '绿色园丁'
     points.value = 100
@@ -582,6 +604,7 @@ const groupedUses = computed(() => {
     sellCrop,
     addUse,
     sellUse,
+    getSellPrice,
     resetAllData
   }
 })

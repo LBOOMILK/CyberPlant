@@ -1180,6 +1180,85 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
   }
 });
 
+// 计算物品卖出价格（基于同品质最低购买价的50%）
+async function calculateSellPrice(itemType, rarity) {
+  console.log('calculateSellPrice called with:', { itemType, rarity });
+  
+  // 作物保持原有逻辑（商店价2倍）
+  if (itemType === 'crop') {
+    const cropResult = await client.query(
+      'SELECT price FROM plants WHERE plants_role = $1 AND rarity = $2 LIMIT 1',
+      ['seed', rarity]
+    );
+    if (cropResult.rowCount > 0) {
+      return cropResult.rows[0].price * 2;
+    }
+    return 0;
+  }
+  
+  // 查询同类型同品质物品的最低价格
+  const role = itemType === 'use' ? 'use' : 'seed';
+  console.log('Querying plants with:', { role, rarity });
+  
+  const result = await client.query(
+    'SELECT MIN(price) as minPrice FROM plants WHERE plants_role = $1 AND rarity = $2',
+    [role, rarity]
+  );
+  
+  console.log('Query result:', result.rows);
+  
+  // PostgreSQL返回的列名是小写的minprice
+  const minPrice = result.rows[0]?.minprice || result.rows[0]?.minPrice;
+  
+  if (!minPrice) {
+    console.log('No price found, returning 0');
+    return 0;
+  }
+  const sellPrice = Math.floor(minPrice * 0.5);
+  console.log('Calculated sell price:', sellPrice);
+  return sellPrice;
+}
+
+// 获取物品卖出价格（基于同品质最低购买价的50%）
+app.get('/api/user/sell-price', authenticateToken, async (req, res) => {
+  try {
+    const { itemType, rarity } = req.query;
+    
+    if (!itemType || !rarity) {
+      return res.status(400).json({ error: '请提供物品类型和稀有度' });
+    }
+    
+    // 只对种子和肥料计算动态卖出价，作物保持原有逻辑
+    if (itemType !== 'seed' && itemType !== 'use') {
+      return res.status(400).json({ error: '仅支持种子和肥料的卖出价计算' });
+    }
+    
+    // 查询同类型同品质物品的最低价格
+    const result = await client.query(
+      'SELECT MIN(price) as minPrice FROM plants WHERE plants_role = $1 AND rarity = $2',
+      [itemType === 'use' ? 'use' : 'seed', rarity]
+    );
+    
+    // PostgreSQL返回的列名是小写的minprice
+    const minPrice = result.rows[0]?.minprice || result.rows[0]?.minPrice;
+    
+    if (result.rowCount === 0 || !minPrice) {
+      return res.status(404).json({ error: '未找到该物品' });
+    }
+    const sellPrice = Math.floor(minPrice * 0.5);
+    
+    res.json({
+      rarity,
+      itemType,
+      minBuyPrice: minPrice,
+      sellPrice
+    });
+  } catch (error) {
+    console.error('Get sell price error:', error);
+    res.status(500).json({ error: '获取卖出价格失败，请稍后再试' });
+  }
+});
+
 // 购买种子（包含积分扣除和订单创建）
 app.post('/api/user/seeds', authenticateToken, async (req, res) => {
   try {
@@ -1332,12 +1411,15 @@ app.delete('/api/user/uses/:rarity', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { rarity } = req.params;
-    const { quantity, price } = req.body || { quantity: 1, price: 0 };
+    const { quantity } = req.body || { quantity: 1 };
+    
+    // 后端自己计算卖出价格，不依赖前端传入
+    const price = await calculateSellPrice('use', rarity);
     
     console.log('Sell use request received:', { userId, rarity, quantity, price });
     
-    if (!price) {
-      return res.status(400).json({ error: '请提供肥料价格' });
+    if (!price || price <= 0) {
+      return res.status(400).json({ error: '无法计算肥料价格' });
     }
     
     const stringUserId = String(userId);
@@ -1381,7 +1463,7 @@ app.delete('/api/user/uses/:rarity', authenticateToken, async (req, res) => {
       }
       console.log('Updated uses:', updatedUses);
       
-      // 计算增加的积分
+      // 计算增加的积分（使用后端计算的价格）
       const totalPrice = price * quantity;
       const updatedPoints = (user.points || 0) + totalPrice;
       
@@ -1414,23 +1496,33 @@ app.delete('/api/user/seeds/:rarity', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { rarity } = req.params;
-    const { quantity, price } = req.body || { quantity: 1, price: 0 };
+    const { quantity } = req.body || { quantity: 1 };
     
-    console.log('Sell seed request received:', { userId, rarity, quantity, price });
+    console.log('=== SELL SEED START ===');
+    console.log('User ID:', userId);
+    console.log('Rarity:', rarity);
+    console.log('Quantity:', quantity);
     
-    if (!price) {
-      return res.status(400).json({ error: '请提供种子价格' });
+    // 后端自己计算卖出价格，不依赖前端传入
+    const price = await calculateSellPrice('seed', rarity);
+    
+    console.log('Calculated sell price:', price);
+    
+    if (!price || price <= 0) {
+      console.log('Error: Price calculation failed');
+      return res.status(400).json({ error: '无法计算种子价格' });
     }
     
-    // 确保userId是字符串类型
     const stringUserId = String(userId);
     console.log('String userId:', stringUserId);
     
     // 开始事务
     await client.query('BEGIN');
+    console.log('Transaction started');
     
     try {
       // 获取用户当前数据
+      console.log('Fetching user data...');
       const userResult = await client.query(
         'SELECT seeds, points FROM users WHERE id = $1',
         [stringUserId]
@@ -1438,11 +1530,12 @@ app.delete('/api/user/seeds/:rarity', authenticateToken, async (req, res) => {
       
       if (userResult.rowCount === 0) {
         await client.query('ROLLBACK');
-        console.log('User not found:', stringUserId);
+        console.log('Error: User not found:', stringUserId);
         return res.status(404).json({ error: '用户不存在' });
       }
       
       const user = userResult.rows[0];
+      console.log('User found:', user);
       
       // 确保currentSeeds始终是对象
       const currentSeeds = typeof user.seeds === 'object' && user.seeds !== null ? user.seeds : {};
@@ -1451,9 +1544,11 @@ app.delete('/api/user/seeds/:rarity', authenticateToken, async (req, res) => {
       // 检查种子是否存在
       if (!currentSeeds[rarity] || currentSeeds[rarity] < quantity) {
         await client.query('ROLLBACK');
-        console.log('Seed not found or insufficient quantity:', { rarity, currentQuantity: currentSeeds[rarity], requestedQuantity: quantity });
+        console.log('Error: Seed not found or insufficient quantity:', { rarity, currentQuantity: currentSeeds[rarity], requestedQuantity: quantity });
         return res.status(404).json({ error: '种子不存在或数量不足' });
       }
+      
+      console.log('Seed available:', currentSeeds[rarity]);
       
       // 减少对应稀有度的数量
       const updatedSeeds = { ...currentSeeds };
@@ -1464,31 +1559,38 @@ app.delete('/api/user/seeds/:rarity', authenticateToken, async (req, res) => {
       }
       console.log('Updated seeds:', updatedSeeds);
       
-      // 计算增加的积分
+      // 计算增加的积分（使用后端计算的价格）
       const totalPrice = price * quantity;
       const updatedPoints = (user.points || 0) + totalPrice;
+      console.log('Total price:', totalPrice, 'Updated points:', updatedPoints);
       
       // 更新用户数据
+      console.log('Updating user data...');
       await client.query(
         'UPDATE users SET seeds = $1, points = $2 WHERE id = $3',
         [updatedSeeds, updatedPoints, stringUserId]
       );
+      console.log('User data updated');
       
       // 创建订单
+      console.log('Creating order...');
       await createOrder(stringUserId, 'SELL_SEED', totalPrice);
+      console.log('Order created');
       
       // 提交事务
       await client.query('COMMIT');
+      console.log('Transaction committed');
       
-      console.log('Seed sold successfully:', { rarity, quantity, totalPrice });
+      console.log('=== SELL SEED SUCCESS ===');
       res.json({ rarity, quantity: updatedSeeds[rarity] || 0, points: updatedPoints });
     } catch (error) {
       // 回滚事务
       await client.query('ROLLBACK');
+      console.log('Transaction rolled back due to error:', error);
       throw error;
     }
   } catch (error) {
-    console.error('Sell seed error:', error);
+    console.error('=== SELL SEED ERROR ===:', error);
     res.status(500).json({ error: '卖出种子失败，请稍后再试' });
   }
 });

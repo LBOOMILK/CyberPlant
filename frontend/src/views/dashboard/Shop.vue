@@ -151,7 +151,7 @@ function handleBuyConfirm(quantity) {
             return
         }
         
-        addMethod(item.rarity, totalPrice).then(result => {
+        addMethod(item.rarity, totalPrice, quantity).then(result => {
             if (result) {
                 addToast(`🎉 购买成功！获得 ${item.name} x${quantity}`, 'success')
             } else {
