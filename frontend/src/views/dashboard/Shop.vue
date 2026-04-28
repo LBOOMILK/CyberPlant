@@ -2,8 +2,21 @@
     <div class="shop-page">
         <h1>🛒 魔法种子商店</h1>
 
+        <!-- 商品类型筛选 -->
+        <div class="filter-bar">
+            <span class="filter-label">筛选：</span>
+            <button 
+                v-for="filter in filters" 
+                :key="filter.value"
+                @click="selectedFilter = filter.value"
+                :class="['filter-btn', { active: selectedFilter === filter.value }]"
+            >
+                {{ filter.label }}
+            </button>
+        </div>
+
         <div class="items-grid">
-            <div v-for="item in shopItems" :key="item.rarity" class="item-card">
+            <div v-for="item in filteredItems" :key="item.rarity + item.name" class="item-card">
                 <div class="item-icon">{{ item.icon }}</div>
                 <div class="item-name">{{ item.name }}</div>
                 <div class="item-rarity" :class="`rarity-${item.rarity}`">{{ item.rarity }}</div>
@@ -32,7 +45,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import Modal from '@/components/Modal.vue'
 import Toast from '@/components/Toast.vue'
@@ -45,6 +58,28 @@ const buyModalMessage = ref('')
 const shopItems = ref([])
 const buyQuantity = ref(1)
 const maxBuyQuantity = ref(99)
+
+// 筛选选项
+const filters = [
+    { value: 'all', label: '全部' },
+    { value: 'seed', label: '种子' },
+    { value: 'use', label: '肥料' }
+]
+const selectedFilter = ref('all')
+
+// 过滤后的商品列表
+const filteredItems = computed(() => {
+    return shopItems.value.filter(item => {
+        // 筛选类型
+        if (selectedFilter.value === 'seed') {
+            return item.plants_role === 'seed'
+        } else if (selectedFilter.value === 'use') {
+            return item.plants_role === 'use'
+        }
+        // 全部显示
+        return true
+    })
+})
 
 // 从后端API获取植物数据
 async function loadShopItems() {
@@ -139,7 +174,40 @@ function handleBuyConfirm(quantity) {
 .shop-page h1 {
     text-align: center;
     color: #2c5a2a;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
+}
+
+.filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.filter-label {
+    font-weight: bold;
+    color: #2c5a2a;
+}
+
+.filter-btn {
+    background: rgba(255, 255, 255, 0.8);
+    border: 2px solid #2e7d32;
+    color: #2e7d32;
+    padding: 6px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: #e8f5e9;
+}
+
+.filter-btn.active {
+    background: #2e7d32;
+    color: white;
 }
 
 .items-grid {
@@ -233,6 +301,25 @@ function handleBuyConfirm(quantity) {
 
     .shop-page h1 {
         color: #8bc34a;
+    }
+
+    .filter-label {
+        color: #8bc34a;
+    }
+
+    .filter-btn {
+        background: rgba(30, 30, 25, 0.95);
+        border-color: #8bc34a;
+        color: #8bc34a;
+    }
+
+    .filter-btn:hover {
+        background: rgba(139, 195, 74, 0.2);
+    }
+
+    .filter-btn.active {
+        background: #8bc34a;
+        color: #1a2a1f;
     }
 
     .item-card {
