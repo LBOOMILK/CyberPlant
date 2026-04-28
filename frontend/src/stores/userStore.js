@@ -420,17 +420,56 @@ export const useUserStore = defineStore('user', () => {
     return { success: false }
   }
 
+  async function removeUse(rarity, price = 0) {
+    try {
+      const token = localStorage.getItem('auth_token')
+      if (token) {
+        const url = `${import.meta.env.VITE_API_URL}/user/uses/${rarity}`
+        const response = await fetch(url, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ quantity: 1, price })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          uses.value[rarity] = data.quantity
+          points.value = data.points || points.value
+          saveToLocalStorage()
+          return true
+        } else {
+          console.error('API delete failed:', response.status, response.statusText)
+          return false
+        }
+      } else {
+        if (uses.value[rarity] > 0) {
+          uses.value[rarity]--
+          if (uses.value[rarity] === 0) {
+            delete uses.value[rarity]
+          }
+          if (price) {
+            points.value += price
+          }
+          saveToLocalStorage()
+          return true
+        }
+        return false
+      }
+    } catch (error) {
+      console.error('Failed to remove use:', error)
+      return false
+    }
+  }
+
   // 卖出可使用物品
   async function sellUse(rarity) {
     if (uses.value[rarity] > 0) {
       const price = fertilizerConfig[rarity].price
-      // 暂时使用本地删除
-      if (uses.value[rarity] > 0) {
-        uses.value[rarity]--
-        if (uses.value[rarity] === 0) {
-          delete uses.value[rarity]
-        }
-        await addPoints(price)
+      const success = await removeUse(rarity, price)
+      if (success) {
         saveToLocalStorage()
         return { success: true, price }
       }

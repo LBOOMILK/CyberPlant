@@ -343,14 +343,25 @@ async function handleSellConfirm() {
             }
             addToast(`💰 卖出成功！获得 ${totalPrice} 积分`, 'success')
         } else if (currentItemType.value === 'use') {
-            const price = rarityConfig[currentItem.value.rarity].buyPrice
+            const price = userStore.fertilizerConfig[currentItem.value.rarity].price
             const quantity = userStore.uses[currentItem.value.rarity]
-            const totalPrice = price * quantity
+            let totalEarned = 0
+            let allSuccess = true
             // 卖出所有该稀有度的可使用物品
             for (let i = 0; i < quantity; i++) {
-                await userStore.sellUse(currentItem.value.rarity)
+                const result = await userStore.sellUse(currentItem.value.rarity)
+                if (result.success) {
+                    totalEarned += result.price
+                } else {
+                    allSuccess = false
+                    break
+                }
             }
-            addToast(`💰 卖出成功！获得 ${totalPrice} 积分`, 'success')
+            if (allSuccess) {
+                addToast(`💰 卖出成功！获得 ${totalEarned} 积分`, 'success')
+            } else {
+                addToast('卖出失败，请稍后重试', 'error')
+            }
         }
         showSellModalVisible.value = false
         currentItem.value = null
@@ -378,13 +389,24 @@ async function handlePartSellConfirm() {
             }
             addToast(`💰 卖出成功！获得 ${totalPrice} 积分`, 'success')
         } else if (currentItemType.value === 'use') {
-            const price = rarityConfig[currentItem.value.rarity].buyPrice
-            const totalPrice = price * sellQuantity.value
+            const price = userStore.fertilizerConfig[currentItem.value.rarity].price
+            let totalEarned = 0
+            let allSuccess = true
             // 卖出指定数量的可使用物品
             for (let i = 0; i < sellQuantity.value; i++) {
-                await userStore.sellUse(currentItem.value.rarity)
+                const result = await userStore.sellUse(currentItem.value.rarity)
+                if (result.success) {
+                    totalEarned += result.price
+                } else {
+                    allSuccess = false
+                    break
+                }
             }
-            addToast(`💰 卖出成功！获得 ${totalPrice} 积分`, 'success')
+            if (allSuccess) {
+                addToast(`💰 卖出成功！获得 ${totalEarned} 积分`, 'success')
+            } else {
+                addToast('卖出失败，请稍后重试', 'error')
+            }
         }
         showQuantityModalVisible.value = false
         currentItem.value = null

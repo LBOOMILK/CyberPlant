@@ -89,7 +89,8 @@ const orderTypeMap = {
   PURCHASE_SEED: '购买种子',
   SELL_SEED: '卖出种子',
   SELL_CROP: '卖出作物',
-  PURCHASE_USE: '购买肥料'
+  PURCHASE_USE: '购买肥料',
+  SELL_USE: '卖出肥料'
 }
 
 // 获取订单类型中文

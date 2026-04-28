@@ -126,11 +126,17 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS orders (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR(50) NOT NULL,
-        type VARCHAR(50) NOT NULL CHECK (type IN ('PURCHASE_SEED', 'SELL_SEED', 'SELL_CROP', 'PURCHASE_USE')),
+        type VARCHAR(50) NOT NULL CHECK (type IN ('PURCHASE_SEED', 'SELL_SEED', 'SELL_CROP', 'PURCHASE_USE', 'SELL_USE')),
         amount INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
       )
+    `);
+    
+    // 更新已存在的orders表的约束，添加SELL_USE类型
+    await client.query(`
+      ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_type_check;
+      ALTER TABLE orders ADD CONSTRAINT orders_type_check CHECK (type IN ('PURCHASE_SEED', 'SELL_SEED', 'SELL_CROP', 'PURCHASE_USE', 'SELL_USE'));
     `);
     
     // 创建花园表
@@ -1251,6 +1257,87 @@ app.post('/api/user/uses', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Add use error:', error);
     res.status(500).json({ error: '添加物品失败，请稍后再试' });
+  }
+});
+
+// 卖出肥料（包含积分增加和订单创建）
+app.delete('/api/user/uses/:rarity', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { rarity } = req.params;
+    const { quantity, price } = req.body || { quantity: 1, price: 0 };
+    
+    console.log('Sell use request received:', { userId, rarity, quantity, price });
+    
+    if (!price) {
+      return res.status(400).json({ error: '请提供肥料价格' });
+    }
+    
+    const stringUserId = String(userId);
+    console.log('String userId:', stringUserId);
+    
+    // 开始事务
+    await client.query('BEGIN');
+    
+    try {
+      // 获取用户当前数据
+      const userResult = await client.query(
+        'SELECT uses, points FROM users WHERE id = $1',
+        [stringUserId]
+      );
+      
+      if (userResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        console.log('User not found:', stringUserId);
+        return res.status(404).json({ error: '用户不存在' });
+      }
+      
+      const user = userResult.rows[0];
+      
+      // 确保currentUses始终是对象
+      const currentUses = typeof user.uses === 'object' && user.uses !== null ? user.uses : {};
+      console.log('Current uses:', currentUses);
+      
+      // 检查肥料是否存在
+      if (!currentUses[rarity] || currentUses[rarity] < quantity) {
+        await client.query('ROLLBACK');
+        console.log('Use not found or insufficient quantity:', { rarity, currentQuantity: currentUses[rarity], requestedQuantity: quantity });
+        return res.status(404).json({ error: '肥料不存在或数量不足' });
+      }
+      
+      // 减少对应稀有度的数量
+      const updatedUses = { ...currentUses };
+      updatedUses[rarity] -= quantity;
+      if (updatedUses[rarity] === 0) {
+        delete updatedUses[rarity];
+      }
+      console.log('Updated uses:', updatedUses);
+      
+      // 计算增加的积分
+      const totalPrice = price * quantity;
+      const updatedPoints = (user.points || 0) + totalPrice;
+      
+      // 更新用户数据
+      await client.query(
+        'UPDATE users SET uses = $1, points = $2 WHERE id = $3',
+        [updatedUses, updatedPoints, stringUserId]
+      );
+      
+      // 创建订单
+      await createOrder(stringUserId, 'SELL_USE', totalPrice);
+      
+      // 提交事务
+      await client.query('COMMIT');
+      
+      console.log('Use sold successfully:', { rarity, quantity, totalPrice });
+      res.json({ rarity, quantity: updatedUses[rarity] || 0, points: updatedPoints });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Sell use error:', error);
+    res.status(500).json({ error: '卖出肥料失败，请稍后再试' });
   }
 });
 
