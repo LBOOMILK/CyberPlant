@@ -415,11 +415,15 @@ const groupedUses = computed(() => {
 
   async function sellCrop(rarity) {
     if (crops.value[rarity] > 0) {
-      const price = rarityConfig[rarity].sellPrice
-      const success = await removeCrop(rarity, price)
+      const priceData = await getSellPrice('crop', rarity)
+      if (!priceData || !priceData.sellPrice) {
+        console.error('Failed to get crop sell price')
+        return { success: false }
+      }
+      const success = await removeCrop(rarity, priceData.sellPrice)
       if (success) {
         saveToLocalStorage()
-        return { success: true, price }
+        return { success: true, price: priceData.sellPrice }
       }
       return { success: false }
     }
@@ -537,14 +541,8 @@ const groupedUses = computed(() => {
     }
   }
 
-  // 获取物品卖出价格（种子和肥料基于同品质最低购买价的50%）
-  // 每次都从后端获取最新价格，不使用缓存
+  // 获取物品卖出价格（每次都从后端获取最新价格，不使用缓存）
   async function getSellPrice(itemType, rarity) {
-    // 作物不适用动态价格，保持原有逻辑
-    if (itemType === 'crop') {
-      return { minBuyPrice: rarityConfig[rarity].buyPrice, sellPrice: rarityConfig[rarity].sellPrice }
-    }
-    
     try {
       const token = localStorage.getItem('auth_token')
       if (!token) return null

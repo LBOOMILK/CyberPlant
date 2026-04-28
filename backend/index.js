@@ -1184,16 +1184,21 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
 async function calculateSellPrice(itemType, rarity) {
   console.log('calculateSellPrice called with:', { itemType, rarity });
   
-  // 作物保持原有逻辑（商店价2倍）
+  // 作物卖出价格 = 同品质种子最高价的2倍
   if (itemType === 'crop') {
-    const cropResult = await client.query(
-      'SELECT price FROM plants WHERE plants_role = $1 AND rarity = $2 LIMIT 1',
+    const result = await client.query(
+      'SELECT MAX(price) as maxPrice FROM plants WHERE plants_role = $1 AND rarity = $2',
       ['seed', rarity]
     );
-    if (cropResult.rowCount > 0) {
-      return cropResult.rows[0].price * 2;
+    console.log('Crop query result:', result.rows);
+    const maxPrice = result.rows[0]?.maxprice || result.rows[0]?.maxPrice;
+    if (!maxPrice) {
+      console.log('No price found for crop, returning 0');
+      return 0;
     }
-    return 0;
+    const sellPrice = maxPrice * 2;
+    console.log('Calculated crop sell price:', sellPrice);
+    return sellPrice;
   }
   
   // 查询同类型同品质物品的最低价格
@@ -1219,7 +1224,7 @@ async function calculateSellPrice(itemType, rarity) {
   return sellPrice;
 }
 
-// 获取物品卖出价格（基于同品质最低购买价的50%）
+// 获取物品卖出价格
 app.get('/api/user/sell-price', authenticateToken, async (req, res) => {
   try {
     const { itemType, rarity } = req.query;
@@ -1228,29 +1233,40 @@ app.get('/api/user/sell-price', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: '请提供物品类型和稀有度' });
     }
     
-    // 只对种子和肥料计算动态卖出价，作物保持原有逻辑
-    if (itemType !== 'seed' && itemType !== 'use') {
-      return res.status(400).json({ error: '仅支持种子和肥料的卖出价计算' });
+    let minBuyPrice, sellPrice;
+    
+    if (itemType === 'crop') {
+      // 作物卖出价 = 同品质种子最高价的2倍
+      const result = await client.query(
+        'SELECT MAX(price) as maxPrice FROM plants WHERE plants_role = $1 AND rarity = $2',
+        ['seed', rarity]
+      );
+      const maxPrice = result.rows[0]?.maxprice || result.rows[0]?.maxPrice;
+      if (result.rowCount === 0 || !maxPrice) {
+        return res.status(404).json({ error: '未找到该物品' });
+      }
+      minBuyPrice = maxPrice;
+      sellPrice = maxPrice * 2;
+    } else if (itemType === 'seed' || itemType === 'use') {
+      // 种子和肥料卖出价 = 同品质最低购买价的50%
+      const result = await client.query(
+        'SELECT MIN(price) as minPrice FROM plants WHERE plants_role = $1 AND rarity = $2',
+        [itemType === 'use' ? 'use' : 'seed', rarity]
+      );
+      const minPrice = result.rows[0]?.minprice || result.rows[0]?.minPrice;
+      if (result.rowCount === 0 || !minPrice) {
+        return res.status(404).json({ error: '未找到该物品' });
+      }
+      minBuyPrice = minPrice;
+      sellPrice = Math.floor(minPrice * 0.5);
+    } else {
+      return res.status(400).json({ error: '不支持的物品类型' });
     }
-    
-    // 查询同类型同品质物品的最低价格
-    const result = await client.query(
-      'SELECT MIN(price) as minPrice FROM plants WHERE plants_role = $1 AND rarity = $2',
-      [itemType === 'use' ? 'use' : 'seed', rarity]
-    );
-    
-    // PostgreSQL返回的列名是小写的minprice
-    const minPrice = result.rows[0]?.minprice || result.rows[0]?.minPrice;
-    
-    if (result.rowCount === 0 || !minPrice) {
-      return res.status(404).json({ error: '未找到该物品' });
-    }
-    const sellPrice = Math.floor(minPrice * 0.5);
     
     res.json({
       rarity,
       itemType,
-      minBuyPrice: minPrice,
+      minBuyPrice,
       sellPrice
     });
   } catch (error) {
