@@ -568,7 +568,7 @@ const groupedUses = computed(() => {
     return null
   }
   function resetAllData() {
-    username.value = '绿色园丁'
+    username.value = '未获取用户名'
     points.value = 100
     seeds.value = {}
     crops.value = {}
