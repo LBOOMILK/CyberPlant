@@ -139,11 +139,10 @@ onUnmounted(() => {
   background: #2c5a2a;
   color: white;
   padding: 20px;
-  height: 100vh;
+  min-height: 100vh;
+  height: 100%;
   overflow-y: auto;
-  position: fixed;
-  left: 0;
-  top: 0;
+  position: relative;
   z-index: 1000;
   transition: transform 0.3s ease;
 }
@@ -367,6 +366,9 @@ onUnmounted(() => {
     transform: translateX(-100%);
     height: 100vh;
     padding: 24px;
+    position: fixed;
+    left: 0;
+    top: 0;
   }
   
   .admin-sidebar.mobile-open {
