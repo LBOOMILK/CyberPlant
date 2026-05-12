@@ -173,7 +173,7 @@ onMounted(() => {
 
 .admin-content h1 {
   margin: 0 0 32px 0;
-  color: #2c5a2a;
+  color: #1d6ed7;
   font-size: 1.8rem;
 }
 
@@ -202,7 +202,7 @@ onMounted(() => {
 .stat-value {
   font-size: 1.8rem;
   font-weight: bold;
-  color: #2c5a2a;
+  color: #1d6ed7;
   margin: 0;
 }
 
@@ -221,7 +221,7 @@ onMounted(() => {
 
 .recent-activity h2 {
   margin: 0 0 20px 0;
-  color: #2c5a2a;
+  color: #1d6ed7;
   font-size: 1.3rem;
 }
 
@@ -264,7 +264,7 @@ onMounted(() => {
 
   .admin-content h1,
   .admin-content h2 {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
 
   .stat-card {
@@ -276,7 +276,7 @@ onMounted(() => {
   }
 
   .stat-value {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
 
   .stat-hint {

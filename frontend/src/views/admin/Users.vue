@@ -933,7 +933,7 @@ onMounted(() => {
 
 .admin-content h1 {
   margin: 0 0 32px 0;
-  color: #2c5a2a;
+  color: #1d6ed7;
 }
 
 .action-bar {
@@ -983,7 +983,7 @@ onMounted(() => {
 
 .modal-content h3 {
   margin: 0 0 24px 0;
-  color: #2c5a2a;
+  color: #1d6ed7;
   text-align: center;
 }
 
@@ -1168,7 +1168,7 @@ onMounted(() => {
   }
   
   .admin-content h1 {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
   
   .search-bar input {
@@ -1201,7 +1201,7 @@ onMounted(() => {
   }
   
   .modal-content h3 {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
   
   .form-group label {
@@ -1217,7 +1217,7 @@ onMounted(() => {
   
   .form-group input:focus,
   .form-group select:focus {
-    border-color: #8bc34a;
+    border-color: #1d6ed7;
   }
   
   .hint {

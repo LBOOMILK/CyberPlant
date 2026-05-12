@@ -124,7 +124,7 @@ onUnmounted(() => {
   height: 48px;
   border: none;
   border-radius: 12px;
-  background: #2c5a2a;
+  background: #1e40af;
   color: white;
   font-size: 1.5rem;
   cursor: pointer;
@@ -136,7 +136,7 @@ onUnmounted(() => {
 
 .admin-sidebar {
   width: 200px;
-  background: #2c5a2a;
+  background: #1e40af;
   color: white;
   padding: 20px;
   min-height: 100vh;
@@ -240,13 +240,16 @@ onUnmounted(() => {
   padding: 12px 16px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   text-align: center;
-  color: #ff0000;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
 }
 
 .logout-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.5);
 }
 
 .overlay {
@@ -284,7 +287,7 @@ onUnmounted(() => {
 
 .modal-content h3 {
   margin: 0 0 16px 0;
-  color: #2c5a2a;
+  color: #1d6ed7;
 }
 
 .modal-content p {
@@ -328,7 +331,7 @@ onUnmounted(() => {
 
 @media (prefers-color-scheme: dark) {
   .admin-sidebar {
-    background: #1a3a1a;
+    background: #1e3a5f;
   }
   
   .sub-menu {
@@ -340,7 +343,8 @@ onUnmounted(() => {
   }
   
   .modal-content h3 {
-    color: #8bc34a;
+    color: #1d6ed7;
+
   }
   
   .modal-content p {

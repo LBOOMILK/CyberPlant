@@ -448,7 +448,7 @@ onMounted(() => {
 
 .admin-content h1 {
   margin: 0 0 32px 0;
-  color: #2c5a2a;
+  color: #1d6ed7;
 }
 
 .action-bar {
@@ -498,7 +498,7 @@ onMounted(() => {
 
 .modal-content h3 {
   margin: 0 0 24px 0;
-  color: #2c5a2a;
+  color: #1d6ed7;
   text-align: center;
 }
 
@@ -613,7 +613,7 @@ onMounted(() => {
   margin: 0 0 16px 0;
   font-size: 1.2rem;
   font-weight: bold;
-  color: #2c5a2a;
+  color: #1d6ed7;
 }
 
 .plant-actions {
@@ -662,7 +662,7 @@ onMounted(() => {
   }
   
   .admin-content h1 {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
   
   .search-bar input {
@@ -684,7 +684,7 @@ onMounted(() => {
   }
   
   .plant-price {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
   
   .modal-content {
@@ -693,7 +693,7 @@ onMounted(() => {
   }
   
   .modal-content h3 {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
   
   .form-group label {
@@ -709,7 +709,7 @@ onMounted(() => {
   
   .form-group input:focus,
   .form-group select:focus {
-    border-color: #8bc34a;
+    border-color: #1d6ed7;
   }
   
   .hint {

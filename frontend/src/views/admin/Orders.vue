@@ -249,7 +249,7 @@ onUnmounted(() => {
 
 .admin-content h1 {
   margin: 0 0 32px 0;
-  color: #2c5a2a;
+  color: #1d6ed7;
 }
 
 .action-bar {
@@ -419,7 +419,7 @@ onUnmounted(() => {
 
 .modal-content h3 {
   margin: 0 0 16px 0;
-  color: #2c5a2a;
+  color: #1d6ed7;
 }
 
 .modal-content p {
@@ -476,7 +476,7 @@ onUnmounted(() => {
   
 
   .admin-content h1 {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
   
   .search-bar input {
@@ -510,7 +510,7 @@ onUnmounted(() => {
   
   .loading-spinner {
     border-color: #333;
-    border-top-color: #8bc34a;
+    border-top-color: #1d6ed7;
   }
   
   .empty-msg {
@@ -523,7 +523,7 @@ onUnmounted(() => {
   }
   
   .amount-positive {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
   
   .amount-negative {
@@ -536,7 +536,7 @@ onUnmounted(() => {
   }
   
   .modal-content h3 {
-    color: #8bc34a;
+    color: #1d6ed7;
   }
   
   .modal-content p {
