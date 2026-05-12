@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { Client } = require('pg');
+const logger = require('./utils/logger');
 require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,7 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 
 // 连接 PostgreSQL 数据库
-console.log('Connecting to PostgreSQL with URL:', process.env.DATABASE_URL);
+logger.info('Connecting to PostgreSQL with URL:', { url: process.env.DATABASE_URL });
 const client = new Client({
   connectionString: process.env.DATABASE_URL
 });
@@ -62,7 +63,7 @@ async function initDatabase() {
   try {
     // 连接数据库
     await client.connect();
-    console.log('Connected to PostgreSQL database');
+    logger.info('Connected to PostgreSQL database');
     
     // 创建用户表
     await client.query(`
@@ -85,42 +86,42 @@ async function initDatabase() {
     try {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
     } catch (error) {
-      console.error('Error adding last_login_at column:', error);
+      logger.error('Error adding last_login_at column:', { error: error.message });
     }
 
     // 检查并添加points字段
     try {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS points INT DEFAULT 0');
     } catch (error) {
-      console.error('Error adding points column:', error);
+      logger.error('Error adding points column:', { error: error.message });
     }
 
     // 检查并添加uses字段
     try {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS uses JSONB DEFAULT \'[]\'');
     } catch (error) {
-      console.error('Error adding uses column:', error);
+      logger.error('Error adding uses column:', { error: error.message });
     }
 
     // 检查并添加seeds字段
     try {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS seeds JSONB DEFAULT \'[]\'');
     } catch (error) {
-      console.error('Error adding seeds column:', error);
+      logger.error('Error adding seeds column:', { error: error.message });
     }
     
     // 检查并添加crops字段
     try {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS crops JSONB DEFAULT \'[]\'');
     } catch (error) {
-      console.error('Error adding crops column:', error);
+      logger.error('Error adding crops column:', { error: error.message });
     }
     
     // 检查并添加uses字段
     try {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS uses JSONB DEFAULT \'[]\'');
     } catch (error) {
-      console.error('Error adding uses column:', error);
+      logger.error('Error adding uses column:', { error: error.message });
     }
 
 
@@ -245,9 +246,9 @@ async function initDatabase() {
       }
     }
     
-    console.log('Database initialized successfully');
+    logger.info('Database initialized successfully');
   } catch (error) {
-    console.error('Error initializing database:', error);
+    logger.error('Error initializing database:', { error: error.message });
   }
 }
 
@@ -262,7 +263,10 @@ app.use(express.json());
 
 // 记录所有HTTP请求
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  logger.info(`${req.method} ${req.url}`, { 
+    ip: req.ip, 
+    userAgent: req.get('User-Agent') 
+  });
   next();
 });
 
@@ -300,7 +304,7 @@ app.get('/', (req, res) => {
 // 认证路由
 app.post('/api/auth/register', async (req, res) => {
   try {
-    console.log('Register request:', req.body);
+    logger.info('Register request received', { email: req.body?.email });
     if (!req.body) {
       return res.status(400).json({ error: '请求体不能为空' });
     }
@@ -319,12 +323,11 @@ app.post('/api/auth/register', async (req, res) => {
     
     // 如果没有提供name，使用邮箱前缀作为用户名
     const username = name || email.split('@')[0];
-    console.log('Username:', username);
     
     // 检查邮箱是否已存在
     const existingUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
     if (existingUser.rowCount > 0) {
-      console.log('Email already exists:', email);
+      logger.warn('Email already exists', { email });
       return res.status(400).json({ error: '该邮箱已被注册' });
     }
     
@@ -333,7 +336,6 @@ app.post('/api/auth/register', async (req, res) => {
     
     // 生成用户ID，使用偶数
     const nextId = await generateUserId('user');
-    console.log('Next user ID:', nextId);
     
     // 初始化背包数据，为所有稀有度的种子、作物和可使用物品设置初始数量为0
     const initialSeeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 };
@@ -347,7 +349,7 @@ app.post('/api/auth/register', async (req, res) => {
     );
     
     const user = newUser.rows[0];
-    console.log('New user created:', user);
+    logger.info('New user created', { userId: user.id, email: user.email });
     
     // 生成 JWT 令牌
     const token = jwt.sign(
@@ -355,7 +357,6 @@ app.post('/api/auth/register', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    console.log('Token generated:', token);
     
     const response = {
       user: {
@@ -368,38 +369,36 @@ app.post('/api/auth/register', async (req, res) => {
       },
       token
     };
-    console.log('Register response:', response);
     res.status(201).json(response);
   } catch (error) {
-    console.error('Register error:', error);
+    logger.error('Register error', { error: error.message });
     res.status(500).json({ error: '注册失败，请稍后再试' });
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    console.log('Login request:', req.body);
+    logger.info('Login request received', { email: req.body?.email });
     const { email, password } = req.body;
 
     if (!email || !password) {
-      console.log('Login error: Missing email or password');
+      logger.warn('Login attempt with missing credentials');
       return res.status(400).json({ error: '请输入邮箱和密码' });
     }
 
     // 查找用户
     const userResult = await client.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userResult.rowCount === 0) {
-      console.log('Login error: User not found', email);
+      logger.warn('Login attempt failed: User not found', { email });
       return res.status(401).json({ error: '用户不存在' });
     }
 
     const user = userResult.rows[0];
-    console.log('User found:', user.id, user.email, user.role);
 
     // 验证密码
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
-      console.log('Login error: Invalid password');
+      logger.warn('Login attempt failed: Invalid password', { email });
       return res.status(401).json({ error: '密码错误' });
     }
 
@@ -507,10 +506,10 @@ app.post('/api/auth/login', async (req, res) => {
       },
       token
     };
-    console.log('Login response:', response);
+    logger.info('Login successful', { userId: user.id, email: user.email, role: user.role });
     res.json(response);
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error', { error: error.message });
     res.status(500).json({ error: '登录失败，请稍后再试' });
   }
 });
@@ -2224,7 +2223,7 @@ async function startServer() {
     
     // 启动服务器
     const server = app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      logger.info(`Server is running on port ${PORT}`);
     });
     
     // 优雅关闭
