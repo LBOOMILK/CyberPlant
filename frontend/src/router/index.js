@@ -1,39 +1,38 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-// 路由守卫
-function requireAuth(to, from, next) {
-  const token = localStorage.getItem('auth_token')
-  if (token) {
-    next()
-  } else {
-    next('/login')
-  }
-}
-
-function requireAdmin(to, from, next) {
-  const token = localStorage.getItem('auth_token')
-  const userRole = localStorage.getItem('user_role')
-  if (token && userRole === 'admin') {
-    next()
-  } else {
-    next('/login')
-  }
-}
-
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    // 公共路由
-    { path: '/', redirect: '/login' },  // 默认重定向到登录页
-    { path: '/login', name: 'login', component: () => import('../views/auth/Login.vue') },
-    { path: '/register', name: 'register', component: () => import('../views/auth/Register.vue') },
+    { 
+      path: '/', 
+      name: 'login-select', 
+      component: () => import('../views/auth/LoginSelect.vue'),
+      meta: { requiresAuth: false }
+    },
+    { 
+      path: '/login', 
+      name: 'login', 
+      component: () => import('../views/auth/UserLogin.vue'),
+      meta: { requiresAuth: false }
+    },
+    { 
+      path: '/register', 
+      name: 'register', 
+      component: () => import('../views/auth/Register.vue'),
+      meta: { requiresAuth: false }
+    },
+    { 
+      path: '/admin/login', 
+      name: 'admin-login', 
+      component: () => import('../views/auth/AdminLogin.vue'),
+      meta: { requiresAuth: false }
+    },
     
-    // 登录后路由
     {
       path: '/dashboard',
       name: 'dashboard',
       redirect: '/dashboard/garden',
-      beforeEnter: requireAuth,
+      meta: { requiresAuth: true, requiresRole: 'user' },
       children: [
         { path: 'garden', name: 'garden', component: () => import('../views/dashboard/Garden.vue') },
         { path: 'shop', name: 'shop', component: () => import('../views/dashboard/Shop.vue') },
@@ -43,12 +42,11 @@ const router = createRouter({
       ]
     },
     
-    // 管理端路由
     {
       path: '/admin',
       name: 'admin',
       redirect: '/admin/dashboard',
-      beforeEnter: requireAdmin,
+      meta: { requiresAuth: true, requiresRole: 'admin' },
       children: [
         { path: 'dashboard', name: 'admin-dashboard', component: () => import('../views/admin/Dashboard.vue') },
         { path: 'users', name: 'admin-users', component: () => import('../views/admin/Users.vue') },
@@ -57,7 +55,40 @@ const router = createRouter({
         { path: 'orders', name: 'admin-orders', component: () => import('../views/admin/Orders.vue') },
       ]
     },
+    
+    { 
+      path: '/:pathMatch(.*)*', 
+      redirect: '/',
+      meta: { requiresAuth: false }
+    }
   ]
+})
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('auth_token')
+  const userRole = localStorage.getItem('user_role')
+  const requiresAuth = to.meta.requiresAuth !== false
+
+  if (requiresAuth && !token) {
+    next('/')
+    return
+  }
+
+  if (requiresAuth && token) {
+    const requiredRole = to.meta.requiresRole
+    
+    if (requiredRole === 'admin' && userRole !== 'admin') {
+      next('/')
+      return
+    }
+    
+    if (requiredRole === 'user' && userRole === 'admin') {
+      next('/')
+      return
+    }
+  }
+
+  next()
 })
 
 export default router
