@@ -1,9 +1,17 @@
 <template>
     <div class="app">
         <!-- 右上角用户信息（登录/注册页面除外，User 页面除外，管理端页面除外） -->
-        <div v-if="!isAuthPage && !isAdminPage && $route.path !== '/dashboard/user'" class="user-info">
+        <div 
+            v-if="!isAuthPage && !isAdminPage && $route.path !== '/dashboard/user'" 
+            class="user-info"
+            :class="{ 'dragging': isUserInfoDragging }"
+            :style="userInfoStyle"
+        >
             <span class="username">🌱 {{ userStore.username }}</span>
             <span class="points">⭐ {{ userStore.totalPoints }} 积分</span>
+            <div class="user-info-drag-handle" @mousedown="startUserInfoDrag" @touchstart="startUserInfoDrag">
+                <span>⠿</span>
+            </div>
         </div>
         <!-- 路由视图 -->
         <main class="main-content">
@@ -20,7 +28,12 @@
         </nav>
 
         <!-- 平板/PC 端悬浮胶囊导航栏（登录/注册页面除外，管理端页面除外） -->
-        <nav v-if="!isAuthPage && !isAdminPage" class="floating-nav" :class="{ 'visible': !isMobile }">
+        <nav 
+            v-if="!isAuthPage && !isAdminPage" 
+            class="floating-nav" 
+            :class="{ 'visible': !isMobile, 'dragging': isDragging }"
+            :style="navStyle"
+        >
             <div class="nav-capsule">
                 <router-link to="/dashboard/garden" class="nav-item" :class="{ active: $route.path === '/dashboard/garden' }">
                     <span class="nav-icon">🌱</span>
@@ -42,6 +55,9 @@
                     <span class="nav-icon">👤</span>
                     <span class="nav-label">我的</span>
                 </router-link>
+            </div>
+            <div class="drag-handle" @mousedown="startDrag" @touchstart="startDrag">
+                <span class="drag-icon">⠿</span>
             </div>
         </nav>
     </div>
@@ -72,6 +88,94 @@ const handleResize = () => {
     isMobile.value = window.innerWidth < 768
 }
 
+// 悬浮导航拖动相关状态
+const isDragging = ref(false)
+const navPosition = ref({ x: 20, y: 100 })
+const navDragOffset = ref({ x: 0, y: 0 })
+
+const navStyle = computed(() => ({
+    left: `${navPosition.value.x}px`,
+    top: `${navPosition.value.y}px`
+}))
+
+const startDrag = (e) => {
+    e.stopPropagation()
+    isDragging.value = true
+    const touch = e.touches ? e.touches[0] : e
+    navDragOffset.value = {
+        x: touch.clientX - navPosition.value.x,
+        y: touch.clientY - navPosition.value.y
+    }
+    document.addEventListener('mousemove', onNavDrag)
+    document.addEventListener('mouseup', stopNavDrag)
+    document.addEventListener('touchmove', onNavDrag)
+    document.addEventListener('touchend', stopNavDrag)
+}
+
+const onNavDrag = (e) => {
+    if (!isDragging.value) return
+    const touch = e.touches ? e.touches[0] : e
+    const newX = touch.clientX - navDragOffset.value.x
+    const newY = touch.clientY - navDragOffset.value.y
+    
+    navPosition.value = {
+        x: Math.max(0, Math.min(newX, window.innerWidth - 400)),
+        y: Math.max(0, Math.min(newY, window.innerHeight - 80))
+    }
+}
+
+const stopNavDrag = () => {
+    isDragging.value = false
+    document.removeEventListener('mousemove', onNavDrag)
+    document.removeEventListener('mouseup', stopNavDrag)
+    document.removeEventListener('touchmove', onNavDrag)
+    document.removeEventListener('touchend', stopNavDrag)
+}
+
+// 用户信息拖动相关状态
+const isUserInfoDragging = ref(false)
+const userInfoPosition = ref({ x: 20, y: 16 })
+const userInfoDragOffset = ref({ x: 0, y: 0 })
+
+const userInfoStyle = computed(() => ({
+    right: `${userInfoPosition.value.x}px`,
+    top: `${userInfoPosition.value.y}px`
+}))
+
+const startUserInfoDrag = (e) => {
+    e.stopPropagation()
+    isUserInfoDragging.value = true
+    const touch = e.touches ? e.touches[0] : e
+    userInfoDragOffset.value = {
+        x: window.innerWidth - touch.clientX - userInfoPosition.value.x,
+        y: touch.clientY - userInfoPosition.value.y
+    }
+    document.addEventListener('mousemove', onUserInfoDrag)
+    document.addEventListener('mouseup', stopUserInfoDrag)
+    document.addEventListener('touchmove', onUserInfoDrag)
+    document.addEventListener('touchend', stopUserInfoDrag)
+}
+
+const onUserInfoDrag = (e) => {
+    if (!isUserInfoDragging.value) return
+    const touch = e.touches ? e.touches[0] : e
+    const newX = window.innerWidth - touch.clientX - userInfoDragOffset.value.x
+    const newY = touch.clientY - userInfoDragOffset.value.y
+    
+    userInfoPosition.value = {
+        x: Math.max(0, Math.min(newX, window.innerWidth - 200)),
+        y: Math.max(0, Math.min(newY, window.innerHeight - 60))
+    }
+}
+
+const stopUserInfoDrag = () => {
+    isUserInfoDragging.value = false
+    document.removeEventListener('mousemove', onUserInfoDrag)
+    document.removeEventListener('mouseup', stopUserInfoDrag)
+    document.removeEventListener('touchmove', onUserInfoDrag)
+    document.removeEventListener('touchend', stopUserInfoDrag)
+}
+
 onMounted(async () => {
     window.addEventListener('resize', handleResize)
     // 加载用户信息
@@ -84,6 +188,14 @@ onMounted(async () => {
 
 onUnmounted(() => {
     window.removeEventListener('resize', handleResize)
+    document.removeEventListener('mousemove', onNavDrag)
+    document.removeEventListener('mouseup', stopNavDrag)
+    document.removeEventListener('touchmove', onNavDrag)
+    document.removeEventListener('touchend', stopNavDrag)
+    document.removeEventListener('mousemove', onUserInfoDrag)
+    document.removeEventListener('mouseup', stopUserInfoDrag)
+    document.removeEventListener('touchmove', onUserInfoDrag)
+    document.removeEventListener('touchend', stopUserInfoDrag)
 })
 
 </script>
@@ -115,25 +227,32 @@ onUnmounted(() => {
     align-items: center;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    padding: 12px 16px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 8px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid rgba(0, 0, 0, 0.08);
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
     z-index: 1000;
     transition: transform 0.3s ease;
+    min-height: 60px;
 }
 
 .bottom-nav a {
     text-decoration: none;
-    font-size: 1rem;
+    font-size: 0.85rem;
     font-weight: 500;
     color: #999;
-    padding: 8px 16px;
-    border-radius: 40px;
+    padding: 8px 12px;
+    border-radius: 30px;
     transition: all 0.2s ease;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 60px;
+    max-width: 80px;
+    height: 44px;
 }
 
 .bottom-nav a.router-link-active {
@@ -143,6 +262,16 @@ onUnmounted(() => {
 
 .bottom-nav a:active {
     transform: scale(0.95);
+}
+
+.bottom-nav a span:first-child {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.bottom-nav a span:last-child {
+    font-size: 0.7rem;
+    line-height: 1;
 }
 
 /* 移动端隐藏悬浮导航 */
@@ -158,7 +287,12 @@ onUnmounted(() => {
     z-index: 1000;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.1s ease;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 .floating-nav.visible {
@@ -166,22 +300,73 @@ onUnmounted(() => {
     visibility: visible;
 }
 
+.floating-nav.dragging {
+    cursor: grabbing;
+    opacity: 0.9;
+    transform: scale(1.02);
+}
+
 .nav-capsule {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(15px);
     padding: 12px 10px;
     border-radius: 40px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.5);
     transition: all 0.2s ease;
 }
 
 .nav-capsule:hover {
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
+}
+
+.drag-handle {
+    position: absolute;
+    top: 50%;
+    right: -28px;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 60px;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.3));
+    border-radius: 0 12px 12px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 12px;
+    color: #4caf50;
+    cursor: grab;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-left: none;
+    box-shadow: 2px 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.drag-handle:hover {
+    opacity: 1;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(76, 175, 80, 0.4));
+    box-shadow: 3px 3px 12px rgba(76, 175, 80, 0.3);
+}
+
+.drag-handle .drag-icon {
+    font-size: 14px;
+}
+
+.drag-handle .drag-text {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+.floating-nav.dragging .drag-handle {
+    cursor: grabbing;
+    opacity: 1;
 }
 
 /* 竖向布局的导航项 */
@@ -253,17 +438,67 @@ onUnmounted(() => {
     top: 16px;
     right: 20px;
     display: flex;
-    gap: 16px;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(8px);
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
     padding: 8px 20px;
+    padding-right: 48px;
     border-radius: 40px;
     z-index: 1001;
     font-weight: bold;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-width: 200px;
+    max-width: 220px;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
+.user-info:hover {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
 
+.user-info.dragging {
+    cursor: grabbing;
+    transform: scale(1.02);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.user-info-drag-handle {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 36px;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(76, 175, 80, 0.25));
+    border-radius: 0 40px 40px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #4caf50;
+    cursor: grab;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    border-left: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.user-info-drag-handle:hover {
+    opacity: 1;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.25), rgba(76, 175, 80, 0.35));
+}
+
+.user-info.dragging .user-info-drag-handle {
+    cursor: grabbing;
+    opacity: 1;
+}
 
 .username {
     color: #2c5a2a;
@@ -271,6 +506,7 @@ onUnmounted(() => {
 
 .points {
     color: #ff9800;
+    margin-top: -10px;
 }
 
 /* ========== 深色模式适配 ========== */
@@ -287,6 +523,10 @@ onUnmounted(() => {
     .bottom-nav a.router-link-active {
         color: #8bc34a;
         background: rgba(139, 195, 74, 0.15);
+    }
+    
+    .bottom-nav a span:last-child {
+        color: inherit;
     }
 
     .nav-capsule {
@@ -323,8 +563,30 @@ onUnmounted(() => {
 }
 
 /* ========== 响应式断点 ========== */
-/* 移动端（默认） */
-@media (max-width: 767px) {
+/* 极窄屏（<385px）：只显示图标，隐藏文字 */
+@media (max-width: 384px) {
+    .bottom-nav a {
+        min-width: 48px;
+        max-width: 56px;
+        height: 40px;
+        padding: 6px 8px;
+    }
+    
+    .bottom-nav a span:last-child {
+        display: none;
+    }
+    
+    .bottom-nav a span:first-child {
+        font-size: 1.3rem;
+    }
+    
+    .user-info {
+        display: none;
+    }
+}
+
+/* 移动端（385px - 767px） */
+@media (min-width: 385px) and (max-width: 767px) {
     .bottom-nav {
         display: flex;
     }

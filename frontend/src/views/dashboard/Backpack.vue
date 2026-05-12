@@ -489,14 +489,14 @@ async function handleSellConfirm(quantity = 1) {
     color: #ff9800;
     font-weight: bold;
     margin: 4px 0;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
 }
 
 .sell-price {
     color: #4caf50;
     font-weight: bold;
     margin: 4px 0;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
 }
 
 .sell-btn {
@@ -727,6 +727,83 @@ async function handleSellConfirm(quantity = 1) {
     
     .confirm-btn:hover {
         background: #2e7d32;
+    }
+}
+
+@media (max-width: 768px) {
+    .tabs {
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 0 10px;
+    }
+    
+    .tabs button {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        flex: 1;
+        min-width: 80px;
+    }
+    
+    .items-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 15px;
+        padding: 0 10px;
+    }
+    
+    .item-card {
+        padding: 15px;
+    }
+    
+    .item-icon {
+        font-size: 40px;
+    }
+    
+    .item-name {
+        font-size: 0.85rem;
+    }
+    
+    .sell-btn {
+        padding: 6px 3px;
+        font-size: 0.65rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .tabs button {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+        min-width: 60px;
+    }
+    
+    .items-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+    }
+    
+    .item-card {
+        padding: 12px;
+        border-radius: 24px;
+    }
+    
+    .item-icon {
+        font-size: 32px;
+    }
+    
+    .item-name {
+        font-size: 0.75rem;
+        margin: 6px 0;
+    }
+    
+    .item-rarity {
+        font-size: 0.65rem;
+        padding: 2px 8px;
+        margin-bottom: 6px;
+    }
+    
+    .sell-btn {
+        padding: 5px 2px;
+        font-size: 0.6rem;
+        border-radius: 8px;
     }
 }
 </style>
