@@ -2,33 +2,42 @@
   <div class="auth-page">
     <Toast ref="toastRef" />
     <div class="auth-card">
-      <h1>🌱 赛博花园</h1>
-      <h2>注册</h2>
+      <div class="auth-header">
+        <div class="auth-icon">🌱</div>
+        <h1>赛博花园</h1>
+      </div>
+      <h2>用户注册</h2>
       
       <form @submit.prevent="handleRegister">
         <div class="form-group">
           <label for="name">用户名</label>
-          <input 
-            type="text" 
-            id="name" 
-            v-model="form.name" 
-            required 
-            placeholder="请输入用户名"
-          >
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input 
+              type="text" 
+              id="name" 
+              v-model="form.name" 
+              required 
+              placeholder="请输入用户名"
+            >
+          </div>
         </div>
         
         <div class="form-group">
           <label for="email">邮箱</label>
           <div class="email-input-container">
-            <input 
-              type="email" 
-              id="email" 
-              v-model="form.email" 
-              required 
-              placeholder="请输入邮箱"
-              @input="validateEmail"
-              @blur="validateEmail"
-            >
+            <div class="input-wrapper">
+              <span class="input-icon">📧</span>
+              <input 
+                type="email" 
+                id="email" 
+                v-model="form.email" 
+                required 
+                placeholder="请输入邮箱"
+                @input="validateEmail"
+                @blur="validateEmail"
+              >
+            </div>
             <div v-if="showEmailSuggestions" class="email-suggestions">
               <div 
                 v-for="suffix in emailSuffixes" 
@@ -43,9 +52,10 @@
           <p v-if="emailError" class="error-message">{{ emailError }}</p>
         </div>
         
-        <div class="form-group password-group">
+        <div class="form-group">
           <label for="password">密码</label>
-          <div class="password-input-container">
+          <div class="input-wrapper">
+            <span class="input-icon">🔑</span>
             <input :type="showPassword ? 'text' : 'password'" id="password" v-model="form.password" required placeholder="请输入密码">
             <button type="button" class="password-toggle" @click="showPassword = !showPassword">
               {{ showPassword ? '🙈' : '👁️' }}
@@ -53,9 +63,10 @@
           </div>
         </div>
         
-        <div class="form-group password-group">
+        <div class="form-group">
           <label for="confirmPassword">确认密码</label>
-          <div class="password-input-container">
+          <div class="input-wrapper">
+            <span class="input-icon">🔑</span>
             <input :type="showConfirmPassword ? 'text' : 'password'" id="confirmPassword" v-model="form.confirmPassword" required placeholder="请确认密码">
             <button type="button" class="password-toggle" @click="showConfirmPassword = !showConfirmPassword">
               {{ showConfirmPassword ? '🙈' : '👁️' }}
@@ -86,19 +97,15 @@ const form = ref({
   confirmPassword: ''
 })
 
-// 密码可视相关
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 
-// 邮箱验证相关
 const emailError = ref('')
 const showEmailSuggestions = ref(false)
 const emailSuffixes = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'qq.com', '163.com', '126.com']
 
-// Toast组件
 const toastRef = ref(null)
 
-// 邮箱验证
 function validateEmail() {
   const email = form.value.email
   emailError.value = ''
@@ -108,7 +115,6 @@ function validateEmail() {
     return
   }
   
-  // 检查是否包含 @ 符号
   if (!email.includes('@')) {
     showEmailSuggestions.value = true
     return
@@ -116,14 +122,12 @@ function validateEmail() {
   
   showEmailSuggestions.value = false
   
-  // 邮箱格式验证
   const emailRegex = /^[^\s@]+@[^\s@]+$/
   if (!emailRegex.test(email)) {
     emailError.value = '请输入有效的邮箱地址'
   }
 }
 
-// 选择邮箱后缀
 function selectEmailSuffix(suffix) {
   const email = form.value.email
   const atIndex = email.indexOf('@')
@@ -137,7 +141,6 @@ function selectEmailSuffix(suffix) {
 }
 
 async function handleRegister() {
-  // 验证邮箱格式
   validateEmail()
   if (emailError.value) {
     return
@@ -150,20 +153,19 @@ async function handleRegister() {
     return
   }
   
-  // 调用后端 API 进行注册
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: form.value.name,
-          email: form.value.email,
-          password: form.value.password
-        })
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: form.value.name,
+        email: form.value.email,
+        password: form.value.password
       })
-    
+    })
+  
     const data = await response.json()
     
     if (!response.ok) {
@@ -173,14 +175,12 @@ async function handleRegister() {
       return
     }
     
-    // 存储认证信息
     localStorage.setItem('auth_token', data.token)
     localStorage.setItem('user_id', data.user.id)
     localStorage.setItem('user_role', data.user.role)
     localStorage.setItem('user_email', data.user.email)
     localStorage.setItem('user_name', data.user.name)
     
-    // 跳转到仪表盘
     router.push('/dashboard')
   } catch (error) {
     console.error('注册失败:', error)
@@ -197,30 +197,46 @@ async function handleRegister() {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
+  background: linear-gradient(145deg, #2e7d32 0%, #388e3c 50%, #4caf50 100%);
   padding: 20px;
 }
 
 .auth-card {
-  background: rgba(255, 248, 235, 0.98);
-  border-radius: 48px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
   padding: 40px;
-  max-width: 400px;
+  max-width: 420px;
   width: 100%;
   text-align: center;
-  box-shadow: 0 25px 45px rgba(0, 20, 0, 0.25);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  border: 3px solid rgba(76, 175, 80, 0.4);
+  background: linear-gradient(145deg, rgba(248, 255, 248, 0.98), rgba(255, 255, 255, 0.95));
+}
+
+.auth-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.auth-icon {
+  font-size: 3.5rem;
+  margin-bottom: 12px;
 }
 
 .auth-card h1 {
-  font-size: 2rem;
+  font-size: 1.8rem;
   margin: 0 0 16px 0;
   color: #2c5a2a;
+  font-weight: 600;
 }
 
 .auth-card h2 {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   margin: 0 0 32px 0;
-  color: #4a6c4a;
+  color: #4caf50;
+  font-weight: 500;
 }
 
 .form-group {
@@ -231,35 +247,41 @@ async function handleRegister() {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-weight: bold;
-  color: #555;
+  font-weight: 600;
+  color: #37474f;
+  font-size: 0.9rem;
 }
 
-.form-group input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 24px;
-  font-size: 1rem;
-  transition: border-color 0.2s ease;
-  box-sizing: border-box;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #4caf50;
-}
-
-/* 密码输入容器 */
-.password-input-container {
+.input-wrapper {
   position: relative;
   width: 100%;
 }
 
-.password-input-container input {
+.input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.1rem;
+  z-index: 1;
+}
+
+.input-wrapper input {
   width: 100%;
-  padding-right: 50px; /* 为密码可视按钮留出空间 */
+  padding: 14px 16px 14px 44px;
+  border: 2px solid #e3e7ed;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
   box-sizing: border-box;
+  background: #fafbfc;
+}
+
+.input-wrapper input:focus {
+  outline: none;
+  border-color: #4caf50;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
 .password-toggle {
@@ -269,15 +291,15 @@ async function handleRegister() {
   transform: translateY(-50%);
   background: none;
   border: none;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   cursor: pointer;
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: #78909c;
   transition: color 0.2s ease;
 }
 
@@ -285,39 +307,37 @@ async function handleRegister() {
   color: #4caf50;
 }
 
-/* 邮箱输入容器 */
 .email-input-container {
   position: relative;
   width: 100%;
 }
 
-/* 邮箱后缀建议 */
 .email-suggestions {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
   background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 0 0 24px 24px;
+  border: 2px solid #e3e7ed;
+  border-radius: 0 0 12px 12px;
   border-top: none;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 10;
   max-height: 200px;
   overflow-y: auto;
 }
 
 .email-suggestion {
-  padding: 12px 16px;
+  padding: 12px 16px 12px 44px;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  text-align: left;
 }
 
 .email-suggestion:hover {
-  background-color: #f5f5f5;
+  background-color: #f1f8e9;
 }
 
-/* 错误消息 */
 .error-message {
   margin: 8px 0 0 0;
   font-size: 0.8rem;
@@ -327,46 +347,52 @@ async function handleRegister() {
 
 .auth-btn {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   border: none;
-  border-radius: 24px;
-  background: #4caf50;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
   color: white;
   font-size: 1rem;
-  font-weight: bold;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   margin-top: 8px;
+  box-shadow: 0 4px 14px rgba(76, 175, 80, 0.4);
 }
 
 .auth-btn:hover {
-  background: #388e3c;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.5);
+}
+
+.auth-btn:active {
+  transform: translateY(0);
 }
 
 .auth-footer {
   margin-top: 24px;
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 0.85rem;
+  color: #78909c;
 }
 
 .auth-footer a {
   color: #4caf50;
   text-decoration: none;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .auth-footer a:hover {
   text-decoration: underline;
 }
 
-/* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .auth-page {
-    background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
+    background: linear-gradient(145deg, #1a3a1a 0%, #1b5e20 50%, #2e7d32 100%);
   }
   
   .auth-card {
-    background: rgba(30, 30, 25, 0.95);
+    background: rgba(25, 30, 50, 0.95);
+    border-color: rgba(139, 195, 74, 0.3);
   }
   
   .auth-card h1 {
@@ -374,48 +400,80 @@ async function handleRegister() {
   }
   
   .auth-card h2 {
-    color: #a5d6a7;
+    color: #81c784;
   }
   
   .form-group label {
-    color: #e0e0d0;
+    color: #cfd8dc;
   }
   
-  .form-group input {
-    background: rgba(40, 40, 35, 0.8);
-    border-color: #555;
-    color: #e0e0e0;
+  .input-wrapper input {
+    background: rgba(40, 45, 70, 0.8);
+    border-color: #37474f;
+    color: #e8eef4;
   }
   
-  .form-group input:focus {
+  .input-wrapper input:focus {
     border-color: #8bc34a;
+    background: rgba(50, 55, 85, 0.9);
+    box-shadow: 0 0 0 3px rgba(139, 195, 74, 0.15);
+  }
+  
+  .password-toggle {
+    color: #90a4ae;
+  }
+  
+  .password-toggle:hover {
+    color: #8bc34a;
+  }
+  
+  .email-suggestions {
+    background: rgba(40, 45, 70, 0.95);
+    border-color: #37474f;
+  }
+  
+  .email-suggestion {
+    color: #e8eef4;
+  }
+  
+  .email-suggestion:hover {
+    background-color: rgba(139, 195, 74, 0.15);
+  }
+  
+  .error-message {
+    color: #ef5350;
   }
   
   .auth-footer {
-    color: #aaa;
+    color: #90a4ae;
   }
   
   .auth-footer a {
     color: #8bc34a;
   }
-  
-  /* 邮箱后缀建议 - 深色模式 */
-  .email-suggestions {
-    background: #2a2a2a;
-    border-color: #444;
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 28px;
+    border-radius: 20px;
   }
   
-  .email-suggestion {
-    color: #e0e0e0;
+  .auth-icon {
+    font-size: 2.8rem;
   }
   
-  .email-suggestion:hover {
-    background-color: #3a3a3a;
+  .auth-card h1 {
+    font-size: 1.5rem;
   }
   
-  /* 错误消息 - 深色模式 */
-  .error-message {
-    color: #ef5350;
+  .auth-card h2 {
+    font-size: 1.15rem;
+    margin-bottom: 24px;
+  }
+  
+  .input-wrapper input {
+    padding: 12px 14px 12px 40px;
   }
 }
 </style>

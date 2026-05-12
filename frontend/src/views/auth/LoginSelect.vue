@@ -26,7 +26,7 @@
     
     <div class="quick-actions">
       <router-link to="/register" class="register-link">
-        🌻 注册新账号
+        🌻 注册新用户
       </router-link>
     </div>
   </div>

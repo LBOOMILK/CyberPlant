@@ -115,13 +115,15 @@ async function handleLogin() {
 }
 
 .admin-auth-card {
-  background: rgba(255, 255, 255, 0.98);
+  background: rgba(255, 255, 255, 0.95);
   border-radius: 24px;
   padding: 40px;
   max-width: 420px;
   width: 100%;
   text-align: center;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  border: 3px solid rgba(57, 73, 171, 0.4);
+  background: linear-gradient(145deg, rgba(245, 247, 255, 0.98), rgba(255, 255, 255, 0.95));
 }
 
 .admin-header {
