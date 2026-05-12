@@ -431,7 +431,7 @@ function handleLogout() {
     toastRef.value.addToast('已成功退出登录', 'success')
   }
   setTimeout(() => {
-    router.push('/login')
+    router.push('/admin/login')
   }, 1000)
 }
 

@@ -1,34 +1,47 @@
 <template>
-  <div class="admin-sidebar">
-    <h2>管理中心</h2>
-    <ul class="menu-container">
-      <li class="menu-item">
-        <router-link to="/admin/dashboard" class="menu-link">仪表盘</router-link>
-      </li>
-      <li class="menu-item">
-        <div class="menu-title" @click="toggleUserMenu">
-          <span>用户管理</span>
-          <span class="menu-arrow" :class="{ open: userMenuOpen }">&#9660;</span>
-        </div>
-        <ul v-if="userMenuOpen" class="sub-menu">
-          <li class="menu-item">
-            <router-link to="/admin/users" class="menu-link" @click="preventBubble">普通用户</router-link>
-          </li>
-          <li class="menu-item">
-            <router-link to="/admin/admins" class="menu-link" @click="preventBubble">管理员</router-link>
-          </li>
-        </ul>
-      </li>
-      <li class="menu-item">
-        <router-link to="/admin/plants" class="menu-link">植物管理</router-link>
-      </li>
-      <li class="menu-item">
-        <router-link to="/admin/orders" class="menu-link">订单管理</router-link>
-      </li>
-      <li class="logout-item" @click="showLogoutModal = true">退出登录</li>
-    </ul>
+  <div class="admin-sidebar-container">
+    <button class="mobile-menu-toggle" @click="toggleMobileMenu" v-if="isMobile">
+      ☰
+    </button>
     
-    <!-- 退出登录弹窗 -->
+    <div class="admin-sidebar" :class="{ 'mobile-open': mobileMenuOpen }">
+      <div class="sidebar-header">
+        <h2>管理中心</h2>
+        <button class="close-mobile-menu" @click="toggleMobileMenu" v-if="isMobile">
+          ✕
+        </button>
+      </div>
+      
+      <ul class="menu-container">
+        <li class="menu-item">
+          <router-link to="/admin/dashboard" class="menu-link" @click="closeMobileMenu">仪表盘</router-link>
+        </li>
+        <li class="menu-item">
+          <div class="menu-title" @click="toggleUserMenu">
+            <span>用户管理</span>
+            <span class="menu-arrow" :class="{ open: userMenuOpen }">&#9660;</span>
+          </div>
+          <ul v-if="userMenuOpen" class="sub-menu">
+            <li class="menu-item">
+              <router-link to="/admin/users" class="menu-link" @click="closeMobileMenu">普通用户</router-link>
+            </li>
+            <li class="menu-item">
+              <router-link to="/admin/admins" class="menu-link" @click="closeMobileMenu">管理员</router-link>
+            </li>
+          </ul>
+        </li>
+        <li class="menu-item">
+          <router-link to="/admin/plants" class="menu-link" @click="closeMobileMenu">植物管理</router-link>
+        </li>
+        <li class="menu-item">
+          <router-link to="/admin/orders" class="menu-link" @click="closeMobileMenu">订单管理</router-link>
+        </li>
+        <li class="logout-item" @click="showLogoutModal = true">退出登录</li>
+      </ul>
+    </div>
+    
+    <div v-if="mobileMenuOpen && isMobile" class="overlay" @click="toggleMobileMenu"></div>
+    
     <div v-if="showLogoutModal" class="modal-overlay" @click.self="showLogoutModal = false">
       <div class="modal-content">
         <h3>🚪 退出登录</h3>
@@ -43,27 +56,31 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-// 从 sessionStorage 中恢复状态，确保路由导航后状态保持
 const userMenuOpen = ref(sessionStorage.getItem('userMenuOpen') === 'true')
 const showLogoutModal = ref(false)
+const mobileMenuOpen = ref(false)
+const isMobile = ref(false)
 
-// 监听状态变化，保存到 sessionStorage
 watch(userMenuOpen, (newValue) => {
   sessionStorage.setItem('userMenuOpen', newValue)
 })
 
-// 切换用户管理菜单
-function toggleUserMenu(event) {
+function toggleUserMenu() {
   userMenuOpen.value = !userMenuOpen.value
 }
 
-// 阻止子菜单点击事件冒泡
-function preventBubble(event) {
-  event.stopPropagation()
+function toggleMobileMenu() {
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
+
+function closeMobileMenu() {
+  if (isMobile.value) {
+    mobileMenuOpen.value = false
+  }
 }
 
 function handleLogout() {
@@ -71,20 +88,52 @@ function handleLogout() {
   localStorage.removeItem('user_role')
   sessionStorage.removeItem('userMenuOpen')
   showLogoutModal.value = false
-  router.push('/login')
+  router.push('/admin/login')
 }
 
-// 组件挂载时从 sessionStorage 恢复状态
+function checkMobile() {
+  isMobile.value = window.innerWidth < 768
+}
+
 onMounted(() => {
   const savedState = sessionStorage.getItem('userMenuOpen')
   if (savedState !== null) {
     userMenuOpen.value = savedState === 'true'
   }
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
 <style scoped>
-/* 主侧边栏样式 */
+.admin-sidebar-container {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mobile-menu-toggle {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1001;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  background: #2c5a2a;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
 .admin-sidebar {
   width: 200px;
   background: #2c5a2a;
@@ -92,6 +141,27 @@ onMounted(() => {
   padding: 20px;
   height: 100vh;
   overflow-y: auto;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.close-mobile-menu {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px 8px;
 }
 
 .admin-sidebar h2 {
@@ -100,21 +170,18 @@ onMounted(() => {
   text-align: center;
 }
 
-/* 菜单容器 */
 .menu-container {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-/* 菜单项通用样式 */
 .menu-item {
   margin-bottom: 8px;
   border-radius: 8px;
   overflow: hidden;
 }
 
-/* 菜单项链接 */
 .menu-link {
   display: block;
   padding: 12px 16px;
@@ -127,7 +194,6 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* 菜单标题（带下拉箭头） */
 .menu-title {
   display: flex;
   align-items: center;
@@ -141,7 +207,6 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* 下拉箭头 */
 .menu-arrow {
   transition: transform 0.2s ease;
   font-size: 0.8rem;
@@ -151,7 +216,6 @@ onMounted(() => {
   transform: rotate(180deg);
 }
 
-/* 二级菜单 */
 .sub-menu {
   list-style: none;
   padding: 0;
@@ -172,7 +236,6 @@ onMounted(() => {
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* 退出登录按钮 */
 .logout-item {
   margin-top: 40px;
   padding: 12px 16px;
@@ -187,18 +250,16 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* 深色模式 */
-@media (prefers-color-scheme: dark) {
-  .admin-sidebar {
-    background: #1a3a1a;
-  }
-  
-  .sub-menu {
-    background: rgba(0, 0, 0, 0.2);
-  }
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
 }
 
-/* 弹窗样式 */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -209,7 +270,7 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 1002;
 }
 
 .modal-content {
@@ -266,8 +327,15 @@ onMounted(() => {
   background: #d32f2f;
 }
 
-/* 深色模式弹窗 */
 @media (prefers-color-scheme: dark) {
+  .admin-sidebar {
+    background: #1a3a1a;
+  }
+  
+  .sub-menu {
+    background: rgba(0, 0, 0, 0.2);
+  }
+  
   .modal-content {
     background: #333;
   }
@@ -287,13 +355,42 @@ onMounted(() => {
   .modal-btn.cancel:hover {
     background: #444;
   }
-  
-  .modal-btn.confirm {
-    background: #d32f2f;
+}
+
+@media (max-width: 767px) {
+  .mobile-menu-toggle {
+    display: flex;
   }
   
-  .modal-btn.confirm:hover {
-    background: #b71c1c;
+  .admin-sidebar {
+    width: 260px;
+    transform: translateX(-100%);
+    height: 100vh;
+    padding: 24px;
+  }
+  
+  .admin-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  
+  .close-mobile-menu {
+    display: block;
+  }
+  
+  .admin-sidebar h2 {
+    margin: 0 0 24px 0;
+    text-align: left;
+  }
+  
+  .logout-item {
+    margin-top: 32px;
+  }
+}
+
+@media (min-width: 768px) {
+  .admin-sidebar {
+    transform: translateX(0);
+    position: relative;
   }
 }
 </style>

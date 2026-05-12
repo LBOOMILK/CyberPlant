@@ -300,7 +300,7 @@ async function handleDeleteConfirm() {
 function handleLogout() {
   localStorage.removeItem('auth_token')
   localStorage.removeItem('user_role')
-  router.push('/login')
+  router.push('/admin/login')
 }
 
 // 生命周期

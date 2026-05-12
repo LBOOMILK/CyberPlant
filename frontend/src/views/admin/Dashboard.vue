@@ -81,7 +81,7 @@ function handleLogout() {
     toastRef.value.addToast('已成功退出登录', 'success')
   }
   setTimeout(() => {
-    router.push('/login')
+    router.push('/admin/login')
   }, 1000)
 }
 
@@ -164,76 +164,78 @@ onMounted(() => {
   background: #f5f5f5;
 }
 
-
-
 .admin-content {
   flex: 1;
   padding: 32px;
   overflow-y: auto;
+  min-height: 100vh;
 }
 
 .admin-content h1 {
   margin: 0 0 32px 0;
   color: #2c5a2a;
+  font-size: 1.8rem;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 24px;
-  margin-bottom: 40px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
 }
 
 .stat-card {
   background: white;
-  padding: 24px;
+  padding: 20px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stat-card h3 {
-  margin: 0 0 12px 0;
+  margin: 0 0 10px 0;
   color: #666;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .stat-value {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: bold;
   color: #2c5a2a;
   margin: 0;
 }
 
 .stat-hint {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #999;
-  margin: 8px 0 0 0;
+  margin: 6px 0 0 0;
   cursor: pointer;
 }
 
 .stat-card:hover {
   cursor: pointer;
   transform: translateY(-2px);
-  transition: transform 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .recent-activity h2 {
-  margin: 0 0 24px 0;
+  margin: 0 0 20px 0;
   color: #2c5a2a;
+  font-size: 1.3rem;
 }
 
 .activity-list {
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 24px;
+  padding: 20px;
 }
 
 .activity-item {
   display: flex;
   justify-content: space-between;
-  padding: 16px 0;
+  padding: 14px 0;
   border-bottom: 1px solid #f0f0f0;
 }
 
@@ -243,14 +245,14 @@ onMounted(() => {
 
 .activity-time {
   color: #999;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .activity-content {
   color: #333;
+  font-size: 0.9rem;
 }
 
-/* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .admin-page {
     background: #1a1a1a;
@@ -302,19 +304,86 @@ onMounted(() => {
   }
 }
 
-.sub-menu li {
-  margin-bottom: 4px;
-  padding: 15px 12px 15px 1px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  position: relative;
+@media (max-width: 767px) {
+  .admin-page {
+    flex-direction: column;
+  }
+
+  .admin-content {
+    padding: 20px 16px;
+    padding-top: 70px;
+  }
+
+  .admin-content h1 {
+    font-size: 1.4rem;
+    margin-bottom: 24px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    padding: 16px 12px;
+  }
+
+  .stat-card h3 {
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 1.4rem;
+  }
+
+  .stat-hint {
+    font-size: 0.7rem;
+  }
+
+  .recent-activity h2 {
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+  }
+
+  .activity-list {
+    padding: 16px;
+  }
+
+  .activity-item {
+    padding: 12px 0;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .activity-time {
+    font-size: 0.75rem;
+  }
+
+  .activity-content {
+    font-size: 0.85rem;
+  }
 }
 
-.sub-menu li {
-  margin-bottom: 4px;
-  padding: 15px 12px 15px 1px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  position: relative;
+@media (min-width: 768px) and (max-width: 1023px) {
+  .admin-content {
+    padding: 24px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .stat-card {
+    padding: 18px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 </style>

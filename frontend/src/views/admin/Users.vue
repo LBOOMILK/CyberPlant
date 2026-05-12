@@ -573,7 +573,7 @@ async function handleChangePassword() {
 function handleLogout() {
   localStorage.removeItem('auth_token')
   localStorage.removeItem('user_role')
-  router.push('/login')
+  router.push('/admin/login')
 }
 
 // 格式化用户ID显示

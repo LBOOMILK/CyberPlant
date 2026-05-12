@@ -58,9 +58,9 @@ const userStore = useUserStore()
 // 响应式判断是否为移动端
 const isMobile = ref(window.innerWidth < 768)
 
-// 判断是否为登录/注册页面
+// 判断是否为登录/注册页面（包含登录选择页面）
 const isAuthPage = computed(() => {
-    return route.path === '/login' || route.path === '/register'
+    return route.path === '/' || route.path === '/login' || route.path === '/register'
 })
 
 // 判断是否为管理端页面

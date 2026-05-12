@@ -3,7 +3,7 @@
     <Toast ref="toastRef" />
     <div class="auth-card">
       <h1>🌱 赛博花园</h1>
-      <h2>登录</h2>
+      <h2>用户登录</h2>
       
       <form @submit.prevent="handleLogin">
         <div class="form-group">
@@ -21,18 +21,12 @@
           </div>
         </div>
         
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="form.isAdmin">
-            <span>管理员登录</span>
-          </label>
-        </div>
-        
         <button type="submit" class="auth-btn">登录</button>
       </form>
       
       <div class="auth-footer">
         <p>还没有账号？<router-link to="/register">立即注册</router-link></p>
+        <p class="admin-link">管理员请 <router-link to="/admin/login">点击这里登录</router-link></p>
       </div>
       
       <div class="demo-accounts">
@@ -43,10 +37,6 @@
         </div>
         <div class="demo-account">
           <p><strong>演示账号：</strong>demo@example.com</p>
-          <p><strong>密码：</strong>admin123</p>
-        </div>
-        <div class="demo-account">
-          <p><strong>管理员账号：</strong>admin@example.com</p>
           <p><strong>密码：</strong>admin123</p>
         </div>
       </div>
@@ -62,15 +52,13 @@ import Toast from '@/components/Toast.vue'
 const router = useRouter()
 const form = ref({
   email: '',
-  password: '',
-  isAdmin: false
+  password: ''
 })
 const toastRef = ref(null)
 const showPassword = ref(false)
 
 async function handleLogin() {
   try {
-    // 调用后端 API 进行登录验证
     const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -91,38 +79,24 @@ async function handleLogin() {
       return
     }
     
-    // 存储认证信息
     localStorage.setItem('auth_token', data.token)
     localStorage.setItem('user_id', data.user.id)
     localStorage.setItem('user_role', data.user.role)
     localStorage.setItem('user_email', data.user.email)
     localStorage.setItem('user_name', data.user.name)
     
-    // 检查非管理员勾选管理员登录的情况
-    if (form.value.isAdmin && data.user.role !== 'admin') {
+    if (data.user.role === 'admin') {
       if (toastRef.value) {
-        toastRef.value.addToast('只有管理员账号才能登录管理后台', 'error')
+        toastRef.value.addToast('请使用管理员登录入口', 'error')
       }
       return
     }
     
-    // 检查管理员账号未勾选管理员登录的情况
-    if (!form.value.isAdmin && data.user.role === 'admin') {
-      if (toastRef.value) {
-        toastRef.value.addToast('管理员账号请勾选管理员登录选项', 'error')
-      }
-      return
-    }
-    
-    // 检查是否有旧用户（只有在登录成功后才检查）
     const oldUserId = localStorage.getItem('prev_user_id')
     if (oldUserId && oldUserId !== data.user.id) {
-      // 显示旧用户被挤出的提示
       if (toastRef.value) {
         toastRef.value.addToast('旧账号已被挤出，您现在登录的是新账号', 'info')
       }
-      
-      // 清除旧用户的本地存储数据
       localStorage.removeItem(`user_${oldUserId}_points`)
       localStorage.removeItem(`user_${oldUserId}_seeds`)
       localStorage.removeItem(`user_${oldUserId}_crops`)
@@ -130,12 +104,7 @@ async function handleLogin() {
     }
     localStorage.setItem('prev_user_id', data.user.id)
     
-    // 根据角色跳转到不同的页面
-    if (data.user.role === 'admin') {
-      router.push('/admin')
-    } else {
-      router.push('/dashboard')
-    }
+    router.push('/dashboard')
   } catch (error) {
     console.error('登录失败:', error)
     if (toastRef.value) {
@@ -204,7 +173,6 @@ async function handleLogin() {
   border-color: #4caf50;
 }
 
-/* 密码输入容器 */
 .password-input-container {
   position: relative;
   width: 100%;
@@ -212,7 +180,7 @@ async function handleLogin() {
 
 .password-input-container input {
   width: 100%;
-  padding-right: 50px; /* 为密码可视按钮留出空间 */
+  padding-right: 50px;
   box-sizing: border-box;
 }
 
@@ -273,17 +241,12 @@ async function handleLogin() {
   text-decoration: underline;
 }
 
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-weight: normal;
+.admin-link {
+  margin-top: 8px;
 }
 
-.checkbox-label input[type="checkbox"] {
-  width: auto;
-  margin: 0;
+.admin-link a {
+  color: #2196f3;
 }
 
 .demo-accounts {
@@ -312,7 +275,6 @@ async function handleLogin() {
   color: #555;
 }
 
-/* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .auth-page {
     background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
@@ -352,6 +314,10 @@ async function handleLogin() {
     color: #8bc34a;
   }
   
+  .admin-link a {
+    color: #64b5f6;
+  }
+  
   .demo-accounts {
     border-top-color: #4a4a4a;
   }
@@ -366,6 +332,31 @@ async function handleLogin() {
   
   .demo-account p {
     color: #e0e0e0;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 24px;
+    border-radius: 32px;
+  }
+  
+  .auth-card h1 {
+    font-size: 1.5rem;
+  }
+  
+  .auth-card h2 {
+    font-size: 1.25rem;
+    margin-bottom: 24px;
+  }
+  
+  .form-group input {
+    padding: 10px 14px;
+  }
+  
+  .demo-accounts {
+    margin-top: 24px;
+    padding-top: 16px;
   }
 }
 </style>
