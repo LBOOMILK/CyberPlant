@@ -108,6 +108,8 @@ function goToAdminLogin() {
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
 }
 
 .choice-card:hover {
@@ -157,12 +159,72 @@ function goToAdminLogin() {
   color: #4caf50;
 }
 
+.choice-card {
+  position: relative;
+  overflow: visible;
+}
+
+/* 脉冲发光边框 - 常驻微脉冲 */
+@keyframes pulse-border {
+  0%, 100% {
+    box-shadow: 0 0 3px 1px rgba(76, 175, 80, 0.15), 0 0 8px 3px rgba(76, 175, 80, 0.06);
+  }
+  50% {
+    box-shadow: 0 0 6px 2px rgba(76, 175, 80, 0.30), 0 0 15px 6px rgba(76, 175, 80, 0.10);
+  }
+}
+
+@keyframes pulse-border-strong {
+  0%, 100% {
+    box-shadow: 0 0 3px 1px rgba(76, 175, 80, 0.30), 0 0 8px 3px rgba(76, 175, 80, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 10px 4px rgba(76, 175, 80, 0.60), 0 0 25px 10px rgba(76, 175, 80, 0.25);
+  }
+}
+
+@keyframes pulse-border-admin {
+  0%, 100% {
+    box-shadow: 0 0 3px 1px rgba(33, 150, 243, 0.15), 0 0 8px 3px rgba(33, 150, 243, 0.06);
+  }
+  50% {
+    box-shadow: 0 0 6px 2px rgba(33, 150, 243, 0.30), 0 0 15px 6px rgba(33, 150, 243, 0.10);
+  }
+}
+
+@keyframes pulse-border-admin-strong {
+  0%, 100% {
+    box-shadow: 0 0 3px 1px rgba(33, 150, 243, 0.30), 0 0 8px 3px rgba(33, 150, 243, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 10px 4px rgba(33, 150, 243, 0.60), 0 0 25px 10px rgba(33, 150, 243, 0.25);
+  }
+}
+
+.user-card {
+  background: white;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  animation: pulse-border 3s ease-in-out infinite;
+}
+
 .user-card:hover {
   border: 2px solid #4caf50;
+  animation: pulse-border-strong 1.5s ease-in-out infinite;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.06) 0%, transparent 100%);
+}
+
+.admin-card {
+  background: white;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  animation: pulse-border-admin 3s ease-in-out infinite;
 }
 
 .admin-card:hover {
   border: 2px solid #2196f3;
+  animation: pulse-border-admin-strong 1.5s ease-in-out infinite;
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.06) 0%, transparent 100%);
 }
 
 .admin-card h2 {
@@ -252,6 +314,28 @@ function goToAdminLogin() {
   
   .register-link:hover {
     background: rgba(60, 60, 55, 0.95);
+  }
+  
+  .user-card {
+    background: rgba(40, 40, 35, 0.9);
+    animation: pulse-border 3s ease-in-out infinite;
+  }
+  
+  .user-card:hover {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.20) 0%, rgba(40, 40, 35, 0.95) 100%);
+    border: 2px solid #66bb6a;
+    animation: pulse-border-strong 1.5s ease-in-out infinite;
+  }
+  
+  .admin-card {
+    background: rgba(40, 40, 35, 0.9);
+    animation: pulse-border-admin 3s ease-in-out infinite;
+  }
+  
+  .admin-card:hover {
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.20) 0%, rgba(40, 40, 35, 0.95) 100%);
+    border: 2px solid #42a5f5;
+    animation: pulse-border-admin-strong 1.5s ease-in-out infinite;
   }
 }
 
