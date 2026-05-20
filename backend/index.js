@@ -1048,7 +1048,7 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
       user_id: order.user_id,
       type: order.type,
       amount: order.amount,
-      created_at: order.created_at.toISOString().replace('T', ' ').slice(0, 19)
+      created_at: order.created_at ? new Date(order.created_at).toISOString() : null
     }));
 
     res.json({
@@ -1160,7 +1160,7 @@ app.get('/api/admin/orders', authenticateToken, requireAdmin, async (req, res) =
       user_id: order.user_id,
       type: order.type,
       amount: order.amount,
-      created_at: order.created_at.toISOString().replace('T', ' ').slice(0, 19),
+      created_at: order.created_at ? new Date(order.created_at).toISOString() : null,
       user: {
         id: order.user_id,
         name: order.user_name,
@@ -1898,8 +1898,8 @@ app.get('/api/garden', authenticateToken, async (req, res) => {
         seedId: garden.seed_id,
         rarity: garden.rarity,
         stage: garden.stage,
-        lastWateredAt: garden.last_watered_at,
-        createdAt: garden.created_at
+        lastWateredAt: garden.last_watered_at ? new Date(garden.last_watered_at).toISOString() : null,
+        createdAt: garden.created_at ? new Date(garden.created_at).toISOString() : null
       },
       isWilted,
       canHarvest
