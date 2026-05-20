@@ -36,6 +36,7 @@
         <p class="admin-link">管理员请 <router-link to="/admin/login">点击这里登录</router-link></p>
       </div>
       
+      <!-- 示例账号（已隐藏）
       <div class="demo-accounts">
         <h3>示例账号</h3>
         <div class="demo-account">
@@ -51,6 +52,7 @@
           <p><strong>密码：</strong>admin123</p>
         </div>
       </div>
+      -->
     </div>
   </div>
 </template>
