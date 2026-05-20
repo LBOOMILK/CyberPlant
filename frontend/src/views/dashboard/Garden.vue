@@ -66,7 +66,7 @@
         </div>
 
         <!-- 种植弹窗 -->
-        <div v-if="showPlantDialog" class="modal-overlay" @click.self="closePlantDialog">
+        <div v-if="showPlantDialog" class="modal-overlay" @mousedown.self="closePlantDialog">
             <div class="modal-content">
                 <h3>🌱 选择种子</h3>
                 <div v-if="userStore.seedCount === 0" class="empty-seeds">
@@ -85,7 +85,7 @@
         </div>
         
         <!-- 施肥弹窗 -->
-        <div v-if="showFertilizeDialog" class="modal-overlay" @click.self="closeFertilizeDialog">
+        <div v-if="showFertilizeDialog" class="modal-overlay" @mousedown.self="closeFertilizeDialog">
             <div class="modal-content">
                 <h3>🧪 选择肥料</h3>
                 <div v-if="userStore.useCount === 0" class="empty-seeds">
@@ -137,7 +137,7 @@
         />
         
         <!-- 施肥二次确认弹窗 -->
-        <div v-if="showFertilizeConfirmModal" class="modal-overlay confirm-overlay" @click.self="cancelFertilizeConfirm">
+        <div v-if="showFertilizeConfirmModal" class="modal-overlay confirm-overlay" @mousedown.self="cancelFertilizeConfirm">
             <div class="modal-content confirm-modal">
                 <h3>⚠️ 确认施肥</h3>
                 <p>{{ confirmMessage }}</p>

@@ -36,7 +36,7 @@
       </div>
       
       <!-- 添加管理员弹窗 -->
-      <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
+      <div v-if="showAddModal" class="modal-overlay" @mousedown.self="showAddModal = false">
         <div class="modal-content">
           <h3>添加管理员</h3>
           <form @submit.prevent="handleAddAdmin">
@@ -82,7 +82,7 @@
       />
       
       <!-- 修改密码弹窗 -->
-      <div v-if="showChangePasswordModalVisible" class="modal-overlay" @click.self="showChangePasswordModalVisible = false">
+      <div v-if="showChangePasswordModalVisible" class="modal-overlay" @mousedown.self="showChangePasswordModalVisible = false">
         <div class="modal-content">
           <h3>修改密码</h3>
           <form @submit.prevent="handleChangePassword">
@@ -113,7 +113,7 @@
       </div>
       
       <!-- 编辑邮箱弹窗 -->
-      <div v-if="showEditEmailModalVisible" class="modal-overlay" @click.self="showEditEmailModalVisible = false">
+      <div v-if="showEditEmailModalVisible" class="modal-overlay" @mousedown.self="showEditEmailModalVisible = false">
         <div class="modal-content">
           <h3>编辑邮箱</h3>
           <form @submit.prevent="handleEditEmail">
@@ -130,7 +130,7 @@
       </div>
       
       <!-- 删除确认弹窗 -->
-      <div v-if="showDeleteModalVisible" class="modal-overlay" @click.self="cancelDeleteAdmin">
+      <div v-if="showDeleteModalVisible" class="modal-overlay" @mousedown.self="cancelDeleteAdmin">
         <div class="modal-content">
           <h3>⚠️ 删除管理员</h3>
           <p>确定要删除这个管理员吗？</p>

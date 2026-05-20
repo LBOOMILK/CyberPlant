@@ -43,7 +43,7 @@
       </div>
       
       <!-- 添加用户弹窗 -->
-      <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
+      <div v-if="showAddModal" class="modal-overlay" @mousedown.self="showAddModal = false">
         <div class="modal-content">
           <h3>添加用户</h3>
           <form @submit.prevent="handleAddUser">
@@ -82,7 +82,7 @@
       </div>
       
       <!-- 编辑用户弹窗 -->
-      <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
+      <div v-if="showEditModal" class="modal-overlay" @mousedown.self="showEditModal = false">
         <div class="modal-content">
           <h3>编辑用户</h3>
           <form @submit.prevent="handleEditUser">
@@ -103,7 +103,7 @@
       </div>
       
       <!-- 修改密码弹窗 -->
-      <div v-if="showPasswordModal" class="modal-overlay" @click.self="showPasswordModal = false">
+      <div v-if="showPasswordModal" class="modal-overlay" @mousedown.self="showPasswordModal = false">
         <div class="modal-content">
           <h3>修改密码</h3>
           <form @submit.prevent="handleChangePassword">
@@ -125,7 +125,7 @@
       </div>
       
       <!-- 背包管理弹窗 -->
-      <div v-if="showBackpackModal" class="modal-overlay" @click.self="showBackpackModal = false">
+      <div v-if="showBackpackModal" class="modal-overlay" @mousedown.self="showBackpackModal = false">
         <div class="modal-content backpack-modal">
           <h3>{{ backpackUser?.name }}的背包</h3>
           
@@ -222,7 +222,7 @@
 
       
       <!-- 删除确认弹窗 -->
-      <div v-if="showDeleteModalVisible" class="modal-overlay" @click.self="cancelDeleteUser">
+      <div v-if="showDeleteModalVisible" class="modal-overlay" @mousedown.self="cancelDeleteUser">
         <div class="modal-content">
           <h3>⚠️ 删除用户</h3>
           <p>确定要删除这个用户吗？</p>

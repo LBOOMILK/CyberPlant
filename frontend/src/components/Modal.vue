@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="handleCancel">
+  <div v-if="visible" class="modal-overlay" @mousedown.self="handleCancel">
     <div class="modal-content">
       <div class="modal-header">
         <h3>{{ title }}</h3>
@@ -73,7 +73,7 @@ const props = defineProps({
   },
   maxQuantity: {
     type: Number,
-    default: 99
+    default: 999
   },
   danger: {
     type: Boolean,

@@ -54,7 +54,7 @@
       </div>
       
       <!-- 删除确认弹窗 -->
-      <div v-if="showDeleteModal" class="modal-overlay" @click.self="cancelDeleteOrder">
+      <div v-if="showDeleteModal" class="modal-overlay" @mousedown.self="cancelDeleteOrder">
         <div class="modal-content">
           <h3>⚠️ 删除订单</h3>
           <p>确定要删除此订单吗？</p>

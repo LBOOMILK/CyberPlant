@@ -57,7 +57,7 @@ const currentItem = ref(null)
 const buyModalMessage = ref('')
 const shopItems = ref([])
 const buyQuantity = ref(1)
-const maxBuyQuantity = ref(99)
+const maxBuyQuantity = ref(999)
 
 // 筛选选项
 const filters = [

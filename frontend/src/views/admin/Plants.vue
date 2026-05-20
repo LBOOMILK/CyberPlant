@@ -35,7 +35,7 @@
       />
       
       <!-- 添加商品弹窗 -->
-      <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
+      <div v-if="showAddModal" class="modal-overlay" @mousedown.self="showAddModal = false">
         <div class="modal-content">
           <h3>添加商品</h3>
           <form @submit.prevent="handleAddPlant">
@@ -78,7 +78,7 @@
       </div>
       
       <!-- 编辑商品弹窗 -->
-      <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
+      <div v-if="showEditModal" class="modal-overlay" @mousedown.self="showEditModal = false">
         <div class="modal-content">
           <h3>编辑商品</h3>
           <form @submit.prevent="handleEditPlant">

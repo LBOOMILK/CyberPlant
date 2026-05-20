@@ -29,7 +29,7 @@
 
         
         <!-- 修改密码弹窗 -->
-        <div v-if="showChangePwdModal" class="modal-overlay" @click.self="showChangePwdModal = false">
+        <div v-if="showChangePwdModal" class="modal-overlay" @mousedown.self="showChangePwdModal = false">
             <div class="modal-content">
                 <h3>🔒 修改密码</h3>
                 <form @submit.prevent="handleChangePassword">
@@ -69,7 +69,7 @@
         </div>
         
         <!-- 修改用户名弹窗 -->
-        <div v-if="showChangeNameModal" class="modal-overlay" @click.self="showChangeNameModal = false">
+        <div v-if="showChangeNameModal" class="modal-overlay" @mousedown.self="showChangeNameModal = false">
             <div class="modal-content">
                 <h3>✏️ 修改用户名</h3>
                 <form @submit.prevent="handleChangeName">
