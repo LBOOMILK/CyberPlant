@@ -852,22 +852,35 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
       }
     }
 
+    // 构建查询和参数
     let query = 'UPDATE users SET name = $1, email = $2, role = $3, points = $4, seeds = $5, crops = $6, uses = $7';
-    let params = [name !== undefined && name !== '' ? name : email.split('@')[0], email, role || 'user', Math.min(points || 0, MAX_POINTS), processedSeeds, processedCrops, processedUses, id];
-
+    let params = [
+      name !== undefined && name !== '' ? name : email.split('@')[0],
+      email,
+      role || 'user',
+      Math.min(points || 0, MAX_POINTS),
+      processedSeeds,
+      processedCrops,
+      processedUses
+    ];
+    let paramIndex = 8;
+    
     if (password) {
-      // 密码验证:只允许字母、数字、常见符号,长度6-20
-      const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]{6,20}$/;
+      // 密码验证：只允许字母、数字、常见符号，长度6-20
+      const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{6,20}$/;
       if (!passwordRegex.test(password)) {
-        return res.status(400).json({ error: '密码只能包含字母、数字和常见符号,长度6-20位' });
+        return res.status(400).json({ error: '密码只能包含字母、数字和常见符号，长度6-20位' });
       }
       // 哈希密码
       const hashedPassword = await bcrypt.hash(password, 10);
-      query += ', password = $7';
-      params.splice(6, 0, hashedPassword);
+      query += `, password = $${paramIndex}`;
+      params.push(hashedPassword);
+      paramIndex++;
     }
-
-    query += ' WHERE id = $' + params.length + ' RETURNING *';
+    
+    // 添加 WHERE 条件
+    query += ` WHERE id = $${paramIndex} RETURNING *`;
+    params.push(id);
 
     const updatedUser = await client.query(query, params);
 
