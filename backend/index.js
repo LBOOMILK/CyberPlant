@@ -1280,10 +1280,7 @@ async function calculateSellPrice(itemType, rarity) {
     return 0;
   }
   const sellPrice = Math.min(Math.floor(minPrice * 0.5), MAX_PRICE);
-  console.log('=== SELL PRICE DEBUG ===');
-  console.log('minPrice:', minPrice, 'type:', typeof minPrice);
-  console.log('sellPrice:', sellPrice, 'type:', typeof sellPrice);
-  console.log('MAX_PRICE:', MAX_PRICE);
+  console.log('Calculated sell price:', sellPrice);
   return sellPrice;
 }
 
