@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { Client } = require('pg');
 const logger = require('./utils/logger');
+const path = require('path');
 require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -258,8 +259,12 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
+
+// 静态文件服务（前端 build 产物）
+const frontendPath = path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendPath));
 
 // 记录所有HTTP请求
 app.use((req, res, next) => {
@@ -2212,6 +2217,15 @@ app.delete('/api/garden/remove', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Remove error:', error);
     res.status(500).json({ error: '铲除失败，请稍后再试' });
+  }
+});
+
+// 所有非 API 路由返回前端 index.html（SPA 路由）
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.includes('.')) {
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  } else {
+    next();
   }
 });
 
