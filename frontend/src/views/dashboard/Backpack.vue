@@ -20,8 +20,8 @@
                 <div class="item-icon">{{ seedIcon('C') }}</div>
                 <div class="item-name">{{ rarityConfig.C.name }}</div>
                 <div class="item-rarity rarity-C">C ({{ userStore.groupedSeeds.C }})</div>
-                <div class="item-price">💰 当前价 {{ getCurrentBuyPrice('seed', 'C') || rarityConfig.C.buyPrice }} 积分</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'C') || Math.floor(rarityConfig.C.buyPrice * 0.5) }} 积分</div>
+                <div class="item-price">💰 当前价 {{ getCurrentBuyPrice('seed', 'C') ?? '加载中...' }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'C') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('seed', { rarity: 'C', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('seed', { rarity: 'C', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -31,8 +31,8 @@
                 <div class="item-icon">{{ seedIcon('B') }}</div>
                 <div class="item-name">{{ rarityConfig.B.name }}</div>
                 <div class="item-rarity rarity-B">B ({{ userStore.groupedSeeds.B }})</div>
-                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('seed', 'B') || rarityConfig.B.buyPrice }} 积分</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'B') || Math.floor(rarityConfig.B.buyPrice * 0.5) }} 积分</div>
+                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('seed', 'B') ?? '加载中...' }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'B') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('seed', { rarity: 'B', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('seed', { rarity: 'B', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -42,8 +42,8 @@
                 <div class="item-icon">{{ seedIcon('A') }}</div>
                 <div class="item-name">{{ rarityConfig.A.name }}</div>
                 <div class="item-rarity rarity-A">A ({{ userStore.groupedSeeds.A }})</div>
-                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('seed', 'A') || rarityConfig.A.buyPrice }} 积分</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'A') || Math.floor(rarityConfig.A.buyPrice * 0.5) }} 积分</div>
+                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('seed', 'A') ?? '加载中...' }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'A') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('seed', { rarity: 'A', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('seed', { rarity: 'A', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -53,8 +53,8 @@
                 <div class="item-icon">{{ seedIcon('S') }}</div>
                 <div class="item-name">{{ rarityConfig.S.name }}</div>
                 <div class="item-rarity rarity-S">S ({{ userStore.groupedSeeds.S }})</div>
-                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('seed', 'S') || rarityConfig.S.buyPrice }} 积分</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'S') || Math.floor(rarityConfig.S.buyPrice * 0.5) }} 积分</div>
+                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('seed', 'S') ?? '加载中...' }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'S') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('seed', { rarity: 'S', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('seed', { rarity: 'S', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -64,8 +64,8 @@
                 <div class="item-icon">{{ seedIcon('SSS') }}</div>
                 <div class="item-name">{{ rarityConfig.SSS.name }}</div>
                 <div class="item-rarity rarity-SSS">SSS ({{ userStore.groupedSeeds.SSS }})</div>
-                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('seed', 'SSS') || rarityConfig.SSS.buyPrice }} 积分</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'SSS') || Math.floor(rarityConfig.SSS.buyPrice * 0.5) }} 积分</div>
+                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('seed', 'SSS') ?? '加载中...' }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('seed', 'SSS') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('seed', { rarity: 'SSS', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('seed', { rarity: 'SSS', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -82,7 +82,7 @@
                 <div class="item-icon">{{ cropIcon('C') }}</div>
                 <div class="item-name">{{ rarityConfig.C.cropName }}</div>
                 <div class="item-rarity rarity-C">C ({{ userStore.groupedCrops.C }})</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'C') || rarityConfig.C.sellPrice }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'C') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('crop', { rarity: 'C', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('crop', { rarity: 'C', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -92,7 +92,7 @@
                 <div class="item-icon">{{ cropIcon('B') }}</div>
                 <div class="item-name">{{ rarityConfig.B.cropName }}</div>
                 <div class="item-rarity rarity-B">B ({{ userStore.groupedCrops.B }})</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'B') || rarityConfig.B.sellPrice }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'B') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('crop', { rarity: 'B', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('crop', { rarity: 'B', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -102,7 +102,7 @@
                 <div class="item-icon">{{ cropIcon('A') }}</div>
                 <div class="item-name">{{ rarityConfig.A.cropName }}</div>
                 <div class="item-rarity rarity-A">A ({{ userStore.groupedCrops.A }})</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'A') || rarityConfig.A.sellPrice }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'A') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('crop', { rarity: 'A', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('crop', { rarity: 'A', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -112,7 +112,7 @@
                 <div class="item-icon">{{ cropIcon('S') }}</div>
                 <div class="item-name">{{ rarityConfig.S.cropName }}</div>
                 <div class="item-rarity rarity-S">S ({{ userStore.groupedCrops.S }})</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'S') || rarityConfig.S.sellPrice }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'S') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('crop', { rarity: 'S', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('crop', { rarity: 'S', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -122,7 +122,7 @@
                 <div class="item-icon">{{ cropIcon('SSS') }}</div>
                 <div class="item-name">{{ rarityConfig.SSS.cropName }}</div>
                 <div class="item-rarity rarity-SSS">SSS ({{ userStore.groupedCrops.SSS }})</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'SSS') || rarityConfig.SSS.sellPrice }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('crop', 'SSS') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('crop', { rarity: 'SSS', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('crop', { rarity: 'SSS', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -139,8 +139,8 @@
                 <div class="item-icon">{{ useIcon('C') }}</div>
                 <div class="item-name">{{ fertilizerConfig.C.name }}</div>
                 <div class="item-rarity rarity-C">C ({{ userStore.groupedUses.C }})</div>
-                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('use', 'C') || fertilizerConfig.C.price }} 积分</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('use', 'C') || Math.floor(fertilizerConfig.C.price * 0.5) }} 积分</div>
+                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('use', 'C') ?? '加载中...' }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('use', 'C') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('use', { rarity: 'C', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('use', { rarity: 'C', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -150,8 +150,8 @@
                 <div class="item-icon">{{ useIcon('B') }}</div>
                 <div class="item-name">{{ fertilizerConfig.B.name }}</div>
                 <div class="item-rarity rarity-B">B ({{ userStore.groupedUses.B }})</div>
-                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('use', 'B') || fertilizerConfig.B.price }} 积分</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('use', 'B') || Math.floor(fertilizerConfig.B.price * 0.5) }} 积分</div>
+                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('use', 'B') ?? '加载中...' }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('use', 'B') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('use', { rarity: 'B', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('use', { rarity: 'B', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -161,8 +161,8 @@
                 <div class="item-icon">{{ useIcon('A') }}</div>
                 <div class="item-name">{{ fertilizerConfig.A.name }}</div>
                 <div class="item-rarity rarity-A">A ({{ userStore.groupedUses.A }})</div>
-                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('use', 'A') || fertilizerConfig.A.price }} 积分</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('use', 'A') || Math.floor(fertilizerConfig.A.price * 0.5) }} 积分</div>
+                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('use', 'A') ?? '加载中...' }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('use', 'A') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('use', { rarity: 'A', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('use', { rarity: 'A', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -172,8 +172,8 @@
                 <div class="item-icon">{{ useIcon('S') }}</div>
                 <div class="item-name">{{ fertilizerConfig.S.name }}</div>
                 <div class="item-rarity rarity-S">S ({{ userStore.groupedUses.S }})</div>
-                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('use', 'S') || fertilizerConfig.S.price }} 积分</div>
-                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('use', 'S') || Math.floor(fertilizerConfig.S.price * 0.5) }} 积分</div>
+                <div class="item-price">💰 当前售价 {{ getCurrentBuyPrice('use', 'S') ?? '加载中...' }} 积分</div>
+                <div class="sell-price">💵 当前卖价 {{ getCurrentSellPrice('use', 'S') ?? '加载中...' }} 积分</div>
                 <div class="sell-buttons">
                     <button @click="showSellModal('use', { rarity: 'S', sellType: 'all' })" class="sell-btn all-sell-btn">全部卖出</button>
                     <button @click="showSellModal('use', { rarity: 'S', sellType: 'part' })" class="sell-btn part-sell-btn">部分卖出</button>
@@ -366,15 +366,15 @@ async function handleSellConfirm(quantity = 1) {
         let success = false
         
         if (currentItemType.value === 'seed') {
-            const price = getCurrentSellPrice('seed', currentItem.value.rarity) || Math.floor(rarityConfig[currentItem.value.rarity].buyPrice * 0.5)
+            const price = getCurrentSellPrice('seed', currentItem.value.rarity) ?? '加载中...'
             totalPrice = price * quantity
             success = await userStore.sellSeed(currentItem.value.rarity, quantity)
         } else if (currentItemType.value === 'crop') {
-            const price = getCurrentSellPrice('crop', currentItem.value.rarity) || rarityConfig[currentItem.value.rarity].sellPrice
+            const price = getCurrentSellPrice('crop', currentItem.value.rarity) ?? '加载中...'
             totalPrice = price * quantity
             success = await userStore.sellCrop(currentItem.value.rarity, quantity)
         } else if (currentItemType.value === 'use') {
-            const price = getCurrentSellPrice('use', currentItem.value.rarity) || Math.floor(userStore.fertilizerConfig[currentItem.value.rarity].price * 0.5)
+            const price = getCurrentSellPrice('use', currentItem.value.rarity) ?? '加载中...'
             totalPrice = price * quantity
             success = await userStore.sellUse(currentItem.value.rarity, quantity)
         }

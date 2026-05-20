@@ -74,7 +74,7 @@ async function initDatabase() {
         name VARCHAR(255) NOT NULL,
         password VARCHAR(255) NOT NULL,
         role VARCHAR(50) DEFAULT 'user',
-        points INT DEFAULT 0,
+        points BIGINT DEFAULT 0,
         seeds JSONB DEFAULT '[]',
         crops JSONB DEFAULT '[]',
         uses JSONB DEFAULT '[]',
@@ -92,7 +92,7 @@ async function initDatabase() {
 
     // 检查并添加points字段
     try {
-      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS points INT DEFAULT 0');
+      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS points BIGINT DEFAULT 0');
     } catch (error) {
       logger.error('Error adding points column:', { error: error.message });
     }
@@ -326,6 +326,12 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: '请输入有效的邮箱地址' });
     }
     
+    // 密码验证：只允许字母、数字、常见符号，长度6-20
+    const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]{6,20}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ error: '密码只能包含字母、数字和常见符号，长度6-20位' });
+    }
+    
     // 如果没有提供name，使用邮箱前缀作为用户名
     const username = name || email.split('@')[0];
     
@@ -530,6 +536,12 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: '请输入当前密码和新密码' });
     }
 
+    // 密码验证：只允许字母、数字、常见符号，长度6-20
+    const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]{6,20}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ error: '新密码只能包含字母、数字和常见符号，长度6-20位' });
+    }
+
     // 获取用户当前密码
     const userResult = await client.query('SELECT password FROM users WHERE id = $1', [userId]);
     if (userResult.rowCount === 0) {
@@ -588,6 +600,12 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     if (password !== confirmPassword) {
       return res.status(400).json({ error: '两次输入的密码不一致' });
     }
+
+    // 密码验证：只允许字母、数字、常见符号，长度6-20
+    const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]{6,20}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ error: '密码只能包含字母、数字和常见符号，长度6-20位' });
+    }
     
     // 检查邮箱是否已存在
     const existingUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -611,7 +629,7 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     
     const newUser = await client.query(
       'INSERT INTO users (id, name, email, password, role, points, seeds, crops, uses) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-      [nextId, username, email, hashedPassword, role || 'user', req.body.points || 100, initialSeeds, initialCrops, initialUses]
+      [nextId, username, email, hashedPassword, role || 'user', Math.min(req.body.points || 100, MAX_POINTS), initialSeeds, initialCrops, initialUses]
     );
     
     res.status(201).json(newUser.rows[0]);
@@ -835,9 +853,14 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     }
     
     let query = 'UPDATE users SET name = $1, email = $2, role = $3, points = $4, seeds = $5, crops = $6, uses = $7';
-    let params = [name || email.split('@')[0], email, role || 'user', points || 0, processedSeeds, processedCrops, processedUses, id];
+    let params = [name !== undefined && name !== '' ? name : email.split('@')[0], email, role || 'user', Math.min(points || 0, MAX_POINTS), processedSeeds, processedCrops, processedUses, id];
     
     if (password) {
+      // 密码验证：只允许字母、数字、常见符号，长度6-20
+      const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]{6,20}$/;
+      if (!passwordRegex.test(password)) {
+        return res.status(400).json({ error: '密码只能包含字母、数字和常见符号，长度6-20位' });
+      }
       // 哈希密码
       const hashedPassword = await bcrypt.hash(password, 10);
       query += ', password = $7';
@@ -879,6 +902,10 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
     if (id.toString() === req.user.id.toString()) {
       return res.status(400).json({ error: '不能删除自己' });
     }
+    
+    // 先删除关联数据（外键约束）
+    await client.query('DELETE FROM orders WHERE user_id = $1', [id]);
+    await client.query('DELETE FROM garden WHERE user_id = $1', [id]);
     
     const deletedUser = await client.query(
       'DELETE FROM users WHERE id = $1 RETURNING *',
@@ -1049,6 +1076,12 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: '请输入有效的邮箱地址' });
+    }
+
+    // 密码验证：只允许字母、数字、常见符号，长度6-20
+    const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]{6,20}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ error: '密码只能包含字母、数字和常见符号，长度6-20位' });
     }
     
     // 如果没有提供name，使用邮箱前缀作为用户名
@@ -1301,6 +1334,7 @@ app.get('/api/user/sell-price', authenticateToken, async (req, res) => {
 
 // 购买种子（包含积分扣除和订单创建）
 const MAX_ITEM_COUNT = 999;
+const MAX_POINTS = 999 * 999 * 100; // 积分上限：物品上限 * 物品上限 * 物品种类数
 
 app.post('/api/user/seeds', authenticateToken, async (req, res) => {
   try {
@@ -1351,7 +1385,12 @@ app.post('/api/user/seeds', authenticateToken, async (req, res) => {
       updatedSeeds[rarity] = currentCount + buyQuantity;
       
       // 扣除积分
-      const updatedPoints = user.points - totalPrice;
+      let updatedPoints = user.points - totalPrice;
+      
+      // 积分上限保护
+      if (updatedPoints > MAX_POINTS) {
+        updatedPoints = MAX_POINTS;
+      }
       
       // 更新用户数据
       await client.query(
@@ -1521,7 +1560,12 @@ app.delete('/api/user/uses/:rarity', authenticateToken, async (req, res) => {
       
       // 计算增加的积分（使用后端计算的价格）
       const totalPrice = price * quantity;
-      const updatedPoints = (user.points || 0) + totalPrice;
+      let updatedPoints = (user.points || 0) + totalPrice;
+      
+      // 积分上限保护
+      if (updatedPoints > MAX_POINTS) {
+        updatedPoints = MAX_POINTS;
+      }
       
       // 更新用户数据
       await client.query(
@@ -1617,8 +1661,13 @@ app.delete('/api/user/seeds/:rarity', authenticateToken, async (req, res) => {
       
       // 计算增加的积分（使用后端计算的价格）
       const totalPrice = price * quantity;
-      const updatedPoints = (user.points || 0) + totalPrice;
+      let updatedPoints = (user.points || 0) + totalPrice;
       console.log('Total price:', totalPrice, 'Updated points:', updatedPoints);
+      
+      // 积分上限保护
+      if (updatedPoints > MAX_POINTS) {
+        updatedPoints = MAX_POINTS;
+      }
       
       // 更新用户数据
       console.log('Updating user data...');
@@ -1745,7 +1794,12 @@ app.delete('/api/user/crops/:rarity', authenticateToken, async (req, res) => {
       
       // 计算增加的积分（使用后端计算的价格）
       const totalPrice = price * quantity;
-      const updatedPoints = (user.points || 0) + totalPrice;
+      let updatedPoints = (user.points || 0) + totalPrice;
+      
+      // 积分上限保护
+      if (updatedPoints > MAX_POINTS) {
+        updatedPoints = MAX_POINTS;
+      }
       
       // 更新用户数据
       await client.query(
