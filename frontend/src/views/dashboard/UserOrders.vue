@@ -154,7 +154,7 @@ async function loadOrders(isLoadMore = false) {
       page.value = 1
     }
 
-    hasMore.value = data.orders.length === limit.value
+    hasMore.value = data.pagination.page < data.pagination.totalPages
     console.log('Orders:', orders.value)
     console.log('Orders length:', orders.value.length)
   } catch (error) {

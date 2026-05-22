@@ -153,8 +153,8 @@ async function loadOrders(isLoadingMore = false) {
       orders.value = data.orders
     }
     
-    hasMore.value = data.pagination.hasMore
-    page.value = data.pagination.currentPage + 1
+    hasMore.value = data.pagination.page < data.pagination.totalPages
+    page.value = data.pagination.page + 1
   } catch (error) {
     console.error('Failed to load orders:', error)
     if (!isLoadingMore) {

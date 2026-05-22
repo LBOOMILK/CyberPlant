@@ -123,8 +123,8 @@ async function fetchDashboardData() {
       }
     })
     const ordersData = await ordersResponse.json()
-    if (ordersData && Array.isArray(ordersData.orders)) {
-      stats.value.totalOrders = ordersData.orders.length
+    if (ordersData && ordersData.pagination) {
+      stats.value.totalOrders = ordersData.pagination.total
     } else {
       stats.value.totalOrders = 0
     }

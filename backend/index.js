@@ -152,7 +152,7 @@ async function initDatabase() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS orders (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id VARCHAR(50) NOT NULL,
+        user_id INTEGER NOT NULL,
         type VARCHAR(50) NOT NULL CHECK (type IN ('PURCHASE_SEED', 'SELL_SEED', 'SELL_CROP', 'PURCHASE_USE', 'SELL_USE')),
         amount INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1020,7 +1020,6 @@ app.delete('/api/plants/:id', authenticateToken, requireAdmin, async (req, res) 
 // 创建订单服务函数
 async function createOrder(userId, type, amount) {
   try {
-    // 将userId转换为integer类型,以匹配orders表的user_id列类型
     const integerUserId = parseInt(userId);
     const result = await client.query(
       'INSERT INTO orders (user_id, type, amount) VALUES ($1, $2, $3) RETURNING *',
@@ -1038,7 +1037,6 @@ async function createOrder(userId, type, amount) {
 app.get('/api/orders', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    // 将userId转换为integer类型,以匹配orders表的user_id列类型
     const integerUserId = parseInt(userId);
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -1053,7 +1051,7 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
 
     const totalResult = await client.query(
       'SELECT COUNT(*) as total FROM orders WHERE user_id = $1',
-      [userId]
+      [integerUserId]
     );
 
     const orders = ordersResult.rows.map(order => ({
