@@ -203,7 +203,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useFriendStore } from '@/stores/friendStore'
 import { useUserStore } from '@/stores/userStore'
 import Modal from '@/components/Modal.vue'
@@ -243,13 +243,27 @@ const pendingGifts = ref([])
 const pendingGiftCount = ref(0)
 const giftBoxLoading = ref(false)
 
+let refreshTimer = null
+
 onMounted(async () => {
   try {
     await friendStore.loadFriends()
     await loadPendingGifts()
+    // 每30秒刷新一次好友列表，以便及时显示请求状态变化
+    refreshTimer = setInterval(async () => {
+      try {
+        await friendStore.loadFriends()
+      } catch (e) {
+        console.error('Failed to refresh friends:', e)
+      }
+    }, 30000)
   } catch (e) {
     console.error('Failed to load friends:', e)
   }
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
 })
 
 async function loadPendingGifts() {

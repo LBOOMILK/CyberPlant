@@ -5,6 +5,7 @@
         <h3>🎁 送礼给 {{ friendName }}</h3>
         <button class="close-btn" @click="$emit('close')">✕</button>
       </div>
+      <Toast ref="toastRef" />
 
       <!-- Tab 切换 -->
       <div class="gift-tabs">
@@ -86,6 +87,7 @@
 import { ref, computed, watch } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { useShopStore } from '@/stores/shopStore'
+import Toast from '@/components/Toast.vue'
 
 const props = defineProps({
   visible: Boolean,
@@ -97,12 +99,19 @@ const emit = defineEmits(['close', 'gift-sent'])
 
 const userStore = useUserStore()
 const shopStore = useShopStore()
+const toastRef = ref(null)
 
 const mode = ref('item')
 const selectedItemId = ref(null)
 const selectedCurrency = ref('silver_coin')
 const giftAmount = ref(0)
 const submitting = ref(false)
+
+function addToast(message, type = 'info') {
+  if (toastRef.value) {
+    toastRef.value.addToast(message, type)
+  }
+}
 
 const currencyOptions = [
   { key: 'silver_coin', name: '银币', icon: '🪙' },
@@ -164,16 +173,20 @@ async function handleSubmit() {
   submitting.value = true
   try {
     if (mode.value === 'item') {
+      const item = backpackItems.value.find(i => i.item_id === selectedItemId.value)
       emit('gift-sent', {
         gift_type: 'item',
         item_id: selectedItemId.value
       })
+      addToast(`🎁 已送出 ${item?.icon || '物品'}，等待对方接收`, 'success')
     } else {
+      const currency = currencyOptions.find(c => c.key === selectedCurrency.value)
       emit('gift-sent', {
         gift_type: 'currency',
         currency_type: selectedCurrency.value,
         amount: giftAmount.value
       })
+      addToast(`💰 已送出 ${currency?.icon} ${giftAmount.value} ${currency?.name}，等待对方接收`, 'success')
     }
   } finally {
     submitting.value = false

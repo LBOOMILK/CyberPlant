@@ -115,7 +115,7 @@ function openBuyModal(item) {
   buyModalMessage.value = `购买 ${item.icon} ${item.name}？`
 
   // 计算最大可购买数量
-  const balance = userStore.currencies.value[item.currency_type] || 0
+  const balance = userStore.currencies[item.currency_type] || 0
   const maxByBalance = item.buy_price > 0 ? Math.floor(balance / item.buy_price) : 0
   // 宠物和装饰没有数量上限
   if (item.item_type === 'pet') {

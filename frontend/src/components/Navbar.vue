@@ -164,6 +164,8 @@ const handleResize = () => {
 
 // 悬浮导航拖动相关状态
 const isDragging = ref(false)
+const hasDragged = ref(false) // 是否真正拖拽过（移动距离超过阈值）
+const dragStartPosition = ref({ x: 0, y: 0 })
 const navPosition = ref({ x: 20, y: 100 })
 const navDragOffset = ref({ x: 0, y: 0 })
 
@@ -175,7 +177,9 @@ const navStyle = computed(() => ({
 const startDrag = (e) => {
     e.stopPropagation()
     isDragging.value = true
+    hasDragged.value = false
     const touch = e.touches ? e.touches[0] : e
+    dragStartPosition.value = { x: touch.clientX, y: touch.clientY }
     navDragOffset.value = {
         x: touch.clientX - navPosition.value.x,
         y: touch.clientY - navPosition.value.y
@@ -189,6 +193,11 @@ const startDrag = (e) => {
 const onNavDrag = (e) => {
     if (!isDragging.value) return
     const touch = e.touches ? e.touches[0] : e
+    // 检查是否真正拖拽（移动距离超过5px）
+    const moveDistance = Math.abs(touch.clientX - dragStartPosition.value.x) + Math.abs(touch.clientY - dragStartPosition.value.y)
+    if (moveDistance > 5) {
+        hasDragged.value = true
+    }
     const newX = touch.clientX - navDragOffset.value.x
     const newY = touch.clientY - navDragOffset.value.y
     navPosition.value = {
@@ -445,7 +454,6 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.1s ease;
-    cursor: grab;
     user-select: none;
 }
 
@@ -455,9 +463,12 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
 }
 
 .floating-nav.dragging {
-    cursor: grabbing;
     opacity: 0.9;
     transform: scale(1.02);
+}
+
+.floating-nav.dragging .nav-item {
+    pointer-events: none; /* 拖拽时禁止点击导航项 */
 }
 
 .nav-capsule {
@@ -471,6 +482,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.5);
     transition: all 0.2s ease;
+    cursor: default; /* 导航胶囊默认cursor */
 }
 
 .nav-capsule:hover {
@@ -493,11 +505,12 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
     justify-content: center;
     font-size: 12px;
     color: #4caf50;
-    cursor: grab;
+    cursor: grab; /* 只有拖拽手柄是grab */
     opacity: 0.7;
     transition: all 0.2s ease;
     border: 1px solid rgba(76, 175, 80, 0.3);
     border-left: none;
+    z-index: 10; /* 确保拖拽手柄在最上层 */
 }
 
 .drag-handle:hover {
@@ -505,8 +518,11 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
     background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(76, 175, 80, 0.4));
 }
 
-.floating-nav.dragging .drag-handle {
+.drag-handle:active {
     cursor: grabbing;
+}
+
+.floating-nav.dragging .drag-handle {
     opacity: 1;
 }
 
