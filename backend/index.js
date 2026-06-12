@@ -161,9 +161,22 @@ async function initDatabase() {
         sell_price INT DEFAULT 0,
         currency_type VARCHAR(20) DEFAULT 'silver_coin',
         is_shop BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        crop_id INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (crop_id) REFERENCES items(id) ON DELETE SET NULL
       )
     `);
+    
+    // 如果 crop_id 字段不存在，添加它
+    const cropIdCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'items' AND column_name = 'crop_id'
+    `);
+    if (cropIdCheck.rowCount === 0) {
+      await client.query(`
+        ALTER TABLE items ADD COLUMN crop_id INT DEFAULT NULL
+      `);
+    }
 
     // user_items 表
     await client.query(`
@@ -348,8 +361,95 @@ async function initDatabase() {
 
     // ========== 插入物品种子数据 ==========
     const itemsCheck = await client.query('SELECT COUNT(*) as count FROM items');
+    
+    // 检查 crop_id 字段是否存在
+    const cropIdColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'items' AND column_name = 'crop_id'
+    `);
+    if (cropIdColumnCheck.rowCount === 0) {
+      await client.query(`ALTER TABLE items ADD COLUMN crop_id INT DEFAULT NULL`);
+      logger.info('Added crop_id column to items table');
+    }
+    
+    // 检查是否有作物数据
+    const cropCheck = await client.query("SELECT COUNT(*) as count FROM items WHERE item_type = 'crop'");
+    const hasCrops = parseInt(cropCheck.rows[0].count) > 0;
+    
+    // 作物数据定义
+    const crops = [
+      // C级作物
+      ['土豆', '🥔', 'C', 'crop', 0, 1, 5, 3, 'silver_coin', true],
+      ['胡萝卜', '🥕', 'C', 'crop', 0, 1, 6, 4, 'silver_coin', true],
+      ['白菜', '🥬', 'C', 'crop', 0, 1, 4, 2, 'silver_coin', true],
+      ['黄瓜', '🥒', 'C', 'crop', 0, 1, 7, 4, 'silver_coin', true],
+      // B级作物
+      ['番茄', '🍅', 'B', 'crop', 0, 2, 15, 8, 'silver_coin', true],
+      ['蓝莓', '🫐', 'B', 'crop', 0, 2, 17, 9, 'silver_coin', true],
+      ['玉米', '🌽', 'B', 'crop', 0, 2, 12, 6, 'silver_coin', true],
+      ['南瓜', '🎃', 'B', 'crop', 0, 2, 20, 10, 'silver_coin', true],
+      // A级作物
+      ['草莓', '🍓', 'A', 'crop', 0, 3, 40, 20, 'gold_coin', true],
+      ['西瓜', '🍉', 'A', 'crop', 0, 3, 50, 25, 'gold_coin', true],
+      ['葡萄', '🍇', 'A', 'crop', 0, 3, 30, 15, 'gold_coin', true],
+      // S级作物
+      ['玫瑰', '🌹', 'S', 'crop', 0, 5, 100, 50, 'gold_coin', true],
+      ['兰花', '🌸', 'S', 'crop', 0, 5, 125, 60, 'gold_coin', true],
+      // SSS级作物（不在商店出售）
+      ['金盏花', '🌟', 'SSS', 'crop', 0, 8, 250, 125, 'diamond', false],
+      ['星尘花', '✨', 'SSS', 'crop', 0, 10, 400, 200, 'diamond', false],
+    ];
+
+    // 种子与作物对应关系（按名称匹配）
+    const seedCropMapping = {
+      '土豆种子': '土豆',
+      '胡萝卜种子': '胡萝卜',
+      '白菜种子': '白菜',
+      '黄瓜种子': '黄瓜',
+      '番茄种子': '番茄',
+      '蓝莓种子': '蓝莓',
+      '玉米种子': '玉米',
+      '南瓜种子': '南瓜',
+      '草莓种子': '草莓',
+      '西瓜种子': '西瓜',
+      '葡萄种子': '葡萄',
+      '玫瑰种子': '玫瑰',
+      '兰花种子': '兰花',
+      '金盏花种子': '金盏花',
+      '星尘花种子': '星尘花',
+    };
+
+    // 如果没有作物数据，插入作物
+    if (!hasCrops) {
+      logger.info('No crops found, inserting crop data...');
+      for (const crop of crops) {
+        await client.query(
+          'INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+          crop
+        );
+      }
+      logger.info('Crop data inserted');
+    }
+
+    // 更新现有种子的 crop_id 关联
+    const cropItems = await client.query("SELECT id, name FROM items WHERE item_type = 'crop'");
+    const cropIdByName = {};
+    for (const crop of cropItems.rows) {
+      cropIdByName[crop.name] = crop.id;
+    }
+
+    const seedItems = await client.query("SELECT id, name FROM items WHERE item_type = 'seed'");
+    for (const seed of seedItems.rows) {
+      const cropName = seedCropMapping[seed.name];
+      if (cropName && cropIdByName[cropName]) {
+        await client.query('UPDATE items SET crop_id = $1 WHERE id = $2', [cropIdByName[cropName], seed.id]);
+      }
+    }
+    logger.info('Seed crop_id associations updated');
+
+    // 如果 items 表完全为空，插入种子和其他物品
     if (parseInt(itemsCheck.rows[0].count) === 0) {
-      // 作物种子 (16种)
+      // 种子数据（crop_id 已通过上面更新逻辑设置）
       const cropSeeds = [
         // C级
         ['土豆种子', '🥔', 'C', 'seed', 30, 1, 10, 5, 'silver_coin', true],
@@ -374,10 +474,15 @@ async function initDatabase() {
       ];
 
       for (const seed of cropSeeds) {
-        await client.query(
-          'INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+        const result = await client.query(
+          'INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
           seed
         );
+        // 设置 crop_id
+        const cropName = seedCropMapping[seed[0]];
+        if (cropName && cropIdByName[cropName]) {
+          await client.query('UPDATE items SET crop_id = $1 WHERE id = $2', [cropIdByName[cropName], result.rows[0].id]);
+        }
       }
 
       // 肥料 (2种)
@@ -2813,21 +2918,29 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
 // POST /api/admin/items — 创建物品
 app.post('/api/admin/items', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop } = req.body;
+    const { name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop, crop_id } = req.body;
 
     if (!name || !item_type) {
       return res.status(400).json({ error: '请填写物品名和类型' });
     }
 
-    const validTypes = ['seed', 'fertilizer', 'pet_food'];
+    const validTypes = ['seed', 'crop', 'fertilizer', 'pet_food'];
     if (!validTypes.includes(item_type)) {
       return res.status(400).json({ error: '无效的物品类型' });
     }
 
+    // 如果设置了 crop_id，验证它是否存在且类型为 crop
+    if (crop_id) {
+      const cropCheck = await client.query('SELECT id FROM items WHERE id = $1 AND item_type = $2', [crop_id, 'crop']);
+      if (cropCheck.rowCount === 0) {
+        return res.status(400).json({ error: '关联的作物不存在或类型不是作物' });
+      }
+    }
+
     const result = await client.query(
-      `INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [name, icon || '', rarity || 'C', item_type, grow_time || 0, base_yield || 0, buy_price || 0, sell_price || 0, currency_type || 'silver_coin', is_shop !== false]
+      `INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop, crop_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [name, icon || '', rarity || 'C', item_type, grow_time || 0, base_yield || 0, buy_price || 0, sell_price || 0, currency_type || 'silver_coin', is_shop !== false, crop_id || null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -2841,15 +2954,23 @@ app.post('/api/admin/items', authenticateToken, requireAdmin, async (req, res) =
 app.put('/api/admin/items/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop } = req.body;
+    const { name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop, crop_id } = req.body;
 
     const existing = await client.query('SELECT * FROM items WHERE id = $1', [id]);
     if (existing.rowCount === 0) {
       return res.status(404).json({ error: '物品不存在' });
     }
 
+    // 如果设置了 crop_id，验证它是否存在且类型为 crop
+    if (crop_id) {
+      const cropCheck = await client.query('SELECT id FROM items WHERE id = $1 AND item_type = $2', [crop_id, 'crop']);
+      if (cropCheck.rowCount === 0) {
+        return res.status(400).json({ error: '关联的作物不存在或类型不是作物' });
+      }
+    }
+
     const result = await client.query(
-      `UPDATE items SET name = $1, icon = $2, rarity = $3, item_type = $4, grow_time = $5, base_yield = $6, buy_price = $7, sell_price = $8, currency_type = $9, is_shop = $10 WHERE id = $11 RETURNING *`,
+      `UPDATE items SET name = $1, icon = $2, rarity = $3, item_type = $4, grow_time = $5, base_yield = $6, buy_price = $7, sell_price = $8, currency_type = $9, is_shop = $10, crop_id = $11 WHERE id = $12 RETURNING *`,
       [
         name || existing.rows[0].name,
         icon !== undefined ? icon : existing.rows[0].icon,
@@ -2861,6 +2982,7 @@ app.put('/api/admin/items/:id', authenticateToken, requireAdmin, async (req, res
         sell_price !== undefined ? sell_price : existing.rows[0].sell_price,
         currency_type || existing.rows[0].currency_type,
         is_shop !== undefined ? is_shop : existing.rows[0].is_shop,
+        crop_id !== undefined ? crop_id : existing.rows[0].crop_id,
         id
       ]
     );
@@ -3383,25 +3505,49 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
     const userId = req.user.id;
     const plotIndex = parseInt(req.params.plotIndex);
     if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
-    const plotResult = await client.query('SELECT gp.*, i.name as crop_name, i.icon as crop_icon, i.rarity, i.base_yield, i.sell_price, i.currency_type FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
+    // 查询地块信息和关联的种子物品（包含作物ID）
+    const plotResult = await client.query('SELECT gp.*, i.name as crop_name, i.icon as crop_icon, i.rarity, i.base_yield, i.sell_price, i.currency_type, i.crop_id FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
     if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
     const plot = plotResult.rows[0];
     if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
     if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
     if (plot.stage < 4) return res.status(400).json({ error: '植物尚未成熟' });
+    
+    // 计算收获数量
     const levelMultiplier = PLOT_LEVEL_MULTIPLIER[plot.level] || 1.0;
     const petBonus = await getPetBonus(userId);
     const bonusMultiplier = 1 + petBonus / 100;
     const baseYield = plot.base_yield || 1;
     const actualYield = Math.max(1, Math.round(baseYield * levelMultiplier * bonusMultiplier));
+    
+    // 确定收获的物品：如果种子有关联的作物ID，则收获作物，否则收获种子本身
+    let harvestItemId = plot.seed_id;
+    let harvestItemName = plot.crop_name;
+    let harvestItemIcon = plot.crop_icon;
+    let harvestItemRarity = plot.rarity;
+    let harvestItemSellPrice = plot.sell_price || 0;
+    
+    if (plot.crop_id) {
+      // 查询作物信息
+      const cropResult = await client.query('SELECT * FROM items WHERE id = $1', [plot.crop_id]);
+      if (cropResult.rowCount > 0) {
+        const crop = cropResult.rows[0];
+        harvestItemId = crop.id;
+        harvestItemName = crop.name;
+        harvestItemIcon = crop.icon;
+        harvestItemRarity = crop.rarity;
+        harvestItemSellPrice = crop.sell_price || 0;
+      }
+    }
+    
     await client.query('BEGIN');
     try {
-      // 收获获得作物物品到背包（种子，可重复种植或卖出）
+      // 收获获得作物物品到背包
       await client.query(
         `INSERT INTO user_items (user_id, item_id, quantity)
          VALUES ($1, $2, $3)
          ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + $3, updated_at = CURRENT_TIMESTAMP`,
-        [userId, plot.seed_id, actualYield]
+        [userId, harvestItemId, actualYield]
       );
       // 清空地块
       await client.query('UPDATE garden_plots SET seed_id = NULL, stage = 0, planted_at = NULL, last_watered_at = NULL WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
@@ -3411,7 +3557,27 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
       throw err;
     }
     const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
-    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, item_reward: { item_id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, quantity: actualYield }, currencies: { silver_coin: Number(cur.rows[0].silver_coin), gold_coin: Number(cur.rows[0].gold_coin), diamond: Number(cur.rows[0].diamond) } });
+    res.json({ 
+      message: '收获成功', 
+      plot_index: plotIndex, 
+      crop: { 
+        id: harvestItemId, 
+        name: harvestItemName, 
+        icon: harvestItemIcon, 
+        rarity: harvestItemRarity,
+        sell_price: harvestItemSellPrice
+      }, 
+      yield: actualYield, 
+      item_reward: { 
+        item_id: harvestItemId, 
+        name: harvestItemName, 
+        icon: harvestItemIcon, 
+        quantity: actualYield 
+      }, 
+      currency_type: plot.currency_type, 
+      currency_reward: 0, 
+      currencies: { silver_coin: Number(cur.rows[0].silver_coin), gold_coin: Number(cur.rows[0].gold_coin), diamond: Number(cur.rows[0].diamond) } 
+    });
   } catch (error) {
     logger.error('Harvest error', { error: error.message });
     res.status(500).json({ error: '收获失败' });
