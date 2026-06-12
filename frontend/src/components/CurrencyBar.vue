@@ -190,13 +190,13 @@ async function doExchange() {
 }
 
 .currency-icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
 }
 
 .currency-value {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #fff;
   min-width: 28px;

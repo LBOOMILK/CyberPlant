@@ -57,6 +57,10 @@
                 <span class="nav-emoji">🐾</span>
                 <span class="nav-text">宠物</span>
             </router-link>
+            <router-link to="/dashboard/orders" class="nav-link" @click="mobileMenuOpen = false">
+                <span class="nav-emoji">📋</span>
+                <span class="nav-text">订单</span>
+            </router-link>
             <router-link to="/dashboard/user" class="nav-link" @click="mobileMenuOpen = false">
                 <span class="nav-emoji">👤</span>
                 <span class="nav-text">个人</span>
@@ -94,6 +98,10 @@
                 <router-link to="/dashboard/pets" class="nav-item" :class="{ active: $route.path === '/dashboard/pets' }">
                     <span class="nav-icon">🐾</span>
                     <span class="nav-label">宠物</span>
+                </router-link>
+                <router-link to="/dashboard/orders" class="nav-item" :class="{ active: $route.path === '/dashboard/orders' }">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">订单</span>
                 </router-link>
                 <router-link to="/dashboard/user" class="nav-item" :class="{ active: $route.path === '/dashboard/user' }">
                     <span class="nav-icon">👤</span>
@@ -293,7 +301,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
 .top-username {
     color: #fff;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 1.05rem;
 }
 
 .top-bar-right {

@@ -356,7 +356,6 @@ async function initDatabase() {
         ['胡萝卜种子', '🥕', 'C', 'seed', 35, 1, 12, 6, 'silver_coin', true],
         ['白菜种子', '🥬', 'C', 'seed', 25, 1, 8, 4, 'silver_coin', true],
         ['黄瓜种子', '🥒', 'C', 'seed', 40, 1, 15, 7, 'silver_coin', true],
-        ['生菜种子', '🥬', 'C', 'seed', 28, 1, 9, 4, 'silver_coin', true],
         // B级
         ['番茄种子', '🍅', 'B', 'seed', 60, 2, 30, 15, 'silver_coin', true],
         ['蓝莓种子', '🫐', 'B', 'seed', 70, 2, 35, 17, 'silver_coin', true],
@@ -2534,6 +2533,13 @@ app.post('/api/user/decorations/purchase', authenticateToken, async (req, res) =
     if (decResult.rowCount === 0) return res.status(404).json({ error: '装饰不存在' });
 
     const dec = decResult.rows[0];
+
+    // 限购检查：每种装饰每人只能购买 1 个
+    const existingDec = await client.query('SELECT quantity FROM user_decorations WHERE user_id = $1 AND decoration_id = $2', [userId, decoration_id]);
+    if (existingDec.rowCount > 0 && existingDec.rows[0].quantity >= 1) {
+      return res.status(400).json({ error: '该装饰已拥有，无法重复购买' });
+    }
+
     const totalCost = Number(dec.price_amount) * qty;
 
     await client.query('BEGIN');
@@ -3371,16 +3377,25 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
     const bonusMultiplier = 1 + petBonus / 100;
     const baseYield = plot.base_yield || 1;
     const actualYield = Math.max(1, Math.round(baseYield * levelMultiplier * bonusMultiplier));
+    // 收获获得货币：sell_price × actualYield
+    const sellPrice = Number(plot.sell_price) || 1;
+    const currencyReward = sellPrice * actualYield;
+    const currencyType = plot.currency_type || 'silver_coin';
     await client.query('BEGIN');
     try {
-      await client.query('INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1, $2, $3) ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + $3, updated_at = CURRENT_TIMESTAMP', [userId, plot.seed_id, actualYield]);
+      // 增加货币
+      await addCurrency(userId, currencyType, currencyReward);
+      // 记录订单
+      await createOrder(userId, 'HARVEST', currencyType, currencyReward);
+      // 清空地块
       await client.query('UPDATE garden_plots SET seed_id = NULL, stage = 0, planted_at = NULL, last_watered_at = NULL WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
     }
-    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, multiplier: levelMultiplier, pet_bonus: petBonus, bonus_multiplier: bonusMultiplier });
+    const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, currency_reward: currencyReward, currency_type: currencyType, multiplier: levelMultiplier, pet_bonus: petBonus, bonus_multiplier: bonusMultiplier, currencies: { silver_coin: Number(cur.rows[0].silver_coin), gold_coin: Number(cur.rows[0].gold_coin), diamond: Number(cur.rows[0].diamond) } });
   } catch (error) {
     logger.error('Harvest error', { error: error.message });
     res.status(500).json({ error: '收获失败' });

@@ -118,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { usePlotStore } from '@/stores/plotStore'
 import { useUserStore } from '@/stores/userStore'
 import { useShopStore } from '@/stores/shopStore'
@@ -144,6 +144,7 @@ const selectedPlot = ref(null)
 const selectedPlotIndex = ref(null)
 const userSeeds = ref([])
 const userFertilizers = ref([])
+let refreshTimer = null
 
 function addToast(message, type = 'info') {
   if (toastRef.value) toastRef.value.addToast(message, type)
@@ -284,9 +285,9 @@ async function handleHarvest() {
   try {
     const data = await plotStore.harvest(selectedPlot.value.plot_index)
     await userStore.loadCurrencies()
-    await shopStore.loadBackpack()
     showPlotModal.value = false
-    addToast(`🏆 收获成功！获得 ${data.yield} 个 ${data.crop?.name || '作物'}`, 'success')
+    const currencyName = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }[data.currency_type] || '货币'
+    addToast(`🏆 收获成功！获得 ${data.currency_reward} ${currencyName}`, 'success')
   } catch (error) {
     addToast(error.message, 'error')
   }
@@ -328,10 +329,18 @@ onMounted(async () => {
   try {
     await userStore.loadFromLocal()
     await plotStore.loadPlots()
+    // 每秒刷新进度条
+    refreshTimer = setInterval(() => {
+      plotStore.plots = [...plotStore.plots]
+    }, 1000)
   } catch (error) {
     console.error('Failed to load garden:', error)
     addToast('加载花园数据失败', 'error')
   }
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
 })
 </script>
 
@@ -396,13 +405,14 @@ h1 {
   position: relative;
   border: 3px solid #9CA3AF;
   border-radius: 16px;
-  padding: 12px;
+  padding: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
   background: rgba(255, 255, 255, 0.6);
   aspect-ratio: 1;
   display: flex;
   flex-direction: column;
+  min-height: 140px;
 }
 
 .plot-card:hover {
@@ -456,7 +466,7 @@ h1 {
 }
 
 .locked-body .lock-icon {
-  font-size: 2rem;
+  font-size: 2.4rem;
   margin-bottom: 6px;
 }
 
@@ -483,22 +493,22 @@ h1 {
 }
 
 .empty-body .empty-icon {
-  font-size: 2.5rem;
+  font-size: 2.8rem;
   margin-bottom: 6px;
 }
 
 .empty-body .empty-text {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: #999;
 }
 
 .plant-body .plant-icon {
-  font-size: 2.2rem;
+  font-size: 2.6rem;
   margin-bottom: 4px;
 }
 
 .plant-body .plant-name {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #555;
   margin-bottom: 6px;

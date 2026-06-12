@@ -34,6 +34,7 @@
                 </div>
             </div>
 
+            <button class="orders-btn" @click="router.push('/dashboard/orders')">📋 查看订单</button>
             <button class="change-pwd-btn" @click="showChangePwdModal = true">🔒 修改密码</button>
             <button class="change-name-btn" @click="showChangeNameModal = true">✏️ 修改用户名</button>
             <button class="logout-btn" @click="showLogoutModal = true">🚪 退出登录</button>
@@ -340,6 +341,7 @@ function handleLogout() {
 .profile-card h2 {
     color: #2c5a2a;
     margin-bottom: 24px;
+    font-size: 1.5rem;
 }
 
 .currency-row {
@@ -352,7 +354,7 @@ function handleLogout() {
 
 .currency-item {
     font-weight: bold;
-    font-size: 1rem;
+    font-size: 1.1rem;
     color: #2e7d32;
 }
 
@@ -376,6 +378,23 @@ function handleLogout() {
 .stat-value {
     font-weight: bold;
     color: #2e7d32;
+}
+
+.orders-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 40px;
+    background: #9c27b0;
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 12px;
+}
+
+.orders-btn:hover {
+    background: #7b1fa2;
 }
 
 .change-pwd-btn {
@@ -573,6 +592,14 @@ function handleLogout() {
 
     .currency-item {
         color: #8bc34a;
+    }
+    
+    .orders-btn {
+        background: #7b1fa2;
+    }
+    
+    .orders-btn:hover {
+        background: #6a1b9a;
     }
     
     .change-pwd-btn {

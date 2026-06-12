@@ -101,6 +101,10 @@ h3 {
   margin-bottom: 16px;
   max-height: 320px;
 }
+.seeds-list::-webkit-scrollbar { width: 6px; }
+.seeds-list::-webkit-scrollbar-track { background: transparent; }
+.seeds-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+.seeds-list::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.35); }
 .seed-item {
   display: flex;
   align-items: center;

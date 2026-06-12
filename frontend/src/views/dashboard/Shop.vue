@@ -100,6 +100,7 @@ function getOwnedQty(itemId) {
 async function switchTab(tab) {
   try {
     await shopStore.loadShop(tab)
+    await shopStore.loadBackpack()
   } catch (error) {
     addToast(error.message || '加载失败', 'error')
   }
@@ -117,7 +118,9 @@ function openBuyModal(item) {
   if (item.item_type === 'pet') {
     maxBuyQty.value = 1
   } else if (item.item_type === 'decoration') {
-    maxBuyQty.value = Math.max(1, maxByBalance)
+    // 装饰限购 1 个
+    const owned = getOwnedQty(item.id)
+    maxBuyQty.value = owned >= 1 ? 0 : Math.max(1, maxByBalance)
   } else {
     const maxByCap = 999 - getOwnedQty(item.id)
     maxBuyQty.value = Math.max(1, Math.min(maxByBalance, maxByCap))
