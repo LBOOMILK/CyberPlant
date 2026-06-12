@@ -300,10 +300,10 @@ async function initDatabase() {
         [test1Id, 100, 0, 0]
       );
       // 创建6块地，第1块已解锁
-      for (let i = 0; i < 6; i++) {
+      for (let i = 1; i <= 6; i++) {
         await client.query(
           'INSERT INTO garden_plots (user_id, plot_index, is_unlocked) VALUES ($1, $2, $3)',
-          [test1Id, i, i === 0]
+          [test1Id, i, i === 1]
         );
       }
     }
@@ -321,10 +321,10 @@ async function initDatabase() {
         'INSERT INTO currencies (user_id, silver_coin, gold_coin, diamond) VALUES ($1, $2, $3, $4)',
         [test2Id, 100, 0, 0]
       );
-      for (let i = 0; i < 6; i++) {
+      for (let i = 1; i <= 6; i++) {
         await client.query(
           'INSERT INTO garden_plots (user_id, plot_index, is_unlocked) VALUES ($1, $2, $3)',
-          [test2Id, i, i === 0]
+          [test2Id, i, i === 1]
         );
       }
     }
@@ -443,10 +443,10 @@ app.post('/api/auth/register', async (req, res) => {
 
       // 创建 garden_plots 6条记录，第1条已解锁
       const plots = [];
-      for (let i = 0; i < 6; i++) {
+      for (let i = 1; i <= 6; i++) {
         const plotResult = await client.query(
           'INSERT INTO garden_plots (user_id, plot_index, is_unlocked) VALUES ($1, $2, $3) RETURNING *',
-          [nextId, i, i === 0]
+          [nextId, i, i === 1]
         );
         plots.push(plotResult.rows[0]);
       }
@@ -761,6 +761,37 @@ app.post('/api/user/currencies/exchange', authenticateToken, async (req, res) =>
     }
     logger.error('Exchange error', { error: error.message });
     res.status(500).json({ error: '兑换失败' });
+  }
+});
+
+// 获取用户背包物品
+app.get('/api/user/items', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await client.query(
+      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.grow_time, i.base_yield, i.buy_price, i.sell_price, i.currency_type
+       FROM user_items ui
+       JOIN items i ON ui.item_id = i.id
+       WHERE ui.user_id = $1 AND ui.quantity > 0
+       ORDER BY i.item_type, i.rarity, i.id`,
+      [userId]
+    );
+    res.json(result.rows.map(r => ({
+      item_id: r.item_id,
+      quantity: r.quantity,
+      name: r.name,
+      icon: r.icon,
+      rarity: r.rarity,
+      item_type: r.item_type,
+      grow_time: r.grow_time,
+      base_yield: r.base_yield,
+      buy_price: r.buy_price,
+      sell_price: r.sell_price,
+      currency_type: r.currency_type
+    })));
+  } catch (error) {
+    logger.error('Get user items error', { error: error.message });
+    res.status(500).json({ error: '获取背包物品失败' });
   }
 });
 
@@ -1237,7 +1268,330 @@ app.delete('/api/admin/orders/:id', authenticateToken, requireAdmin, async (req,
   }
 });
 
-// ==================== 花园路由（保留兼容，Phase 2 会重构为多地块） ====================
+// ==================== 多地块系统 API (Phase 2) ====================
+
+// 地块等级倍率
+const PLOT_LEVEL_MULTIPLIER = { 1: 1.0, 2: 1.2, 3: 1.5, 4: 2.0, 5: 3.0 };
+
+// 地块解锁费用
+const UNLOCK_COSTS = {
+  2: { type: 'silver_coin', amount: 200 },
+  3: { type: 'silver_coin', amount: 800 },
+  4: { type: 'gold_coin', amount: 300 },
+  5: { type: 'gold_coin', amount: 800 },
+  6: { type: 'diamond', amount: 100 }
+};
+
+// 地块升级费用
+const UPGRADE_COSTS = {
+  2: { type: 'silver_coin', amount: 1500 },
+  3: { type: 'gold_coin', amount: 500 },
+  4: { type: 'gold_coin', amount: 1500 },
+  5: { type: 'diamond', amount: 500 }
+};
+
+// 阶段图标
+const STAGE_ICONS = ['🥜', '🌱', '🌿', '🌻']; // stage 0-3, stage 4 uses crop icon
+
+// GET /api/user/plots — 获取用户所有地块
+app.get('/api/user/plots', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    let plotsResult = await client.query(
+      'SELECT * FROM garden_plots WHERE user_id = $1 ORDER BY plot_index',
+      [userId]
+    );
+    if (plotsResult.rowCount === 0) {
+      await client.query('BEGIN');
+      try {
+        for (let i = 1; i <= 6; i++) {
+          await client.query(
+            'INSERT INTO garden_plots (user_id, plot_index, is_unlocked) VALUES ($1, $2, $3)',
+            [userId, i, i === 1]
+          );
+        }
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      }
+      plotsResult = await client.query(
+        'SELECT * FROM garden_plots WHERE user_id = $1 ORDER BY plot_index',
+        [userId]
+      );
+    }
+    const plots = [];
+    for (const plot of plotsResult.rows) {
+      let cropInfo = null;
+      if (plot.seed_id) {
+        const itemResult = await client.query(
+          'SELECT id, name, icon, rarity, item_type, grow_time, base_yield FROM items WHERE id = $1',
+          [plot.seed_id]
+        );
+        if (itemResult.rowCount > 0) cropInfo = itemResult.rows[0];
+      }
+      plots.push({
+        id: plot.id,
+        plot_index: plot.plot_index,
+        is_unlocked: plot.is_unlocked,
+        level: plot.level,
+        seed_id: plot.seed_id,
+        stage: plot.stage,
+        planted_at: plot.planted_at,
+        last_watered_at: plot.last_watered_at,
+        crop: cropInfo ? { id: cropInfo.id, name: cropInfo.name, icon: cropInfo.icon, rarity: cropInfo.rarity, item_type: cropInfo.item_type, grow_time: cropInfo.grow_time, base_yield: cropInfo.base_yield } : null,
+        stage_icon: plot.seed_id ? (plot.stage < 4 ? STAGE_ICONS[plot.stage] : (cropInfo ? cropInfo.icon : '🌿')) : null,
+        multiplier: PLOT_LEVEL_MULTIPLIER[plot.level] || 1.0
+      });
+    }
+    res.json({ plots });
+  } catch (error) {
+    logger.error('Get plots error', { error: error.message });
+    res.status(500).json({ error: '获取地块信息失败' });
+  }
+});
+
+// POST /api/user/plots/:plotIndex/unlock
+app.post('/api/user/plots/:plotIndex/unlock', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const plotIndex = parseInt(req.params.plotIndex);
+    if (isNaN(plotIndex) || plotIndex < 2 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效，可解锁范围为 2-6' });
+    const cost = UNLOCK_COSTS[plotIndex];
+    if (!cost) return res.status(400).json({ error: '该地块无法解锁' });
+    const plotResult = await client.query('SELECT * FROM garden_plots WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
+    if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
+    if (plotResult.rows[0].is_unlocked) return res.status(400).json({ error: '地块已解锁' });
+    const prevPlot = await client.query('SELECT is_unlocked FROM garden_plots WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex - 1]);
+    if (prevPlot.rowCount === 0 || !prevPlot.rows[0].is_unlocked) return res.status(400).json({ error: `请先解锁第 ${plotIndex - 1} 块地` });
+    await client.query('BEGIN');
+    try {
+      await deductCurrency(userId, cost.type, cost.amount);
+      await client.query('UPDATE garden_plots SET is_unlocked = true WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
+      await createOrder(userId, 'PLOT_UNLOCK', cost.type, cost.amount);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      if (err.message === 'Insufficient balance') return res.status(400).json({ error: '余额不足' });
+      throw err;
+    }
+    const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+    res.json({ message: '地块解锁成功', plot_index: plotIndex, currencies: { silver_coin: Number(cur.rows[0].silver_coin), gold_coin: Number(cur.rows[0].gold_coin), diamond: Number(cur.rows[0].diamond) } });
+  } catch (error) {
+    logger.error('Unlock plot error', { error: error.message });
+    res.status(500).json({ error: '解锁地块失败' });
+  }
+});
+
+// POST /api/user/plots/:plotIndex/upgrade
+app.post('/api/user/plots/:plotIndex/upgrade', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const plotIndex = parseInt(req.params.plotIndex);
+    if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
+    const plotResult = await client.query('SELECT * FROM garden_plots WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
+    if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
+    if (!plotResult.rows[0].is_unlocked) return res.status(400).json({ error: '地块未解锁' });
+    const currentLevel = plotResult.rows[0].level;
+    if (currentLevel >= 5) return res.status(400).json({ error: '地块已达最大等级' });
+    const nextLevel = currentLevel + 1;
+    const cost = UPGRADE_COSTS[nextLevel];
+    if (!cost) return res.status(400).json({ error: '无法继续升级' });
+    await client.query('BEGIN');
+    try {
+      await deductCurrency(userId, cost.type, cost.amount);
+      await client.query('UPDATE garden_plots SET level = $1 WHERE user_id = $2 AND plot_index = $3', [nextLevel, userId, plotIndex]);
+      await createOrder(userId, 'PLOT_UPGRADE', cost.type, cost.amount);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      if (err.message === 'Insufficient balance') return res.status(400).json({ error: '余额不足' });
+      throw err;
+    }
+    const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+    res.json({ message: '地块升级成功', plot_index: plotIndex, level: nextLevel, multiplier: PLOT_LEVEL_MULTIPLIER[nextLevel], currencies: { silver_coin: Number(cur.rows[0].silver_coin), gold_coin: Number(cur.rows[0].gold_coin), diamond: Number(cur.rows[0].diamond) } });
+  } catch (error) {
+    logger.error('Upgrade plot error', { error: error.message });
+    res.status(500).json({ error: '升级地块失败' });
+  }
+});
+
+// POST /api/user/plots/:plotIndex/plant
+app.post('/api/user/plots/:plotIndex/plant', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const plotIndex = parseInt(req.params.plotIndex);
+    const { item_id } = req.body;
+    if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
+    if (!item_id) return res.status(400).json({ error: '请提供种子 item_id' });
+    const plotResult = await client.query('SELECT * FROM garden_plots WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
+    if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
+    if (!plotResult.rows[0].is_unlocked) return res.status(400).json({ error: '地块未解锁' });
+    if (plotResult.rows[0].seed_id !== null) return res.status(400).json({ error: '地块已有植物，请先收获或铲除' });
+    const itemResult = await client.query('SELECT * FROM items WHERE id = $1', [item_id]);
+    if (itemResult.rowCount === 0) return res.status(404).json({ error: '物品不存在' });
+    if (itemResult.rows[0].item_type !== 'seed') return res.status(400).json({ error: '该物品不是种子' });
+    const userItemResult = await client.query('SELECT * FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
+    if (userItemResult.rowCount === 0 || userItemResult.rows[0].quantity <= 0) return res.status(400).json({ error: '背包中没有该种子' });
+    await client.query('BEGIN');
+    try {
+      const newQty = userItemResult.rows[0].quantity - 1;
+      if (newQty <= 0) {
+        await client.query('DELETE FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
+      } else {
+        await client.query('UPDATE user_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND item_id = $3', [newQty, userId, item_id]);
+      }
+      await client.query('UPDATE garden_plots SET seed_id = $1, stage = 0, planted_at = CURRENT_TIMESTAMP, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND plot_index = $3', [item_id, userId, plotIndex]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+    const cropInfo = itemResult.rows[0];
+    res.json({ message: '种植成功', plot_index: plotIndex, crop: { id: cropInfo.id, name: cropInfo.name, icon: cropInfo.icon, rarity: cropInfo.rarity, grow_time: cropInfo.grow_time, base_yield: cropInfo.base_yield } });
+  } catch (error) {
+    logger.error('Plant error', { error: error.message });
+    res.status(500).json({ error: '种植失败' });
+  }
+});
+
+// POST /api/user/plots/:plotIndex/water
+app.post('/api/user/plots/:plotIndex/water', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const plotIndex = parseInt(req.params.plotIndex);
+    if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
+    const plotResult = await client.query('SELECT gp.*, i.grow_time, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
+    if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
+    const plot = plotResult.rows[0];
+    if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
+    if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
+    if (plot.stage >= 4) return res.status(400).json({ error: '植物已成熟，无需浇水' });
+    const growTime = plot.grow_time || 60;
+    const stageTime = growTime / 4;
+    const plantedAt = new Date(plot.planted_at).getTime();
+    const now = Date.now();
+    const elapsed = (now - plantedAt) / 1000;
+    const expectedStage = Math.min(4, Math.floor(elapsed / stageTime));
+    const newStage = Math.min(plot.stage + 1, expectedStage, 4);
+    if (newStage === plot.stage) {
+      const nextStageTime = (plot.stage + 1) * stageTime;
+      const remaining = Math.ceil(nextStageTime - elapsed);
+      return res.status(400).json({ error: `植物还在生长中，还需 ${remaining} 秒` });
+    }
+    await client.query('UPDATE garden_plots SET stage = $1, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND plot_index = $3', [newStage, userId, plotIndex]);
+    res.json({ message: '浇水成功', plot_index: plotIndex, stage: newStage, stage_icon: newStage < 4 ? STAGE_ICONS[newStage] : (plot.crop_icon || '🌿'), is_mature: newStage >= 4 });
+  } catch (error) {
+    logger.error('Water error', { error: error.message });
+    res.status(500).json({ error: '浇水失败' });
+  }
+});
+
+// POST /api/user/plots/:plotIndex/fertilize
+app.post('/api/user/plots/:plotIndex/fertilize', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const plotIndex = parseInt(req.params.plotIndex);
+    const { item_id } = req.body;
+    if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
+    if (!item_id) return res.status(400).json({ error: '请提供肥料 item_id' });
+    const plotResult = await client.query('SELECT gp.*, i.grow_time, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
+    if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
+    const plot = plotResult.rows[0];
+    if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
+    if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
+    if (plot.stage >= 4) return res.status(400).json({ error: '植物已成熟，无需施肥' });
+    const itemResult = await client.query('SELECT * FROM items WHERE id = $1', [item_id]);
+    if (itemResult.rowCount === 0) return res.status(404).json({ error: '物品不存在' });
+    if (itemResult.rows[0].item_type !== 'fertilizer') return res.status(400).json({ error: '该物品不是肥料' });
+    const userItemResult = await client.query('SELECT * FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
+    if (userItemResult.rowCount === 0 || userItemResult.rows[0].quantity <= 0) return res.status(400).json({ error: '背包中没有该肥料' });
+    const fertilizerName = itemResult.rows[0].name;
+    const isAdvanced = fertilizerName.includes('高级');
+    const boostRate = isAdvanced ? 0.3 : 0.1;
+    const growTime = plot.grow_time || 60;
+    const stageTime = growTime / 4;
+    const plantedAt = new Date(plot.planted_at).getTime();
+    const now = Date.now();
+    const elapsed = (now - plantedAt) / 1000;
+    const remainingTime = growTime - elapsed;
+    const boostTime = remainingTime * boostRate;
+    const newPlantedAt = new Date(plantedAt - boostTime * 1000);
+    const newElapsed = (now - newPlantedAt.getTime()) / 1000;
+    const newStage = Math.min(4, Math.floor(newElapsed / stageTime));
+    await client.query('BEGIN');
+    try {
+      const newQty = userItemResult.rows[0].quantity - 1;
+      if (newQty <= 0) {
+        await client.query('DELETE FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
+      } else {
+        await client.query('UPDATE user_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND item_id = $3', [newQty, userId, item_id]);
+      }
+      await client.query('UPDATE garden_plots SET planted_at = $1, stage = $2, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $3 AND plot_index = $4', [newPlantedAt, newStage, userId, plotIndex]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+    res.json({ message: '施肥成功', plot_index: plotIndex, stage: newStage, stage_icon: newStage < 4 ? STAGE_ICONS[newStage] : (plot.crop_icon || '🌿'), is_mature: newStage >= 4, boost: `${Math.round(boostRate * 100)}%` });
+  } catch (error) {
+    logger.error('Fertilize error', { error: error.message });
+    res.status(500).json({ error: '施肥失败' });
+  }
+});
+
+// POST /api/user/plots/:plotIndex/harvest
+app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const plotIndex = parseInt(req.params.plotIndex);
+    if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
+    const plotResult = await client.query('SELECT gp.*, i.name as crop_name, i.icon as crop_icon, i.rarity, i.base_yield, i.sell_price, i.currency_type FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
+    if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
+    const plot = plotResult.rows[0];
+    if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
+    if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
+    if (plot.stage < 4) return res.status(400).json({ error: '植物尚未成熟' });
+    const levelMultiplier = PLOT_LEVEL_MULTIPLIER[plot.level] || 1.0;
+    const baseYield = plot.base_yield || 1;
+    const actualYield = Math.max(1, Math.round(baseYield * levelMultiplier));
+    await client.query('BEGIN');
+    try {
+      await client.query('INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1, $2, $3) ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + $3, updated_at = CURRENT_TIMESTAMP', [userId, plot.seed_id, actualYield]);
+      await client.query('UPDATE garden_plots SET seed_id = NULL, stage = 0, planted_at = NULL, last_watered_at = NULL WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, multiplier: levelMultiplier });
+  } catch (error) {
+    logger.error('Harvest error', { error: error.message });
+    res.status(500).json({ error: '收获失败' });
+  }
+});
+
+// POST /api/user/plots/:plotIndex/remove
+app.post('/api/user/plots/:plotIndex/remove', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const plotIndex = parseInt(req.params.plotIndex);
+    if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
+    const plotResult = await client.query('SELECT * FROM garden_plots WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
+    if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
+    const plot = plotResult.rows[0];
+    if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
+    if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
+    if (plot.stage >= 4) return res.status(400).json({ error: '成熟植物不可铲除，请先收获' });
+    await client.query('UPDATE garden_plots SET seed_id = NULL, stage = 0, planted_at = NULL, last_watered_at = NULL WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
+    res.json({ message: '铲除成功', plot_index: plotIndex });
+  } catch (error) {
+    logger.error('Remove error', { error: error.message });
+    res.status(500).json({ error: '铲除失败' });
+  }
+});
+
+// ==================== 花园路由（保留兼容） ====================
 
 app.get('/api/garden', authenticateToken, async (req, res) => {
   try {

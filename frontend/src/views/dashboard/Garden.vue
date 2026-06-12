@@ -1,1051 +1,525 @@
 <template>
-    <div class="garden-page">
-        <!-- 右上角提示容器 -->
-        <Toast ref="toastRef" />
+  <div class="garden-page">
+    <Toast ref="toastRef" />
 
-        <!-- 主卡片 -->
-        <div class="card">
-            <h1>🌱 赛博花园</h1>
+    <div class="card">
+      <h1>🌱 赛博花园</h1>
 
-            <!-- 无植物状态 -->
-            <div v-if="!hasPlant" class="empty-state">
-                <div class="empty-emoji">🌾</div>
-                <p class="empty-text">还没有植物呢</p>
-                <p class="empty-hint">点击「种植」按钮开始你的花园之旅</p>
+      <div v-if="plotStore.loading && plotStore.plots.length === 0" class="loading-state">
+        <div class="loading-spinner">⏳</div>
+        <p>加载中...</p>
+      </div>
+
+      <div v-else class="plots-grid">
+        <div
+          v-for="plot in plotStore.plots"
+          :key="plot.plot_index"
+          class="plot-card"
+          :class="{
+            'plot-locked': !plot.is_unlocked,
+            'plot-empty': plot.is_unlocked && !plot.seed_id,
+            'plot-plant': plot.is_unlocked && plot.seed_id && plot.stage < 4,
+            'plot-mature': plot.is_unlocked && plot.seed_id && plot.stage >= 4,
+            'plot-glow': plot.level >= 4
+          }"
+          :style="{ borderColor: plot.is_unlocked ? plotStore.levelColors[plot.level] : '#6B7280' }"
+          @click="handlePlotClick(plot)"
+        >
+          <!-- 地块编号 -->
+          <div class="plot-header">
+            <span class="plot-index">#{{ plot.plot_index }}</span>
+            <span v-if="plot.is_unlocked" class="plot-level" :style="{ color: plotStore.levelColors[plot.level] }">Lv.{{ plot.level }}</span>
+          </div>
+
+          <!-- 未解锁状态 -->
+          <div v-if="!plot.is_unlocked" class="plot-body locked-body">
+            <div class="lock-icon">🔒</div>
+            <div class="unlock-cost" v-if="plotStore.unlockCosts[plot.plot_index]">
+              {{ plotStore.unlockCosts[plot.plot_index].icon }} {{ plotStore.unlockCosts[plot.plot_index].label }}
             </div>
+            <button class="unlock-btn" @click.stop="handleUnlock(plot.plot_index)">解锁</button>
+          </div>
 
-            <!-- 有植物状态 -->
-            <div v-else>
-                <div class="plant-emoji">{{ stageEmoji }}</div>
-                <div class="info-panel">
-                    <div class="info-row"><span>🏷️ 使用种子</span><span>{{ plant.name }}</span></div>
-                    <div class="info-row"><span>⭐ 稀有度</span><span :class="['badge', rarityClass]">{{ rarityName
-                            }}</span></div>
-                    <div class="info-row"><span>🌱 成长阶段</span><span><strong>{{ stageName }}</strong> {{ stageEmoji
-                            }}</span></div>
-                    <div class="info-row"><span>📊 阶段进度</span><span>{{ plant.stageIdx + 1 }} / {{ STAGES.length
-                            }}</span></div>
-                    <div class="info-row"><span>⏲️ 上次浇水</span><span>{{ lastWaterDisplay }}</span></div>
-                    <div class="info-row"><span>🌿 生命状态</span><span :class="plant.dead ? 'dead-text' : 'status-alive'">
-                            {{ plant.dead ? '枯萎死亡 💔' : '生机勃勃 🌟' }}
-                        </span></div>
-                    <div class="info-row" v-if="!plant.dead && !isMature && !plant.dead">
-                        <span>⏳ 生存状态</span><span v-html="deathRemainHtml"></span>
-                    </div>
-                    <div class="info-row" v-if="!plant.dead && isMature">
-                        <span>🏆 收获条件</span><span style="color:#d97706;">✅ 已成熟！点击「收获」获得作物</span>
-                    </div>
-                    <div class="info-row" v-else-if="!plant.dead && !isMature">
-                        <span>🌾 距离成熟</span><span>还需浇水 {{ MATURE_STAGE_INDEX - plant.stageIdx }} 次</span>
-                    </div>
-                </div>
+          <!-- 空地状态 -->
+          <div v-else-if="!plot.seed_id" class="plot-body empty-body">
+            <div class="empty-icon">🌾</div>
+            <div class="empty-text">点击种植</div>
+          </div>
+
+          <!-- 有植物状态 -->
+          <div v-else class="plot-body plant-body">
+            <div class="plant-icon">{{ plot.stage_icon }}</div>
+            <div class="plant-name">{{ plot.crop?.name || '未知' }}</div>
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: getProgress(plot) + '%' }"></div>
             </div>
+            <div class="stage-text">{{ getStageName(plot.stage) }}</div>
+          </div>
 
-            <!-- 2x2 田字格按钮 -->
-            <div class="button-grid">
-                <button class="grid-btn water-btn" @click="waterPlant" :disabled="!hasPlant || plant.dead">
-                    💧 浇水
-                </button>
-                <button class="grid-btn fertilize-btn" @click="openFertilizeDialog" :disabled="!canFertilize">
-                    🧪 施肥
-                </button>
-                <button class="grid-btn harvest-btn" @click="showHarvestModal"
-                    :disabled="!hasPlant || !isMature || plant.dead">
-                    🏆 收获
-                </button>
-                <button class="grid-btn plant-btn" @click="openPlantDialog">
-                    🌱 种植
-                </button>
-                <button class="grid-btn remove-btn" @click="showRemoveModal" :disabled="!hasPlant || (isMature && !plant.dead)">
-                    🗑️ 铲除
-                </button>
-            </div>
-
-            <div class="cooldown" v-if="hasPlant && !plant.dead" v-html="cooldownMsg"></div>
-            <footer>🌸 成熟后可以收获作物 | 作物可在背包中卖出</footer>
+          <!-- 产出倍率标签 -->
+          <div v-if="plot.is_unlocked" class="multiplier-tag">{{ plot.multiplier }}x</div>
         </div>
+      </div>
 
-        <!-- 种植弹窗 -->
-        <div v-if="showPlantDialog" class="modal-overlay" @mousedown.self="closePlantDialog">
-            <div class="modal-content">
-                <h3>🌱 选择种子</h3>
-                <div v-if="userStore.seedCount === 0" class="empty-seeds">
-                    <p>背包里没有种子</p>
-                    <button @click="closePlantDialog" class="close-modal-btn">去商城购买</button>
-                </div>
-                <div v-else class="seeds-list">
-                    <div v-for="(quantity, rarity) in userStore.groupedSeeds" :key="rarity" class="seed-item" @click="showPlantConfirmModal({ rarity, quantity })">
-                        <span :class="['seed-rarity', `rarity-${rarity}`]">{{ rarity }} ({{ quantity }})</span>
-                        <span class="seed-name">{{ rarityConfig[rarity].name }}</span>
-                        <span class="seed-price">💰 {{ rarityConfig[rarity].buyPrice }}</span>
-                    </div>
-                </div>
-                <button @click="closePlantDialog" class="cancel-btn">取消</button>
-            </div>
-        </div>
-        
-        <!-- 施肥弹窗 -->
-        <div v-if="showFertilizeDialog" class="modal-overlay" @mousedown.self="closeFertilizeDialog">
-            <div class="modal-content">
-                <h3>🧪 选择肥料</h3>
-                <div v-if="userStore.useCount === 0" class="empty-seeds">
-                    <p>背包里没有肥料</p>
-                    <button @click="closeFertilizeDialog" class="close-modal-btn">去商城购买</button>
-                </div>
-                <div v-else class="seeds-list">
-                    <div v-for="(quantity, rarity) in userStore.groupedUses" :key="rarity" class="seed-item" @click="handleFertilize(rarity)">
-                        <span :class="['seed-rarity', `rarity-${rarity}`]">{{ rarity }} ({{ quantity }})</span>
-                        <span class="seed-name">{{ userStore.fertilizerConfig[rarity].name }}</span>
-                        <span class="seed-price">🌿 加速成长</span>
-                    </div>
-                </div>
-                <button @click="closeFertilizeDialog" class="cancel-btn">取消</button>
-            </div>
-        </div>
-        
-        <!-- 收获确认弹窗 -->
-        <Modal
-            :visible="showHarvestModalVisible"
-            title="🏆 收获确认"
-            :message="`确定要收获 ${plant?.name} 吗？\n将获得一个${plant ? rarityConfig[plant.rarity].cropName : '作物'}，可在背包卖出`"
-            confirm-text="确定收获"
-            cancel-text="取消"
-            @confirm="handleHarvestConfirm"
-            @cancel="showHarvestModalVisible = false"
-        />
-        
-        <!-- 铲除确认弹窗 -->
-        <Modal
-            :visible="showRemoveModalVisible"
-            title="🗑️ 铲除确认"
-            :message="`确定要铲除 ${plant?.name} 吗？此操作不可恢复`"
-            confirm-text="确定铲除"
-            cancel-text="取消"
-            @confirm="handleRemoveConfirm"
-            @cancel="showRemoveModalVisible = false"
-        />
-        
-        <!-- 种植确认弹窗 -->
-        <Modal
-            :visible="showPlantConfirmModalVisible"
-            title="🌱 种植确认"
-            :message="hasPlant ? `⚠️ 当前已有植物，种植新种子会覆盖当前植物，确定吗？` : `确定要种植 ${currentSeed ? rarityConfig[currentSeed.rarity].name : '种子'} 吗？\n剩余数量：${currentSeed ? currentSeed.quantity : 0}`"
-            confirm-text="确定种植"
-            cancel-text="取消"
-            @confirm="handlePlantConfirm"
-            @cancel="showPlantConfirmModalVisible = false"
-        />
-        
-        <!-- 施肥二次确认弹窗 -->
-        <div v-if="showFertilizeConfirmModal" class="modal-overlay confirm-overlay" @mousedown.self="cancelFertilizeConfirm">
-            <div class="modal-content confirm-modal">
-                <h3>⚠️ 确认施肥</h3>
-                <p>{{ confirmMessage }}</p>
-                <div class="modal-actions">
-                    <button @click="cancelFertilizeConfirm" class="cancel-btn">取消</button>
-                    <button @click="confirmFertilize" class="confirm-btn">确认使用</button>
-                </div>
-            </div>
-        </div>
+      <footer>🌸 点击地块查看详情 | 升级地块提高产出</footer>
     </div>
+
+    <!-- 种植选择弹窗 -->
+    <PlantSelectModal
+      :visible="showPlantSelect"
+      :seeds="userSeeds"
+      @close="showPlantSelect = false"
+      @plant="handlePlant"
+    />
+
+    <!-- 地块详情弹窗 -->
+    <PlotModal
+      :visible="showPlotModal"
+      :plot="selectedPlot"
+      @close="showPlotModal = false"
+      @water="handleWater"
+      @fertilize="openFertilizeSelect"
+      @harvest="handleHarvest"
+      @remove="handleRemove"
+      @upgrade="openUpgradeModal"
+    />
+
+    <!-- 升级弹窗 -->
+    <UpgradeModal
+      :visible="showUpgradeModal"
+      :plot="selectedPlot"
+      @close="showUpgradeModal = false"
+      @upgrade="handleUpgrade"
+    />
+
+    <!-- 施肥选择弹窗 -->
+    <PlantSelectModal
+      :visible="showFertilizeSelect"
+      :seeds="userFertilizers"
+      @close="showFertilizeSelect = false"
+      @plant="handleFertilize"
+    />
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
+import { usePlotStore } from '@/stores/plotStore'
 import { useUserStore } from '@/stores/userStore'
-import Modal from '@/components/Modal.vue'
 import Toast from '@/components/Toast.vue'
+import PlantSelectModal from '@/components/PlantSelectModal.vue'
+import PlotModal from '@/components/PlotModal.vue'
+import UpgradeModal from '@/components/UpgradeModal.vue'
 
+const plotStore = usePlotStore()
 const userStore = useUserStore()
-
-// ---------- 配置 ----------
-const STAGES = ['种子', '发芽', '出叶', '初熟', '成熟']
-const STAGE_EMOJI = ['🥜', '🌱', '🌿', '🌻', '🌸']
-const COOLDOWN_SECONDS = 5
-const MATURE_COOLDOWN_SECONDS = 300 // 5分钟
-const DEATH_TIMEOUT_SECONDS = 60
-const MATURE_STAGE_INDEX = 4
-
-// 响应式数据
-const plant = ref(null)
-const hasPlant = ref(false)
-const showPlantDialog = ref(false)
-const showFertilizeDialog = ref(false)
-const showHarvestModalVisible = ref(false)
-const showRemoveModalVisible = ref(false)
-const showPlantConfirmModalVisible = ref(false)
-const showFertilizeConfirmModal = ref(false)
-const currentSeed = ref(null)
 const toastRef = ref(null)
-const cooldownMsg = ref('')
-const lastWaterDisplay = ref('')
-const deathRemainHtml = ref('')
-const confirmMessage = ref('')
-const pendingFertilize = ref(null)
 
-let timer = null
+const showPlantSelect = ref(false)
+const showPlotModal = ref(false)
+const showUpgradeModal = ref(false)
+const showFertilizeSelect = ref(false)
+const selectedPlot = ref(null)
+const selectedPlotIndex = ref(null)
+const userSeeds = ref([])
+const userFertilizers = ref([])
 
-// 计算属性
-const isMature = computed(() => hasPlant.value && plant.value?.stageIdx === MATURE_STAGE_INDEX)
-const canFertilize = computed(() => {
-    return hasPlant.value && 
-           plant.value && 
-           !plant.value.dead && 
-           plant.value.stageIdx >= 0 && 
-           plant.value.stageIdx < MATURE_STAGE_INDEX && 
-           userStore.useCount > 0
-})
-const rarityConfig = userStore.rarityConfig
-const rarityName = computed(() => {
-    if (!hasPlant.value) return ''
-    return plant.value?.rarity || ''
-})
-const rarityClass = computed(() => {
-    if (!hasPlant.value) return ''
-    return `rarity-${plant.value?.rarity || ''}`
-})
-const stageName = computed(() => {
-    if (!hasPlant.value) return ''
-    return STAGES[plant.value?.stageIdx || 0]
-})
-const stageEmoji = computed(() => {
-    if (!hasPlant.value) return '🌰'
-    return STAGE_EMOJI[plant.value?.stageIdx || 0]
-})
-
-// ---------- 植物数据操作 ----------
-async function loadPlant() {
-    try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            }
-        })
-        
-        if (!response.ok) {
-            throw new Error('获取花园状态失败')
-        }
-        
-        const data = await response.json()
-        
-        if (data.hasPlant && data.plant && data.plant.rarity) {
-            plant.value = {
-                name: `${rarityConfig[data.plant.rarity]?.name || '未知植物'}`,
-                rarity: data.plant.rarity,
-                stageIdx: data.plant.stage - 1, // 后端stage从1开始，前端从0开始
-                lastWatered: new Date(data.plant.lastWateredAt).getTime(),
-                createdAt: new Date(data.plant.createdAt).getTime(),
-                dead: data.isWilted
-            }
-            hasPlant.value = true
-        } else {
-            hasPlant.value = false
-            plant.value = null
-        }
-    } catch (error) {
-        console.error('Failed to load plant:', error)
-        hasPlant.value = false
-        plant.value = null
-    } finally {
-        updateUI()
-    }
-}
-
-async function savePlant(p) {
-    // 保存逻辑现在通过API调用实现
-    plant.value = p
-    hasPlant.value = true
-}
-
-async function clearPlant() {
-    try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/remove`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            }
-        })
-        
-        if (!response.ok) {
-            throw new Error('铲除植物失败')
-        }
-        
-        plant.value = null
-        hasPlant.value = false
-    } catch (error) {
-        console.error('Failed to clear plant:', error)
-        addToast('铲除植物失败，请稍后再试', 'error')
-    } finally {
-        updateUI()
-    }
-}
-
-function createNewPlant(rarity) {
-    const now = Date.now()
-    return {
-        name: `${rarityConfig[rarity].name}`,
-        rarity: rarity,
-        stageIdx: 0,
-        lastWatered: now,
-        createdAt: now,
-        dead: false
-    }
-}
-
-// ---------- 按钮功能 ----------
-async function waterPlant() {
-    if (!hasPlant.value || plant.value.dead) return
-
-    const now = Date.now()
-    const secondsSinceWater = (now - plant.value.lastWatered) / 1000
-    const cooldownSeconds = isMature.value ? MATURE_COOLDOWN_SECONDS : COOLDOWN_SECONDS
-
-    if (secondsSinceWater < cooldownSeconds) {
-        addToast(`💧 还需等待 ${Math.ceil(cooldownSeconds - secondsSinceWater)} 秒`, 'warning')
-        return
-    }
-
-    try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/water`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-                'Content-Type': 'application/json'
-            }
-        })
-        
-        if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || '浇水失败')
-        }
-        
-        const data = await response.json()
-        
-        // 更新前端数据
-        plant.value.lastWatered = now
-        if (!isMature.value) {
-            plant.value.stageIdx = data.stage - 1 // 后端stage从1开始，前端从0开始
-            if (plant.value.dead) plant.value.dead = false
-            
-            if (plant.value.stageIdx === MATURE_STAGE_INDEX) {
-                addToast(`🎉 ${plant.value.name} 成熟了！可以收获了`, 'success')
-            } else {
-                addToast(`💧 浇水成功！${plant.value.name} 成长了`, 'success')
-            }
-        } else {
-            addToast(`💧 浇水成功！${plant.value.name} 依然生机盎然`, 'success')
-        }
-    } catch (error) {
-        console.error('Failed to water plant:', error)
-        addToast(error.message || '浇水失败，请稍后再试', 'error')
-    } finally {
-        await loadPlant() // 重新加载植物状态
-    }
-}
-
-function showHarvestModal() {
-    if (!hasPlant.value || !isMature.value || plant.value.dead) return
-    showHarvestModalVisible.value = true
-}
-
-const MAX_ITEM_COUNT = 999
-
-async function handleHarvestConfirm() {
-    if (!hasPlant.value || !isMature.value || plant.value.dead) return
-    
-    // 检查作物数量是否已达上限
-    const cropRarity = plant.value.rarity || 'C'
-    const currentCropCount = userStore.crops[cropRarity] || 0
-    if (currentCropCount >= MAX_ITEM_COUNT) {
-        addToast(`💔 背包中${rarityConfig[cropRarity].cropName}已达上限(${MAX_ITEM_COUNT})，请先清理背包再收获`, 'error')
-        showHarvestModalVisible.value = false
-        return
-    }
-    
-    try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/harvest`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-                'Content-Type': 'application/json'
-            }
-        })
-        
-        if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || '收获失败')
-        }
-        
-        const data = await response.json()
-        
-        // 重新加载用户数据，更新背包
-        await userStore.loadFromLocal()
-        // 清除当前植物
-        await loadPlant()
-        addToast(`🏆 收获成功！获得 ${rarityConfig[data.crop || 'C'].cropName}`, 'success')
-        showHarvestModalVisible.value = false
-    } catch (error) {
-        console.error('Failed to harvest plant:', error)
-        addToast(error.message || '收获失败，请稍后再试', 'error')
-    }
-}
-
-function openPlantDialog() {
-    console.log('userStore.groupedSeeds:', userStore.groupedSeeds)
-    console.log('userStore.seedCount:', userStore.seedCount)
-    showPlantDialog.value = true
-}
-
-function closePlantDialog() {
-    showPlantDialog.value = false
-}
-
-function openFertilizeDialog() {
-    showFertilizeDialog.value = true
-}
-
-function closeFertilizeDialog() {
-    showFertilizeDialog.value = false
-}
-
-async function handleFertilize(rarity) {
-    if (!hasPlant.value || !plant.value || plant.value.dead) return
-    
-    const fertilizerBoost = { C: 1, B: 2, A: 3, S: 4 }
-    const boost = fertilizerBoost[rarity]
-    
-    const stagesToMature = MATURE_STAGE_INDEX - plant.value.stageIdx
-    
-    if (boost > stagesToMature) {
-        confirmMessage.value = `当前植物距离成熟还需要 ${stagesToMature} 个阶段，\n您使用的${userStore.fertilizerConfig[rarity].name}将提升 ${boost} 个阶段，\n是否确认使用？`
-        pendingFertilize.value = { rarity }
-        showFertilizeConfirmModal.value = true
-        return
-    }
-    
-    await doFertilize(rarity)
-}
-
-async function doFertilize(rarity) {
-    if (!hasPlant.value || !plant.value || plant.value.dead) return
-    
-    try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/fertilize`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ rarity })
-        })
-        
-        if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || '施肥失败')
-        }
-        
-        const data = await response.json()
-        
-        // 更新前端数据
-        plant.value.stageIdx = data.stage - 1 // 后端stage从1开始，前端从0开始
-        plant.value.lastWatered = Date.now()
-        
-        // 重新加载用户数据，更新背包
-        await userStore.loadFromLocal()
-        
-        if (plant.value.stageIdx === MATURE_STAGE_INDEX) {
-            addToast(`🎉 ${plant.value.name} 成熟了！可以收获了`, 'success')
-        } else {
-            addToast(`🧪 施肥成功！${plant.value.name} 成长了`, 'success')
-        }
-        
-        closeFertilizeDialog()
-    } catch (error) {
-        console.error('Failed to fertilize:', error)
-        addToast(error.message || '施肥失败，请稍后再试', 'error')
-    } finally {
-        await loadPlant()
-    }
-}
-
-function confirmFertilize() {
-    if (pendingFertilize.value) {
-        showFertilizeConfirmModal.value = false
-        doFertilize(pendingFertilize.value.rarity)
-        pendingFertilize.value = null
-    }
-}
-
-function cancelFertilizeConfirm() {
-    showFertilizeConfirmModal.value = false
-    pendingFertilize.value = null
-}
-
-function showPlantConfirmModal(seedGroup) {
-    currentSeed.value = seedGroup
-    showPlantConfirmModalVisible.value = true
-}
-
-async function handlePlantConfirm() {
-    if (!currentSeed.value || currentSeed.value.quantity <= 0) return
-    
-    // 如果当前有成熟的植物，先自动收获
-    if (hasPlant.value && isMature.value && !plant.value.dead) {
-        try {
-            const harvestResponse = await fetch(`${import.meta.env.VITE_API_URL}/garden/harvest`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-                    'Content-Type': 'application/json'
-                }
-            })
-            
-            if (harvestResponse.ok) {
-                const harvestData = await harvestResponse.json()
-                addToast(`🏆 自动收获成功！获得 ${rarityConfig[harvestData.crop || 'C'].cropName}`, 'success')
-            }
-        } catch (error) {
-            console.error('Failed to auto harvest:', error)
-        }
-    }
-    
-    try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/plant`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ rarity: currentSeed.value.rarity })
-        })
-        
-        if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || '种植失败')
-        }
-        
-        // 重新加载用户数据，更新背包
-        await userStore.loadFromLocal()
-        // 重新加载植物状态
-        await loadPlant()
-        closePlantDialog()
-        showPlantConfirmModalVisible.value = false
-        addToast(`🌱 种植成功！获得 ${rarityConfig[currentSeed.value.rarity].name}`, 'success')
-        currentSeed.value = null
-    } catch (error) {
-        console.error('Failed to plant seed:', error)
-        addToast(error.message || '种植失败，请稍后再试', 'error')
-    }
-}
-
-function showRemoveModal() {
-    if (!hasPlant.value) return
-    showRemoveModalVisible.value = true
-}
-
-async function handleRemoveConfirm() {
-    if (!hasPlant.value) return
-    
-    try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/garden/remove`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            }
-        })
-        
-        if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || '铲除失败')
-        }
-        
-        // 重新加载植物状态
-        await loadPlant()
-        addToast(`🗑️ 已铲除植物`, 'info')
-        showRemoveModalVisible.value = false
-    } catch (error) {
-        console.error('Failed to remove plant:', error)
-        addToast(error.message || '铲除失败，请稍后再试', 'error')
-    }
-}
-
-// ---------- UI 更新 ----------
-function updateUI() {
-    if (!hasPlant.value || !plant.value) {
-        // 无植物状态，不需要更新详细信息
-        return
-    }
-
-    const now = Date.now()
-    const secondsSinceWater = (now - plant.value.lastWatered) / 1000
-    const secondsAgo = Math.floor(secondsSinceWater)
-
-    // 计算时间差的各个单位
-    const years = Math.floor(secondsAgo / (365 * 24 * 60 * 60))
-    const months = Math.floor((secondsAgo % (365 * 24 * 60 * 60)) / (30 * 24 * 60 * 60))
-    const days = Math.floor((secondsAgo % (30 * 24 * 60 * 60)) / (24 * 60 * 60))
-    const hours = Math.floor((secondsAgo % (24 * 60 * 60)) / (60 * 60))
-    const minutes = Math.floor((secondsAgo % (60 * 60)) / 60)
-    const seconds = secondsAgo % 60
-
-    // 构建时间差字符串
-    let timeDiff = ''
-    if (years > 0) timeDiff += `${years}年`
-    if (months > 0) timeDiff += `${months}月`
-    if (days > 0) timeDiff += `${days}天`
-    if (hours > 0) timeDiff += `${hours}小时`
-    if (minutes > 0) timeDiff += `${minutes}分`
-    if (seconds > 0 || timeDiff === '') timeDiff += `${seconds}秒`
-
-    lastWaterDisplay.value = timeDiff + '前'
-
-    if (!plant.value.dead && !isMature.value) {
-        const remainingSec = Math.max(0, DEATH_TIMEOUT_SECONDS - secondsSinceWater)
-        if (remainingSec <= 10) {
-            deathRemainHtml.value = `<span style="color:#c0392b; font-weight:bold;">⚠️ 即将枯萎 (${Math.ceil(remainingSec)}秒内需浇水)</span>`
-        } else {
-            deathRemainHtml.value = `<span>💧 枯萎倒计时 ${Math.ceil(remainingSec)}秒</span>`
-        }
-    } else {
-        deathRemainHtml.value = ''
-    }
-
-    if (plant.value.dead) {
-        cooldownMsg.value = `🥀 植物已枯萎，请「铲除」后重新种植`
-    } else {
-        const cooldownSeconds = isMature.value ? MATURE_COOLDOWN_SECONDS : COOLDOWN_SECONDS
-        const remainingCooldown = cooldownSeconds - secondsSinceWater
-        cooldownMsg.value = remainingCooldown > 0
-            ? `⏳ 浇水冷却中 · 还需 ${Math.ceil(remainingCooldown)} 秒`
-            : `💧 可以浇水了！`
-    }
-}
-
-// ---------- Toast 提示 ----------
 function addToast(message, type = 'info') {
-    if (toastRef.value) {
-        toastRef.value.addToast(message, type)
+  if (toastRef.value) toastRef.value.addToast(message, type)
+}
+
+function getStageName(stage) {
+  return ['种子', '发芽', '出叶', '初熟', '成熟'][stage] || '未知'
+}
+
+function getProgress(plot) {
+  if (!plot.crop) return 0
+  if (plot.stage >= 4) return 100
+  if (!plot.planted_at) return 0
+  const growTime = plot.crop.grow_time || 60
+  const elapsed = (Date.now() - new Date(plot.planted_at).getTime()) / 1000
+  return Math.min(100, (elapsed / growTime) * 100)
+}
+
+function handlePlotClick(plot) {
+  if (!plot.is_unlocked) return
+  selectedPlot.value = plot
+  selectedPlotIndex.value = plot.plot_index
+  if (plot.seed_id) {
+    showPlotModal.value = true
+  } else {
+    openPlantSelect(plot.plot_index)
+  }
+}
+
+async function openPlantSelect(plotIndex) {
+  selectedPlotIndex.value = plotIndex
+  await loadUserSeeds()
+  if (userSeeds.value.length === 0) {
+    addToast('背包里没有种子，去商城购买吧', 'warning')
+    return
+  }
+  showPlantSelect.value = true
+}
+
+async function loadUserSeeds() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/user/items`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (response.ok) {
+      const items = await response.json()
+      userSeeds.value = items.filter(i => i.item_type === 'seed')
+      userFertilizers.value = items.filter(i => i.item_type === 'fertilizer')
+    } else {
+      userSeeds.value = []
+      userFertilizers.value = []
     }
+  } catch (error) {
+    console.error('Failed to load seeds:', error)
+    userSeeds.value = []
+    userFertilizers.value = []
+  }
 }
 
-// ---------- 定时器 ----------
-function startTimer() {
-    if (timer) clearInterval(timer)
-    timer = setInterval(() => {
-        if (hasPlant.value && plant.value && !plant.value.dead && plant.value.stageIdx !== MATURE_STAGE_INDEX) {
-            const now = Date.now()
-            const secondsSinceWater = (now - plant.value.lastWatered) / 1000
-            if (secondsSinceWater > DEATH_TIMEOUT_SECONDS) {
-                plant.value.dead = true
-                savePlant(plant.value)
-                addToast(`💀 ${plant.value.name} 因未及时浇水而枯萎了`, 'error')
-            }
-        }
-        // 只更新UI，不重新加载整个植物数据
-        updateUI()
-    }, 1000)
+async function handleUnlock(plotIndex) {
+  try {
+    const data = await plotStore.unlockPlot(plotIndex)
+    if (data.currencies) userStore.currencies.value = data.currencies
+    addToast('🔓 地块解锁成功！', 'success')
+  } catch (error) {
+    addToast(error.message, 'error')
+  }
 }
 
-// ---------- 生命周期 ----------
+async function handlePlant(seed) {
+  showPlantSelect.value = false
+  try {
+    const data = await plotStore.plant(selectedPlotIndex.value, seed.item_id)
+    await userStore.loadCurrencies()
+    addToast(`🌱 种植成功！${data.crop?.name || ''}`, 'success')
+    // Refresh selected plot
+    selectedPlot.value = plotStore.plots.find(p => p.plot_index === selectedPlotIndex.value)
+  } catch (error) {
+    addToast(error.message, 'error')
+  }
+}
+
+async function handleWater() {
+  try {
+    const data = await plotStore.water(selectedPlot.value.plot_index)
+    await userStore.loadCurrencies()
+    if (data.is_mature) {
+      addToast('🎉 植物成熟了！可以收获了', 'success')
+    } else {
+      addToast('💧 浇水成功', 'success')
+    }
+    selectedPlot.value = plotStore.plots.find(p => p.plot_index === selectedPlot.value.plot_index)
+  } catch (error) {
+    addToast(error.message, 'error')
+  }
+}
+
+function openFertilizeSelect() {
+  loadUserSeeds().then(() => {
+    if (userFertilizers.value.length === 0) {
+      addToast('背包里没有肥料', 'warning')
+      return
+    }
+    showFertilizeSelect.value = true
+  })
+}
+
+async function handleFertilize(fertilizer) {
+  showFertilizeSelect.value = false
+  try {
+    const data = await plotStore.fertilize(selectedPlot.value.plot_index, fertilizer.item_id)
+    await userStore.loadCurrencies()
+    if (data.is_mature) {
+      addToast('🎉 植物成熟了！', 'success')
+    } else {
+      addToast(`🧪 施肥成功！加速 ${data.boost}`, 'success')
+    }
+    selectedPlot.value = plotStore.plots.find(p => p.plot_index === selectedPlot.value.plot_index)
+  } catch (error) {
+    addToast(error.message, 'error')
+  }
+}
+
+async function handleHarvest() {
+  try {
+    const data = await plotStore.harvest(selectedPlot.value.plot_index)
+    await userStore.loadCurrencies()
+    showPlotModal.value = false
+    addToast(`🏆 收获成功！获得 ${data.yield} 个 ${data.crop?.name || '作物'}`, 'success')
+  } catch (error) {
+    addToast(error.message, 'error')
+  }
+}
+
+async function handleRemove() {
+  try {
+    await plotStore.remove(selectedPlot.value.plot_index)
+    showPlotModal.value = false
+    addToast('🗑️ 铲除成功', 'info')
+  } catch (error) {
+    addToast(error.message, 'error')
+  }
+}
+
+function openUpgradeModal() {
+  showPlotModal.value = false
+  selectedPlot.value = plotStore.plots.find(p => p.plot_index === selectedPlot.value?.plot_index)
+  showUpgradeModal.value = true
+}
+
+async function handleUpgrade() {
+  try {
+    const data = await plotStore.upgradePlot(selectedPlot.value.plot_index)
+    if (data.currencies) userStore.currencies.value = data.currencies
+    showUpgradeModal.value = false
+    addToast(`⬆️ 升级成功！Lv.${data.level} (${data.multiplier}x)`, 'success')
+  } catch (error) {
+    addToast(error.message, 'error')
+  }
+}
+
 onMounted(async () => {
-    try {
-        await userStore.loadFromLocal()
-        await loadPlant()
-        startTimer()
-    } catch (error) {
-        console.error('Failed to load user data:', error)
-        if (toastRef.value) {
-            toastRef.value.addToast(error.message || '获取用户数据失败，请检查网络连接', 'error')
-        }
-    }
-})
-
-onUnmounted(() => {
-    if (timer) clearInterval(timer)
+  try {
+    await userStore.loadFromLocal()
+    await plotStore.loadPlots()
+  } catch (error) {
+    console.error('Failed to load garden:', error)
+    addToast('加载花园数据失败', 'error')
+  }
 })
 </script>
 
 <style scoped>
-/* 页面容器 */
 .garden-page {
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
-    padding: 20px;
-    position: relative;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
+  padding: 20px;
+  padding-top: 80px;
 }
 
-/* 卡片样式 */
 .card {
-    background: rgba(255, 248, 235, 0.98);
-    border-radius: 64px;
-    padding: 28px 24px 36px;
-    max-width: 580px;
-    width: 100%;
-    box-shadow: 0 25px 45px rgba(0, 20, 0, 0.25);
-    text-align: center;
+  background: rgba(255, 248, 235, 0.98);
+  border-radius: 32px;
+  padding: 28px 24px 36px;
+  max-width: 640px;
+  width: 100%;
+  box-shadow: 0 25px 45px rgba(0, 20, 0, 0.25);
+  text-align: center;
 }
 
 h1 {
-    font-size: 1.9rem;
-    margin: 0 0 8px 0;
-    color: #2c5a2a;
+  font-size: 1.9rem;
+  margin: 0 0 20px 0;
+  color: #2c5a2a;
 }
 
-/* 空状态 */
-.empty-state {
-    padding: 40px 20px;
+.loading-state {
+  padding: 40px;
+  color: #888;
 }
 
-.empty-emoji {
-    font-size: 80px;
-    margin-bottom: 16px;
+.loading-spinner {
+  font-size: 48px;
+  animation: spin 1s linear infinite;
 }
 
-.empty-text {
-    font-size: 1.2rem;
-    color: #666;
-    margin-bottom: 8px;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-.empty-hint {
-    font-size: 0.9rem;
-    color: #999;
+/* 地块网格 */
+.plots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
 }
 
-/* 植物表情 */
-.plant-emoji {
-    font-size: 130px;
-    margin: 15px 0;
-    filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.2));
+@media (max-width: 767px) {
+  .plots-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-/* 信息面板 */
-.info-panel {
-    background: #fef7e8;
-    border-radius: 48px;
-    padding: 20px 24px;
-    text-align: left;
-    margin: 18px 0;
+/* 地块卡片 */
+.plot-card {
+  position: relative;
+  border: 3px solid #9CA3AF;
+  border-radius: 16px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.6);
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.info-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid #e9dbbc;
-    height: 50px;
+.plot-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-.info-row:last-child {
-    border-bottom: none;
+/* 呼吸光效 Lv4+ */
+.plot-glow {
+  animation: plotBreathing 2s ease-in-out infinite;
 }
 
-/* 稀有度徽章 */
-.badge {
-    display: inline-block;
-    padding: 5px 16px;
-    border-radius: 60px;
-    font-weight: bold;
+@keyframes plotBreathing {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 0 0 40px rgba(168, 85, 247, 0.3);
+  }
 }
 
-.rarity-C {
-    background: #9e9e9e;
-    color: white;
+.plot-mature {
+  background: rgba(255, 248, 220, 0.8) !important;
 }
 
-.rarity-B {
-    background: #4caf50;
-    color: white;
+.plot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
-.rarity-A {
-    background: #2196f3;
-    color: white;
+.plot-index {
+  font-size: 0.8rem;
+  color: #999;
+  font-weight: 600;
 }
 
-.rarity-S {
-    background: #9c27b0;
-    color: white;
+.plot-level {
+  font-size: 0.8rem;
+  font-weight: bold;
 }
 
-.rarity-SSS {
-    background: linear-gradient(135deg, #ffd700, #ff8c00);
-    color: #2d2b15;
+/* 地块内容 */
+.plot-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
-/* 按钮网格布局 */
-.button-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 12px;
-    margin: 24px 0 16px;
+.locked-body .lock-icon {
+  font-size: 2rem;
+  margin-bottom: 6px;
 }
 
-.grid-btn {
-    padding: 14px 24px;
-    font-size: 1rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 60px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    min-width: 110px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.unlock-cost {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 8px;
 }
 
-.grid-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+.unlock-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.grid-btn:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+.unlock-btn:hover {
+  transform: scale(1.05);
 }
 
-.water-btn {
-    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
-    color: white;
+.empty-body .empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 6px;
 }
 
-.fertilize-btn {
-    background: linear-gradient(135deg, #7b1fa2 0%, #5c1078 100%);
-    color: white;
+.empty-body .empty-text {
+  font-size: 0.85rem;
+  color: #999;
 }
 
-.harvest-btn {
-    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-    color: white;
+.plant-body .plant-icon {
+  font-size: 2.2rem;
+  margin-bottom: 4px;
 }
 
-.plant-btn {
-    background: linear-gradient(135deg, #5c6bc0 0%, #3949ab 100%);
-    color: white;
+.plant-body .plant-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 6px;
 }
 
-.remove-btn {
-    background: linear-gradient(135deg, #ef5350 0%, #c62828 100%);
-    color: white;
+.progress-bar {
+  width: 80%;
+  height: 6px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
 }
 
-.grid-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  border-radius: 3px;
+  transition: width 0.5s;
 }
 
-.cooldown {
-    font-size: 0.85rem;
-    background: #e9f0e3;
-    padding: 8px 16px;
-    border-radius: 60px;
-    display: inline-block;
-    margin-top: 8px;
+.stage-text {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.multiplier-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.15);
+  color: #555;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 6px;
 }
 
 footer {
-    font-size: 0.7rem;
-    color: #7f6b4a;
-    margin-top: 20px;
-}
-
-/* 弹窗 */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 48px;
-    padding: 24px;
-    width: 90%;
-    max-width: 400px;
-    text-align: center;
-}
-
-.seeds-list {
-    max-height: 300px;
-    overflow-y: auto;
-    margin: 16px 0;
-}
-
-.seed-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px;
-    border-bottom: 1px solid #eee;
-    cursor: pointer;
-    transition: background 0.1s;
-}
-
-.seed-item:hover {
-    background: #f5f5f5;
-}
-
-.seed-rarity {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: bold;
-}
-
-.cancel-btn,
-.close-modal-btn {
-    margin-top: 12px;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 40px;
-    background: #ccc;
-    cursor: pointer;
-}
-
-.empty-seeds {
-    padding: 20px;
-    color: #666;
-}
-
-/* 施肥二次确认弹窗样式 */
-.confirm-overlay {
-    z-index: 2000;
-}
-
-.confirm-modal {
-    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-    border: 2px solid #4caf50;
-    box-shadow: 0 0 40px rgba(76, 175, 80, 0.4);
-    border-radius: 16px;
-    padding: 24px;
-    max-width: 400px;
-    width: 90%;
-    text-align: center;
-}
-
-.confirm-modal h3 {
-    color: #bac52b;
-    margin: 0 0 10px 0;
-    font-size: 1.2rem;
-    line-height: 30px;
-    height: 31px;
-    padding-right: 10px;
-}
-
-.confirm-modal p {
-    white-space: pre-line;
-    color: #509a47;
-    font-size: 1rem;
-    line-height: 1.6;
-    margin: 0 0 20px 0;
-}
-
-.modal-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    align-items: center;
-}
-
-.modal-actions .cancel-btn,
-.modal-actions .confirm-btn {
-    padding: 10px 24px;
-    border-radius: 40px;
-    border: none;
-    cursor: pointer;
-    min-width: 100px;
-    font-size: 1rem;
-    font-weight: normal;
-    height: 42px;
-    box-sizing: border-box;
-    transition: all 0.2s ease;
-}
-
-.modal-actions .cancel-btn {
-    background: #e0e0e0;
-    color: #333;
-}
-
-.modal-actions .cancel-btn:hover {
-    background: #d0d0d0;
-}
-
-.modal-actions .confirm-btn {
-    background: #4caf50;
-    color: white;
-    box-shadow: 0 0 15px rgba(76, 175, 80, 0.6), 0 0 30px rgba(76, 175, 80, 0.4);
-    animation: pulse-green 2s infinite;
-}
-
-.modal-actions .confirm-btn:hover {
-    background: #388e3c;
-    box-shadow: 0 0 20px rgba(76, 175, 80, 0.8), 0 0 40px rgba(76, 175, 80, 0.5);
-}
-
-@keyframes pulse-green {
-    0%, 100% {
-        box-shadow: 0 0 15px rgba(76, 175, 80, 0.6), 0 0 30px rgba(76, 175, 80, 0.4);
-    }
-    50% {
-        box-shadow: 0 0 25px rgba(76, 175, 80, 0.8), 0 0 45px rgba(76, 175, 80, 0.6);
-    }
+  font-size: 0.75rem;
+  color: #7f6b4a;
+  margin-top: 12px;
 }
 
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
-    .garden-page {
-        background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
-    }
-
-    .card {
-        background: rgba(30, 30, 25, 0.95);
-    }
-
-    h1 {
-        color: #8bc34a;
-    }
-
-    .info-panel {
-        background: #2a2a25;
-    }
-
-    .info-row {
-        color: #e0e0d0;
-        border-bottom-color: #4a4a3a;
-    }
-
-    .cooldown {
-        background: #2a3a25;
-        color: #b8d9a0;
-    }
-
-    footer {
-        color: #a0a080;
-    }
-
-    .modal-content {
-        background: #2a2a25;
-        color: #e0e0d0;
-    }
-
-    .seed-item {
-        border-bottom-color: #4a4a3a;
-    }
-
-    .seed-item:hover {
-        background: #3a3a35;
-    }
+  .garden-page {
+    background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
+  }
+  .card {
+    background: rgba(30, 30, 25, 0.95);
+  }
+  h1 { color: #8bc34a; }
+  .plot-card { background: rgba(255,255,255,0.05); }
+  .plot-mature { background: rgba(255,248,220,0.1) !important; }
+  .plant-body .plant-name { color: #ccc; }
+  .stage-text { color: #aaa; }
+  .unlock-cost { color: #aaa; }
+  .empty-body .empty-text { color: #aaa; }
+  .multiplier-tag { background: rgba(255,255,255,0.1); color: #aaa; }
+  footer { color: #a0a080; }
 }
 </style>
