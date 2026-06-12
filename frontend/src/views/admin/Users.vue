@@ -93,10 +93,19 @@
             </div>
             <div class="form-group">
               <label>货币余额</label>
-              <div class="currency-display">
-                <span>🪙 银币: {{ currentUser.currencies?.silver_coin || 0 }}</span>
-                <span>🥇 金币: {{ currentUser.currencies?.gold_coin || 0 }}</span>
-                <span>💎 钻石: {{ currentUser.currencies?.diamond || 0 }}</span>
+              <div class="currency-edit">
+                <div class="currency-row">
+                  <span class="currency-label">🪙 银币</span>
+                  <input type="number" v-model.number="editCurrencies.silver_coin" min="0" max="999999999" />
+                </div>
+                <div class="currency-row">
+                  <span class="currency-label">🥇 金币</span>
+                  <input type="number" v-model.number="editCurrencies.gold_coin" min="0" max="999999999" />
+                </div>
+                <div class="currency-row">
+                  <span class="currency-label">💎 钻石</span>
+                  <input type="number" v-model.number="editCurrencies.diamond" min="0" max="999999999" />
+                </div>
               </div>
             </div>
             <div class="modal-actions">
@@ -197,6 +206,7 @@ const newUser = ref({
   confirmPassword: ''
 })
 const currentUser = ref(null)
+const editCurrencies = ref({ silver_coin: 0, gold_coin: 0, diamond: 0 })
 const currentPasswordUser = ref(null)
 const newPassword = ref('')
 const toastRef = ref(null)
@@ -312,6 +322,11 @@ async function handleAddUser() {
 // 打开编辑弹窗
 function openEditModal(user) {
   currentUser.value = { ...user }
+  editCurrencies.value = {
+    silver_coin: user.currencies?.silver_coin || 0,
+    gold_coin: user.currencies?.gold_coin || 0,
+    diamond: user.currencies?.diamond || 0
+  }
   showEditModal.value = true
 }
 
@@ -337,11 +352,27 @@ async function handleEditUser() {
     })
     
     if (response.ok) {
-      const updatedUser = await response.json()
-      const index = users.value.findIndex(u => u.id === updatedUser.id)
-      if (index !== -1) {
-        users.value[index] = updatedUser
+      // 更新货币
+      const curResponse = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${currentUser.value.id}/currencies`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editCurrencies.value)
+      })
+      
+      if (curResponse.ok) {
+        const curData = await curResponse.json()
+        // 更新本地列表
+        const index = users.value.findIndex(u => u.id === currentUser.value.id)
+        if (index !== -1) {
+          users.value[index].currencies = curData.currencies
+          users.value[index].email = currentUser.value.email
+          users.value[index].name = currentUser.value.name
+        }
       }
+      
       showEditModal.value = false
       currentUser.value = null
       if (toastRef.value) {
@@ -1130,6 +1161,39 @@ onMounted(() => {
   padding: 8px 0;
 }
 
+.currency-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.currency-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.currency-label {
+  min-width: 70px;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.currency-row input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.currency-row input:focus {
+  outline: none;
+  border-color: #4caf50;
+}
+
 .item-icon {
   font-size: 1.4rem;
 }
@@ -1203,6 +1267,16 @@ onMounted(() => {
   
   .currency-display {
     color: #e0e0e0;
+  }
+  
+  .currency-row input {
+    background: #3a3a3a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  .currency-row input:focus {
+    border-color: #1d6ed7;
   }
   
   .item-type-badge {

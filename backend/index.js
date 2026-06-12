@@ -87,46 +87,35 @@ async function initDatabase() {
     await client.connect();
     logger.info('Connected to PostgreSQL database');
 
-    // ========== 删除旧表 ==========
+    // ========== 删除旧表（按外键依赖顺序） ==========
     await client.query('DROP TABLE IF EXISTS orders CASCADE');
+    await client.query('DROP TABLE IF EXISTS user_items CASCADE');
+    await client.query('DROP TABLE IF EXISTS user_decorations CASCADE');
+    await client.query('DROP TABLE IF EXISTS garden_plots CASCADE');
+    await client.query('DROP TABLE IF EXISTS user_pets CASCADE');
+    await client.query('DROP TABLE IF EXISTS gifts CASCADE');
+    await client.query('DROP TABLE IF EXISTS friendships CASCADE');
+    await client.query('DROP TABLE IF EXISTS items CASCADE');
+    await client.query('DROP TABLE IF EXISTS decorations CASCADE');
+    await client.query('DROP TABLE IF EXISTS pets CASCADE');
+    await client.query('DROP TABLE IF EXISTS currencies CASCADE');
     await client.query('DROP TABLE IF EXISTS garden CASCADE');
     await client.query('DROP TABLE IF EXISTS plants CASCADE');
-    await client.query('DROP TABLE IF EXISTS user_items CASCADE');
-    await client.query('DROP TABLE IF EXISTS items CASCADE');
-    await client.query('DROP TABLE IF EXISTS garden_plots CASCADE');
-    await client.query('DROP TABLE IF EXISTS currencies CASCADE');
-    // 注意：不删除 users 表，后面用 ALTER TABLE 修改
+    await client.query('DROP TABLE IF EXISTS users CASCADE');
 
-    // ========== 修改 users 表 ==========
-    // 先检查 users 表是否存在
-    const usersExist = await client.query(
-      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')"
-    );
-
-    if (usersExist.rows[0].exists) {
-      // 删除旧字段
-      await client.query('ALTER TABLE users DROP COLUMN IF EXISTS points');
-      await client.query('ALTER TABLE users DROP COLUMN IF EXISTS seeds');
-      await client.query('ALTER TABLE users DROP COLUMN IF EXISTS crops');
-      await client.query('ALTER TABLE users DROP COLUMN IF EXISTS uses');
-      await client.query('ALTER TABLE users DROP COLUMN IF EXISTS plants_role');
-      // 添加新字段
-      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_new_user BOOLEAN DEFAULT true');
-    } else {
-      // 创建全新的 users 表
-      await client.query(`
-        CREATE TABLE users (
-          id VARCHAR(50) PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255) NOT NULL,
-          password VARCHAR(255) NOT NULL,
-          role VARCHAR(50) DEFAULT 'user',
-          is_new_user BOOLEAN DEFAULT true,
-          last_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-    }
+    // ========== 创建 users 表 ==========
+    await client.query(`
+      CREATE TABLE users (
+        id VARCHAR(50) PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'user',
+        is_new_user BOOLEAN DEFAULT true,
+        last_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     // ========== 创建新表 ==========
 
@@ -458,6 +447,14 @@ async function initDatabase() {
           [test1Id, i, i === 1]
         );
       }
+      // 发放 C 级种子 ×5
+      const cSeeds1 = await client.query("SELECT id FROM items WHERE item_type = 'seed' AND rarity = 'C'");
+      for (const seed of cSeeds1.rows) {
+        await client.query(
+          'INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1, $2, 5)',
+          [test1Id, seed.id]
+        );
+      }
     }
 
     // 测试账户2
@@ -477,6 +474,14 @@ async function initDatabase() {
         await client.query(
           'INSERT INTO garden_plots (user_id, plot_index, is_unlocked) VALUES ($1, $2, $3)',
           [test2Id, i, i === 1]
+        );
+      }
+      // 发放 C 级种子 ×5
+      const cSeeds2 = await client.query("SELECT id FROM items WHERE item_type = 'seed' AND rarity = 'C'");
+      for (const seed of cSeeds2.rows) {
+        await client.query(
+          'INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1, $2, 5)',
+          [test2Id, seed.id]
         );
       }
     }
@@ -603,6 +608,15 @@ app.post('/api/auth/register', async (req, res) => {
         plots.push(plotResult.rows[0]);
       }
 
+      // 发放初始物品：C 级种子 ×5
+      const cSeeds = await client.query("SELECT id FROM items WHERE item_type = 'seed' AND rarity = 'C'");
+      for (const seed of cSeeds.rows) {
+        await client.query(
+          'INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1, $2, 5)',
+          [nextId, seed.id]
+        );
+      }
+
       await client.query('COMMIT');
 
       // 生成 JWT
@@ -721,29 +735,9 @@ app.post('/api/user/newbie-pack', authenticateToken, async (req, res) => {
     await client.query('BEGIN');
 
     try {
-      // 发放 silver_coin=100
-      await addCurrency(userId, 'silver_coin', 100);
-
-      // 获取 C 级种子的 item_id
-      const cSeeds = await client.query(
-        "SELECT id FROM items WHERE item_type = 'seed' AND rarity = 'C' LIMIT 5"
-      );
-
-      // 给每个 C 级种子 ×5
-      for (const seed of cSeeds.rows) {
-        await client.query(
-          `INSERT INTO user_items (user_id, item_id, quantity)
-           VALUES ($1, $2, 5)
-           ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + 5, updated_at = CURRENT_TIMESTAMP`,
-          [userId, seed.id]
-        );
-      }
-
+      // 新手礼包确认：物品已在注册时发放，这里只标记为非新用户
       // 设置 is_new_user=false
       await client.query('UPDATE users SET is_new_user = false WHERE id = $1', [userId]);
-
-      // 创建订单记录
-      await createOrder(userId, 'NEWBIE_PACK', 'silver_coin', 100);
 
       await client.query('COMMIT');
 
@@ -2668,6 +2662,125 @@ app.delete('/api/admin/orders/:id', authenticateToken, requireAdmin, async (req,
   } catch (error) {
     logger.error('Delete order error', { error: error.message });
     res.status(500).json({ error: '删除订单失败,请稍后再试' });
+  }
+});
+
+// PUT /api/admin/users/:id/currencies — 修改用户货币
+app.put('/api/admin/users/:id/currencies', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { silver_coin, gold_coin, diamond } = req.body;
+
+    // 验证用户存在
+    const userCheck = await client.query('SELECT id FROM users WHERE id = $1', [id]);
+    if (userCheck.rowCount === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    // 验证货币记录存在
+    const curCheck = await client.query('SELECT * FROM currencies WHERE user_id = $1', [id]);
+    if (curCheck.rowCount === 0) {
+      return res.status(404).json({ error: '用户货币记录不存在' });
+    }
+
+    const updates = [];
+    const params = [];
+    let paramIdx = 1;
+
+    if (silver_coin !== undefined) {
+      if (silver_coin < 0 || silver_coin > MAX_POINTS) {
+        return res.status(400).json({ error: `银币数量必须在 0-${MAX_POINTS} 之间` });
+      }
+      updates.push(`silver_coin = $${paramIdx++}`);
+      params.push(silver_coin);
+    }
+    if (gold_coin !== undefined) {
+      if (gold_coin < 0 || gold_coin > MAX_POINTS) {
+        return res.status(400).json({ error: `金币数量必须在 0-${MAX_POINTS} 之间` });
+      }
+      updates.push(`gold_coin = $${paramIdx++}`);
+      params.push(gold_coin);
+    }
+    if (diamond !== undefined) {
+      if (diamond < 0 || diamond > MAX_POINTS) {
+        return res.status(400).json({ error: `钻石数量必须在 0-${MAX_POINTS} 之间` });
+      }
+      updates.push(`diamond = $${paramIdx++}`);
+      params.push(diamond);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: '请提供要修改的货币字段' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(id);
+
+    const result = await client.query(
+      `UPDATE currencies SET ${updates.join(', ')} WHERE user_id = $${paramIdx} RETURNING *`,
+      params
+    );
+
+    res.json({
+      message: '货币更新成功',
+      currencies: {
+        silver_coin: Number(result.rows[0].silver_coin),
+        gold_coin: Number(result.rows[0].gold_coin),
+        diamond: Number(result.rows[0].diamond)
+      }
+    });
+  } catch (error) {
+    logger.error('Update user currencies error', { error: error.message });
+    res.status(500).json({ error: '更新用户货币失败' });
+  }
+});
+
+// PUT /api/admin/users/:id/items — 修改用户背包物品
+app.put('/api/admin/users/:id/items', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { item_id, quantity } = req.body;
+
+    if (!item_id || quantity === undefined || quantity === null) {
+      return res.status(400).json({ error: '请提供 item_id 和 quantity' });
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 0 || quantity > MAX_ITEM_COUNT) {
+      return res.status(400).json({ error: `数量必须在 0-${MAX_ITEM_COUNT} 之间的整数` });
+    }
+
+    // 验证用户存在
+    const userCheck = await client.query('SELECT id FROM users WHERE id = $1', [id]);
+    if (userCheck.rowCount === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    // 验证物品存在
+    const itemCheck = await client.query('SELECT id, name FROM items WHERE id = $1', [item_id]);
+    if (itemCheck.rowCount === 0) {
+      return res.status(404).json({ error: '物品不存在' });
+    }
+
+    if (quantity === 0) {
+      // 删除该物品
+      await client.query('DELETE FROM user_items WHERE user_id = $1 AND item_id = $2', [id, item_id]);
+    } else {
+      // 更新或插入
+      await client.query(
+        `INSERT INTO user_items (user_id, item_id, quantity)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = $3, updated_at = CURRENT_TIMESTAMP`,
+        [id, item_id, quantity]
+      );
+    }
+
+    res.json({
+      message: '背包物品更新成功',
+      item: { id: item_id, name: itemCheck.rows[0].name, quantity }
+    });
+  } catch (error) {
+    logger.error('Update user items error', { error: error.message });
+    res.status(500).json({ error: '更新用户背包物品失败' });
   }
 });
 

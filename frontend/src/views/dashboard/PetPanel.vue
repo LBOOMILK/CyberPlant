@@ -302,7 +302,9 @@ onMounted(async () => {
   max-width: 900px;
   margin: 0 auto;
   padding: 20px;
+  padding-top: 56px;
   min-height: 100vh;
+  background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
 }
 
 .panel-header {
@@ -847,6 +849,7 @@ onMounted(async () => {
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .pet-panel {
+    background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
     color: #e0e0e0;
   }
 

@@ -22,4 +22,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-y: visible;
+  background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
+  }
 }

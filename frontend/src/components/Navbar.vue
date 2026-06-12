@@ -14,7 +14,7 @@
         </div>
 
         <!-- 路由视图 -->
-        <main class="main-content">
+        <main class="main-content" :class="{ 'no-topbar': isAuthPage || isAdminPage }">
             <router-view v-slot="{ Component }">
                 <transition name="page-fade" mode="out-in">
                     <component :is="Component" />
@@ -105,8 +105,9 @@
             </div>
         </nav>
 
-        <!-- 新手欢迎弹窗 -->
+        <!-- 新手欢迎弹窗（仅在用户仪表盘页面显示） -->
         <WelcomeModal
+            v-if="isDashboardPage"
             :visible="showWelcome"
             @close="showWelcome = false"
         />
@@ -114,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useFriendStore } from '@/stores/friendStore'
@@ -141,6 +142,11 @@ const isAuthPage = computed(() => {
 // 判断是否为管理端页面
 const isAdminPage = computed(() => {
     return route.path.startsWith('/admin')
+})
+
+// 判断是否为用户仪表盘页面
+const isDashboardPage = computed(() => {
+    return route.path.startsWith('/dashboard')
 })
 
 const handleResize = () => {
@@ -201,12 +207,26 @@ onMounted(async () => {
         } catch (e) {
             // 好友加载失败不影响主流程
         }
-        // 检查新手状态
-        if (userStore.isNewUser) {
+        // 检查新手状态（仅在用户仪表盘页面弹出）
+        if (userStore.isNewUser && isDashboardPage.value) {
             showWelcome.value = true
         }
     } catch (error) {
         console.error('Failed to load user data in Navbar:', error)
+    }
+})
+
+// 路由变化时检查是否需要弹出新手欢迎
+watch(isDashboardPage, async (onDash) => {
+    if (onDash && userStore.isNewUser && !showWelcome.value) {
+        try {
+            await userStore.loadFromLocal()
+            if (userStore.isNewUser) {
+                showWelcome.value = true
+            }
+        } catch (e) {
+            // ignore
+        }
     }
 })
 
@@ -236,6 +256,10 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
     width: 100%;
     overflow-y: visible;
     padding-top: 44px; /* 顶部栏高度 */
+}
+
+.main-content.no-topbar {
+    padding-top: 0;
 }
 
 /* 页面过渡动画 */

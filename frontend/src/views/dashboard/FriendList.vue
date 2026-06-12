@@ -282,8 +282,10 @@ function formatTime(dateStr) {
   min-height: 100vh;
   padding: 20px;
   padding-bottom: 100px;
+  padding-top: 56px;
   max-width: 600px;
   margin: 0 auto;
+  background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
 }
 
 .page-header {
@@ -615,6 +617,9 @@ function formatTime(dateStr) {
 
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
+  .friend-page {
+    background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
+  }
   .page-header h2, .section-header h3 { color: #8bc34a; }
 
   .search-box {

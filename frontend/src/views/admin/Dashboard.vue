@@ -314,7 +314,7 @@ onMounted(() => {
 
   .admin-content {
     padding: 20px 16px;
-    padding-top: 70px;
+    padding-top: 20px;
   }
 
   .admin-content h1 {
