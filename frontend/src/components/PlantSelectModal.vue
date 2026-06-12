@@ -101,10 +101,30 @@ h3 {
   margin-bottom: 16px;
   max-height: 320px;
 }
-.seeds-list::-webkit-scrollbar { width: 6px; }
-.seeds-list::-webkit-scrollbar-track { background: transparent; }
-.seeds-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
-.seeds-list::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.35); }
+.seeds-list::-webkit-scrollbar {
+  width: 8px;
+}
+.seeds-list::-webkit-scrollbar-track {
+  background: rgba(46, 125, 50, 0.05);
+  border-radius: 4px;
+}
+.seeds-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #81c784, #4caf50);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+.seeds-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #66bb6a, #388e3c);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.seeds-list::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, #4caf50, #2e7d32);
+}
+
+.seeds-list {
+  scrollbar-width: thin;
+  scrollbar-color: #4caf50 rgba(46, 125, 50, 0.05);
+}
 .seed-item {
   display: flex;
   align-items: center;
