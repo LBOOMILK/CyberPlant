@@ -180,7 +180,12 @@ export const useShopStore = defineStore('shop', () => {
   }
 
   // ========== 查询背包中某物品数量 ==========
-  function getItemCount(itemId) {
+  function getItemCount(itemId, itemType) {
+    if (itemType && backpack.value[itemType]) {
+      const found = backpack.value[itemType].find(i => i.item_id === itemId)
+      return found ? found.quantity : 0
+    }
+    // fallback: 遍历所有分组（兼容旧调用）
     for (const items of Object.values(backpack.value)) {
       const found = items.find(i => i.item_id === itemId)
       if (found) return found.quantity

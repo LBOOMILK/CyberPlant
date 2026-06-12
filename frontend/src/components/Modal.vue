@@ -36,7 +36,7 @@
         <div class="modal-footer">
           <slot name="footer">
             <button class="cancel-btn" @click="handleCancel">{{ cancelText }}</button>
-            <button :class="['confirm-btn', { 'confirm-btn-danger': danger }]" @click="handleConfirm">{{ confirmText }}</button>
+            <button :class="['confirm-btn', { 'confirm-btn-danger': danger }]" @click="handleConfirm" :disabled="showQuantity && maxQuantity <= 0">{{ confirmText }}</button>
           </slot>
         </div>
       </div>
@@ -109,6 +109,18 @@ const totalPrice = computed(() => {
 
 watch(() => props.initialQuantity, (newVal) => {
   quantity.value = newVal
+})
+
+watch(() => props.maxQuantity, (newVal) => {
+  if (quantity.value > newVal) {
+    quantity.value = Math.max(1, newVal)
+  }
+})
+
+watch(() => props.visible, (newVal) => {
+  if (newVal) {
+    quantity.value = props.initialQuantity
+  }
 })
 
 watch(quantity, (newVal) => {
@@ -255,6 +267,16 @@ function handleCancel() {
 
 .confirm-btn:hover {
   background: #1b5e20;
+}
+
+.confirm-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.confirm-btn:disabled:hover {
+  background: #ccc;
 }
 
 .confirm-btn-danger {

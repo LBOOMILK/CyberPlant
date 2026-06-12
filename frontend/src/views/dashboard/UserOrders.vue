@@ -20,6 +20,13 @@
         </div>
         <div class="order-amount" :class="amountClass(order.amount)">
           {{ formatAmount(order.amount) }}
+          <span class="order-currency">
+            <span v-if="getCurrencyDisplay(order.currency_type).img" class="currency-icon-wrapper">
+              <img :src="getCurrencyDisplay(order.currency_type).img" :alt="formatCurrencyType(order.currency_type)" class="order-currency-icon" />
+            </span>
+            <span v-else class="currency-emoji">{{ getCurrencyDisplay(order.currency_type).icon }}</span>
+            {{ formatCurrencyType(order.currency_type) }}
+          </span>
         </div>
       </div>
       <div v-if="loadingMore" class="loading-more">
@@ -50,6 +57,17 @@ const computedOrders = computed(() => {
   console.log('Computed orders:', orders.value)
   return Array.isArray(orders.value) ? orders.value : []
 })
+
+// 货币配置
+const currencyConfig = {
+  silver_coin: { name: '银币', icon: '🪙', img: '/silver_icon.png' },
+  gold_coin: { name: '金币', icon: '🥇', img: '/gold_icon.png' },
+  diamond: { name: '钻石', icon: '💎', img: '/diamond.png' }
+}
+
+function getCurrencyDisplay(type) {
+  return currencyConfig[type] || { name: type || '未知', icon: '❓', img: '' }
+}
 
 // 订单类型中文映射
 const orderTypeMap = {
@@ -107,6 +125,11 @@ function formatTime(timeString) {
 function formatAmount(amount) {
   const sign = amount > 0 ? '+' : ''
   return `${sign}${amount}`
+}
+
+function formatCurrencyType(type) {
+  const c = getCurrencyDisplay(type)
+  return c.name
 }
 
 // 获取金额样式类
@@ -307,6 +330,28 @@ onUnmounted(() => {
 .order-amount {
   font-size: 1.25rem;
   font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-currency {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: normal;
+  color: #666;
+}
+
+.order-currency-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.currency-emoji {
+  font-size: 1rem;
 }
 
 .amount-positive {
@@ -387,6 +432,10 @@ onUnmounted(() => {
 
   .amount-negative {
     color: #e57373;
+  }
+
+  .order-currency {
+    color: #aaa;
   }
 }
 </style>

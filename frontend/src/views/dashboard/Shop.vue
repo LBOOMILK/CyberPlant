@@ -36,10 +36,10 @@
           />
           <span>{{ item.buy_price }}</span>
         </div>
-        <div v-if="getOwnedQty(item.id) > 0" class="owned-badge">
-          已拥有 {{ getOwnedQty(item.id) }}
+        <div v-if="getOwnedQty(item.id, item.item_type) > 0" class="owned-badge">
+          已拥有 {{ getOwnedQty(item.id, item.item_type) }}
         </div>
-        <button class="buy-btn" @click="openBuyModal(item)">购买</button>
+        <button class="buy-btn" @click="openBuyModal(item)" :disabled="item.item_type === 'decoration' && getOwnedQty(item.id, item.item_type) >= 1">购买</button>
       </div>
     </div>
 
@@ -91,9 +91,11 @@ function addToast(message, type = 'info') {
   }
 }
 
-// 获取背包中某物品的拥有数量
-function getOwnedQty(itemId) {
-  return shopStore.getItemCount(itemId)
+// 获取背包中某物品的拥有数量（按 item_type 精确匹配）
+function getOwnedQty(itemId, itemType) {
+  // pets 和 decorations 不在背包里，数量为 0
+  if (itemType === 'pet' || itemType === 'decoration') return 0
+  return shopStore.getItemCount(itemId, itemType)
 }
 
 // 切换 Tab
@@ -108,6 +110,7 @@ async function switchTab(tab) {
 
 // 打开购买弹窗
 function openBuyModal(item) {
+  console.log('openBuyModal called', item)
   buyItem.value = item
   buyModalMessage.value = `购买 ${item.icon} ${item.name}？`
 
@@ -119,13 +122,14 @@ function openBuyModal(item) {
     maxBuyQty.value = 1
   } else if (item.item_type === 'decoration') {
     // 装饰限购 1 个
-    const owned = getOwnedQty(item.id)
+    const owned = getOwnedQty(item.id, item.item_type)
     maxBuyQty.value = owned >= 1 ? 0 : Math.max(1, maxByBalance)
   } else {
-    const maxByCap = 999 - getOwnedQty(item.id)
+    const maxByCap = 999 - getOwnedQty(item.id, item.item_type)
     maxBuyQty.value = Math.max(1, Math.min(maxByBalance, maxByCap))
   }
 
+  console.log('maxBuyQty:', maxBuyQty.value, 'balance:', balance, 'currency:', item.currency_type)
   buyModalVisible.value = true
 }
 
@@ -296,6 +300,11 @@ onMounted(async () => {
   background: #1b5e20;
 }
 
+.buy-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
 .loading-msg,
 .empty-msg {
   text-align: center;
@@ -352,6 +361,11 @@ onMounted(async () => {
 
   .buy-btn:hover {
     background: #388e3c;
+  }
+
+  .buy-btn:disabled {
+    background: #555;
+    cursor: not-allowed;
   }
 
   .loading-msg,
