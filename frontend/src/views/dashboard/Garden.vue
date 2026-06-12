@@ -2,6 +2,9 @@
   <div class="garden-page">
     <Toast ref="toastRef" />
 
+    <!-- AI 助手入口 -->
+    <button class="ai-chat-btn" @click="showAIChat = true" title="AI 助手">🤖</button>
+
     <div class="card">
       <h1>🌱 赛博花园</h1>
 
@@ -99,6 +102,9 @@
       @close="showFertilizeSelect = false"
       @plant="handleFertilize"
     />
+
+    <!-- AI 对话弹窗 -->
+    <AIChatModal :visible="showAIChat" @close="showAIChat = false" />
   </div>
 </template>
 
@@ -110,6 +116,7 @@ import Toast from '@/components/Toast.vue'
 import PlantSelectModal from '@/components/PlantSelectModal.vue'
 import PlotModal from '@/components/PlotModal.vue'
 import UpgradeModal from '@/components/UpgradeModal.vue'
+import AIChatModal from '@/components/AIChatModal.vue'
 
 const plotStore = usePlotStore()
 const userStore = useUserStore()
@@ -119,6 +126,7 @@ const showPlantSelect = ref(false)
 const showPlotModal = ref(false)
 const showUpgradeModal = ref(false)
 const showFertilizeSelect = ref(false)
+const showAIChat = ref(false)
 const selectedPlot = ref(null)
 const selectedPlotIndex = ref(null)
 const userSeeds = ref([])
@@ -504,6 +512,36 @@ footer {
   margin-top: 12px;
 }
 
+/* AI 助手按钮 */
+.ai-chat-btn {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.35);
+  z-index: 1000;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-chat-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(34, 197, 94, 0.5);
+}
+
+.ai-chat-btn:active {
+  transform: scale(0.95);
+}
+
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .garden-page {
@@ -521,5 +559,6 @@ footer {
   .empty-body .empty-text { color: #aaa; }
   .multiplier-tag { background: rgba(255,255,255,0.1); color: #aaa; }
   footer { color: #a0a080; }
+  .ai-chat-btn { background: linear-gradient(135deg, #4caf50, #388e3c); box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3); }
 }
 </style>

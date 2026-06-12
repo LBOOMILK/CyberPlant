@@ -241,6 +241,122 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_friendships_friend_id ON friendships(friend_id)
     `);
 
+    // ========== Phase 5: 宠物系统表 ==========
+
+    // pets 宠物模板表
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pets (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        icon VARCHAR(50),
+        pixel_art TEXT,
+        rarity VARCHAR(50) NOT NULL,
+        base_bonus NUMERIC(5,2) DEFAULT 0,
+        price_type VARCHAR(20) DEFAULT 'silver_coin',
+        price_amount BIGINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // user_pets 用户宠物表
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_pets (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(50) NOT NULL,
+        pet_id INT NOT NULL,
+        level INT DEFAULT 1,
+        growth_points INT DEFAULT 0,
+        hunger INT DEFAULT 100,
+        is_active BOOLEAN DEFAULT false,
+        last_fed_at TIMESTAMP,
+        feeding_end_at TIMESTAMP,
+        equipped_decorations JSONB DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // decorations 装饰模板表
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS decorations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        icon VARCHAR(50),
+        slot_type VARCHAR(50) NOT NULL,
+        quality VARCHAR(50) DEFAULT 'normal',
+        bonus NUMERIC(5,2) DEFAULT 0,
+        price_type VARCHAR(20) DEFAULT 'silver_coin',
+        price_amount BIGINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // user_decorations 用户持有装饰表
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_decorations (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(50) NOT NULL,
+        decoration_id INT NOT NULL,
+        quantity INT DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, decoration_id)
+      )
+    `);
+
+    // user_pets 索引
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_pets_user_id ON user_pets(user_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_pets_active ON user_pets(user_id, is_active) WHERE is_active = true
+    `);
+
+    // user_decorations 索引
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_decorations_user_id ON user_decorations(user_id)
+    `);
+
+    // ========== 插入宠物模板数据 ==========
+    const petsCheck = await client.query('SELECT COUNT(*) as count FROM pets');
+    if (parseInt(petsCheck.rows[0].count) === 0) {
+      const petTemplates = [
+        ['小豆猫', '🐱', '🐱', 'common', 3.00, 'silver_coin', 500],
+        ['泡泡鱼', '🐟', '🐟', 'common', 3.00, 'silver_coin', 500],
+        ['星光兔', '🐰', '🐰', 'rare', 8.00, 'gold_coin', 200],
+        ['雷霆鹰', '🦅', '🦅', 'rare', 8.00, 'gold_coin', 200],
+        ['水晶龙', '🐉', '🐉', 'epic', 15.00, 'diamond', 50],
+        ['凤凰之翼', '🦅', '🔥🦅', 'legendary', 20.00, 'diamond', 100],
+      ];
+      for (const p of petTemplates) {
+        await client.query(
+          'INSERT INTO pets (name, icon, pixel_art, rarity, base_bonus, price_type, price_amount) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          p
+        );
+      }
+      logger.info('Pet template data inserted');
+    }
+
+    // ========== 插入装饰模板数据 ==========
+    const decCheck = await client.query('SELECT COUNT(*) as count FROM decorations');
+    if (parseInt(decCheck.rows[0].count) === 0) {
+      const decTemplates = [
+        ['小花环', '🌸', 'head', 'normal', 2.00, 'silver_coin', 200],
+        ['皇冠', '👑', 'head', 'rare', 5.00, 'gold_coin', 50],
+        ['围巾', '🧣', 'neck', 'normal', 2.00, 'silver_coin', 150],
+        ['宝石项链', '📿', 'neck', 'rare', 5.00, 'gold_coin', 80],
+        ['小披风', '🦸', 'back', 'normal', 3.00, 'silver_coin', 300],
+        ['魔法翅膀', '🪽', 'back', 'epic', 8.00, 'diamond', 20],
+        ['魔法光环', '✨', 'special', 'epic', 10.00, 'diamond', 30],
+        ['彩虹尾焰', '🌈', 'special', 'legendary', 15.00, 'diamond', 60],
+      ];
+      for (const d of decTemplates) {
+        await client.query(
+          'INSERT INTO decorations (name, icon, slot_type, quality, bonus, price_type, price_amount) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          d
+        );
+      }
+      logger.info('Decoration template data inserted');
+    }
+
     // ========== 插入物品种子数据 ==========
     const itemsCheck = await client.query('SELECT COUNT(*) as count FROM items');
     if (parseInt(itemsCheck.rows[0].count) === 0) {
@@ -1723,6 +1839,586 @@ app.post('/api/user/friends/:friendId/transfer', authenticateToken, async (req, 
   }
 });
 
+// ==================== 宠物系统工具函数 (Phase 5) ====================
+
+// 升级阈值：按稀有度分组
+const PET_LEVEL_THRESHOLDS = {
+  common:    [100, 200, 300, 400, 500],   // Lv1→2, Lv2→3, Lv3→4, Lv4→5, Lv5→6
+  rare:      [200, 400, 600, 900, 1200],
+  epic:      [400, 600, 900, 1200, 1500],
+  legendary: [600, 900, 1200, 1800, 2500]
+};
+
+// 加成计算：线性插值，Lv1=base_bonus, Lv6=base_bonus*5
+function calcPetBonus(rarity, level, baseBonus) {
+  // Lv1 = base_bonus, Lv6 = base_bonus * 5
+  // 线性插值
+  const maxMultiplier = 5;
+  const bonus = baseBonus * (1 + (level - 1) * (maxMultiplier - 1) / 5);
+  return Math.round(bonus * 100) / 100;
+}
+
+// 宠物粮效果配置
+const PET_FOOD_EFFECTS = {
+  '普通粮': { growth: 30, hunger: 20, digest_hours: 4 },
+  '精良粮': { growth: 60, hunger: 40, digest_hours: 8 },
+  '高级粮': { growth: 100, hunger: 60, digest_hours: 12 },
+  '稀有粮': { growth: 200, hunger: 100, digest_hours: 24 }
+};
+
+// 计算当前饱食度（基于 last_fed_at 和 feeding_end_at）
+function calcCurrentHunger(pet) {
+  if (!pet.last_fed_at) return pet.hunger;
+  const lastFed = new Date(pet.last_fed_at).getTime();
+  const now = Date.now();
+  const hoursElapsed = (now - lastFed) / (1000 * 60 * 60);
+  // 每小时 -1 饱食度
+  const decayed = Math.floor(hoursElapsed);
+  return Math.max(0, pet.hunger - decayed);
+}
+
+// 获取用户激活宠物的加成百分比
+async function getPetBonus(userId) {
+  try {
+    const result = await client.query(
+      `SELECT up.*, p.rarity, p.base_bonus, p.name, p.icon
+       FROM user_pets up
+       JOIN pets p ON up.pet_id = p.id
+       WHERE up.user_id = $1 AND up.is_active = true`,
+      [userId]
+    );
+    if (result.rowCount === 0) return 0;
+
+    const pet = result.rows[0];
+    const currentHunger = calcCurrentHunger(pet);
+
+    // 饱食度为 0 时加成暂停
+    if (currentHunger <= 0) return 0;
+
+    // 计算宠物自身加成
+    let bonus = calcPetBonus(pet.rarity, pet.level, Number(pet.base_bonus));
+
+    // 装饰加成叠加
+    const equipped = pet.equipped_decorations || {};
+    for (const [, decId] of Object.entries(equipped)) {
+      const decResult = await client.query('SELECT bonus FROM decorations WHERE id = $1', [decId]);
+      if (decResult.rowCount > 0) {
+        bonus += Number(decResult.rows[0].bonus);
+      }
+    }
+
+    return Math.round(bonus * 100) / 100;
+  } catch (error) {
+    logger.error('getPetBonus error:', { error: error.message });
+    return 0;
+  }
+}
+
+// 格式化宠物数据
+function formatPetData(pet, petTemplate) {
+  const currentHunger = calcCurrentHunger(pet);
+  const thresholds = PET_LEVEL_THRESHOLDS[petTemplate.rarity] || PET_LEVEL_THRESHOLDS.common;
+  const nextThreshold = pet.level < 6 ? thresholds[pet.level - 1] : null;
+  const bonus = currentHunger > 0 ? calcPetBonus(petTemplate.rarity, pet.level, Number(petTemplate.base_bonus)) : 0;
+
+  // 计算装饰加成
+  let decorationBonus = 0;
+  const equipped = pet.equipped_decorations || {};
+
+  return {
+    user_pet_id: pet.id,
+    pet_id: pet.pet_id,
+    name: petTemplate.name,
+    icon: petTemplate.icon,
+    pixel_art: petTemplate.pixel_art,
+    rarity: petTemplate.rarity,
+    level: pet.level,
+    growth_points: pet.growth_points,
+    next_level_threshold: nextThreshold,
+    hunger: currentHunger,
+    max_hunger: 100,
+    is_active: pet.is_active,
+    base_bonus: Number(petTemplate.base_bonus),
+    current_bonus: Math.round((bonus + decorationBonus) * 100) / 100,
+    equipped_decorations: pet.equipped_decorations || {},
+    last_fed_at: pet.last_fed_at,
+    feeding_end_at: pet.feeding_end_at,
+    is_digesting: pet.feeding_end_at ? new Date(pet.feeding_end_at).getTime() > Date.now() : false,
+    created_at: pet.created_at
+  };
+}
+
+// ==================== 宠物系统 API (Phase 5) ====================
+
+// GET /api/user/pets — 获取用户所有宠物
+app.get('/api/user/pets', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await client.query(
+      `SELECT up.*, p.name, p.icon, p.pixel_art, p.rarity, p.base_bonus, p.price_type, p.price_amount
+       FROM user_pets up
+       JOIN pets p ON up.pet_id = p.id
+       WHERE up.user_id = $1
+       ORDER BY up.is_active DESC, p.rarity DESC, up.level DESC`,
+      [userId]
+    );
+
+    const pets = result.rows.map(pet => formatPetData(pet, pet));
+
+    // 更新饱食度到数据库
+    for (const pet of result.rows) {
+      const currentHunger = calcCurrentHunger(pet);
+      if (currentHunger !== pet.hunger) {
+        await client.query(
+          'UPDATE user_pets SET hunger = $1 WHERE id = $2',
+          [currentHunger, pet.id]
+        );
+      }
+    }
+
+    res.json({ pets });
+  } catch (error) {
+    logger.error('Get user pets error:', { error: error.message });
+    res.status(500).json({ error: '获取宠物列表失败' });
+  }
+});
+
+// POST /api/user/pets/purchase — 购买宠物
+app.post('/api/user/pets/purchase', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { pet_id } = req.body;
+
+    if (!pet_id) return res.status(400).json({ error: '请提供 pet_id' });
+
+    const petTemplate = await client.query('SELECT * FROM pets WHERE id = $1', [pet_id]);
+    if (petTemplate.rowCount === 0) return res.status(404).json({ error: '宠物不存在' });
+
+    const pet = petTemplate.rows[0];
+
+    await client.query('BEGIN');
+    try {
+      await deductCurrency(userId, pet.price_type, Number(pet.price_amount));
+
+      const newUserPet = await client.query(
+        `INSERT INTO user_pets (user_id, pet_id, level, growth_points, hunger, is_active)
+         VALUES ($1, $2, 1, 0, 100, false)
+         RETURNING *`,
+        [userId, pet_id]
+      );
+
+      await createOrder(userId, 'PET_PURCHASE', pet.price_type, Number(pet.price_amount));
+
+      await client.query('COMMIT');
+
+      const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+      res.status(201).json({
+        message: '购买成功',
+        pet: formatPetData(newUserPet.rows[0], pet),
+        currencies: {
+          silver_coin: Number(cur.rows[0].silver_coin),
+          gold_coin: Number(cur.rows[0].gold_coin),
+          diamond: Number(cur.rows[0].diamond)
+        }
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      if (err.message === 'Insufficient balance') return res.status(400).json({ error: '余额不足' });
+      throw err;
+    }
+  } catch (error) {
+    logger.error('Purchase pet error:', { error: error.message });
+    res.status(500).json({ error: '购买宠物失败' });
+  }
+});
+
+// POST /api/user/pets/:userPetId/activate — 激活宠物
+app.post('/api/user/pets/:userPetId/activate', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userPetId = parseInt(req.params.userPetId);
+
+    if (isNaN(userPetId)) return res.status(400).json({ error: '无效的宠物ID' });
+
+    const petResult = await client.query(
+      'SELECT * FROM user_pets WHERE id = $1 AND user_id = $2',
+      [userPetId, userId]
+    );
+    if (petResult.rowCount === 0) return res.status(404).json({ error: '宠物不存在' });
+
+    await client.query('BEGIN');
+    try {
+      // 将所有宠物设为非激活
+      await client.query('UPDATE user_pets SET is_active = false WHERE user_id = $1', [userId]);
+      // 激活当前宠物
+      await client.query('UPDATE user_pets SET is_active = true WHERE id = $1', [userPetId]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+
+    const pet = petResult.rows[0];
+    const template = await client.query('SELECT * FROM pets WHERE id = $1', [pet.pet_id]);
+    const bonus = await getPetBonus(userId);
+
+    res.json({
+      message: '激活成功',
+      pet: formatPetData(pet, template.rows[0]),
+      current_bonus: bonus
+    });
+  } catch (error) {
+    logger.error('Activate pet error:', { error: error.message });
+    res.status(500).json({ error: '激活宠物失败' });
+  }
+});
+
+// POST /api/user/pets/:userPetId/feed — 喂食
+app.post('/api/user/pets/:userPetId/feed', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userPetId = parseInt(req.params.userPetId);
+    const { food_item_id } = req.body;
+
+    if (isNaN(userPetId)) return res.status(400).json({ error: '无效的宠物ID' });
+    if (!food_item_id) return res.status(400).json({ error: '请提供宠物粮 item_id' });
+
+    // 验证宠物属于该用户
+    const petResult = await client.query(
+      'SELECT up.*, p.rarity, p.base_bonus, p.name as pet_name, p.icon as pet_icon FROM user_pets up JOIN pets p ON up.pet_id = p.id WHERE up.id = $1 AND up.user_id = $2',
+      [userPetId, userId]
+    );
+    if (petResult.rowCount === 0) return res.status(404).json({ error: '宠物不存在' });
+
+    const pet = petResult.rows[0];
+
+    // 检查是否在消化中
+    if (pet.feeding_end_at && new Date(pet.feeding_end_at).getTime() > Date.now()) {
+      const remaining = Math.ceil((new Date(pet.feeding_end_at).getTime() - Date.now()) / (1000 * 60));
+      return res.status(400).json({ error: `宠物正在消化中，还需 ${remaining} 分钟` });
+    }
+
+    // 验证宠物粮
+    const foodItem = await client.query('SELECT * FROM items WHERE id = $1 AND item_type = $2', [food_item_id, 'pet_food']);
+    if (foodItem.rowCount === 0) return res.status(400).json({ error: '无效的宠物粮' });
+
+    const foodName = foodItem.rows[0].name;
+    const foodEffect = PET_FOOD_EFFECTS[foodName];
+    if (!foodEffect) return res.status(400).json({ error: '未知的宠物粮类型' });
+
+    // 验证用户拥有该宠物粮
+    const userFood = await client.query(
+      'SELECT * FROM user_items WHERE user_id = $1 AND item_id = $2 AND quantity > 0',
+      [userId, food_item_id]
+    );
+    if (userFood.rowCount === 0) return res.status(400).json({ error: '你没有该宠物粮' });
+
+    await client.query('BEGIN');
+    try {
+      // 扣减宠物粮
+      const newQty = userFood.rows[0].quantity - 1;
+      if (newQty <= 0) {
+        await client.query('DELETE FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, food_item_id]);
+      } else {
+        await client.query('UPDATE user_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND item_id = $3', [newQty, userId, food_item_id]);
+      }
+
+      // 计算新的饱食度
+      const currentHunger = calcCurrentHunger(pet);
+      const newHunger = Math.min(100, currentHunger + foodEffect.hunger);
+
+      // 增加成长值
+      const newGrowthPoints = pet.growth_points + foodEffect.growth;
+
+      // 设置消化时间
+      const now = new Date();
+      const feedingEnd = new Date(now.getTime() + foodEffect.digest_hours * 60 * 60 * 1000);
+
+      // 检查是否升级
+      let newLevel = pet.level;
+      const thresholds = PET_LEVEL_THRESHOLDS[pet.rarity] || PET_LEVEL_THRESHOLDS.common;
+      let remainingGrowth = newGrowthPoints;
+
+      while (newLevel < 6) {
+        const threshold = thresholds[newLevel - 1];
+        if (threshold && remainingGrowth >= threshold) {
+          remainingGrowth -= threshold;
+          newLevel++;
+        } else {
+          break;
+        }
+      }
+
+      await client.query(
+        `UPDATE user_pets
+         SET growth_points = $1, hunger = $2, level = $3, last_fed_at = $4, feeding_end_at = $5
+         WHERE id = $6`,
+        [newLevel >= 6 ? newGrowthPoints : newGrowthPoints, newHunger, newLevel, now, feedingEnd, userPetId]
+      );
+
+      await client.query('COMMIT');
+
+      // 重新查询更新后的宠物数据
+      const updatedPet = await client.query(
+        'SELECT up.*, p.rarity, p.base_bonus, p.name, p.icon, p.pixel_art, p.price_type, p.price_amount FROM user_pets up JOIN pets p ON up.pet_id = p.id WHERE up.id = $1',
+        [userPetId]
+      );
+
+      res.json({
+        message: '喂食成功',
+        pet: formatPetData(updatedPet.rows[0], updatedPet.rows[0]),
+        fed_food: foodItem.rows[0].name,
+        growth_gained: foodEffect.growth,
+        hunger_restored: foodEffect.hunger,
+        leveled_up: newLevel > pet.level ? newLevel : false,
+        digest_hours: foodEffect.digest_hours
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+  } catch (error) {
+    logger.error('Feed pet error:', { error: error.message });
+    res.status(500).json({ error: '喂食失败' });
+  }
+});
+
+// GET /api/user/pets/active — 获取当前激活宠物信息
+app.get('/api/user/pets/active', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await client.query(
+      `SELECT up.*, p.name, p.icon, p.pixel_art, p.rarity, p.base_bonus, p.price_type, p.price_amount
+       FROM user_pets up
+       JOIN pets p ON up.pet_id = p.id
+       WHERE up.user_id = $1 AND up.is_active = true`,
+      [userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.json({ pet: null, bonus: 0 });
+    }
+
+    const pet = result.rows[0];
+    // 更新饱食度
+    const currentHunger = calcCurrentHunger(pet);
+    if (currentHunger !== pet.hunger) {
+      await client.query('UPDATE user_pets SET hunger = $1 WHERE id = $2', [currentHunger, pet.id]);
+    }
+
+    const bonus = await getPetBonus(userId);
+
+    res.json({
+      pet: formatPetData({ ...pet, hunger: currentHunger }, pet),
+      bonus
+    });
+  } catch (error) {
+    logger.error('Get active pet error:', { error: error.message });
+    res.status(500).json({ error: '获取激活宠物信息失败' });
+  }
+});
+
+// GET /api/decorations — 获取所有装饰模板
+app.get('/api/decorations', authenticateToken, async (req, res) => {
+  try {
+    const slotType = req.query.slot_type;
+    let query = 'SELECT id, name, icon, slot_type, quality, bonus, price_type, price_amount FROM decorations';
+    const params = [];
+    if (slotType) {
+      query += ' WHERE slot_type = $1';
+      params.push(slotType);
+    }
+    query += ' ORDER BY quality DESC, id';
+
+    const result = await client.query(query, params);
+    res.json(result.rows.map(d => ({
+      id: d.id,
+      name: d.name,
+      icon: d.icon,
+      slot_type: d.slot_type,
+      quality: d.quality,
+      bonus: Number(d.bonus),
+      price_type: d.price_type,
+      price_amount: Number(d.price_amount)
+    })));
+  } catch (error) {
+    logger.error('Get decorations error:', { error: error.message });
+    res.status(500).json({ error: '获取装饰列表失败' });
+  }
+});
+
+// POST /api/user/decorations/purchase — 购买装饰
+app.post('/api/user/decorations/purchase', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { decoration_id, quantity } = req.body;
+
+    if (!decoration_id) return res.status(400).json({ error: '请提供 decoration_id' });
+    const qty = quantity || 1;
+    if (qty <= 0 || !Number.isInteger(qty)) return res.status(400).json({ error: '数量无效' });
+
+    const decResult = await client.query('SELECT * FROM decorations WHERE id = $1', [decoration_id]);
+    if (decResult.rowCount === 0) return res.status(404).json({ error: '装饰不存在' });
+
+    const dec = decResult.rows[0];
+    const totalCost = Number(dec.price_amount) * qty;
+
+    await client.query('BEGIN');
+    try {
+      await deductCurrency(userId, dec.price_type, totalCost);
+
+      await client.query(
+        `INSERT INTO user_decorations (user_id, decoration_id, quantity)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, decoration_id) DO UPDATE SET quantity = user_decorations.quantity + $3, updated_at = CURRENT_TIMESTAMP`,
+        [userId, decoration_id, qty]
+      );
+
+      await createOrder(userId, 'DECORATION_PURCHASE', dec.price_type, totalCost);
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      if (err.message === 'Insufficient balance') return res.status(400).json({ error: '余额不足' });
+      throw err;
+    }
+
+    const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+    const userDec = await client.query('SELECT quantity FROM user_decorations WHERE user_id = $1 AND decoration_id = $2', [userId, decoration_id]);
+
+    res.json({
+      message: '购买成功',
+      decoration: { id: dec.id, name: dec.name, icon: dec.icon, slot_type: dec.slot_type, quality: dec.quality, bonus: Number(dec.bonus) },
+      quantity: qty,
+      total_cost: totalCost,
+      currency_type: dec.price_type,
+      remaining_quantity: userDec.rowCount > 0 ? userDec.rows[0].quantity : 0,
+      currencies: {
+        silver_coin: Number(cur.rows[0].silver_coin),
+        gold_coin: Number(cur.rows[0].gold_coin),
+        diamond: Number(cur.rows[0].diamond)
+      }
+    });
+  } catch (error) {
+    logger.error('Purchase decoration error:', { error: error.message });
+    res.status(500).json({ error: '购买装饰失败' });
+  }
+});
+
+// POST /api/user/pets/:userPetId/equip — 装备装饰
+app.post('/api/user/pets/:userPetId/equip', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userPetId = parseInt(req.params.userPetId);
+    const { decoration_id } = req.body;
+
+    if (isNaN(userPetId)) return res.status(400).json({ error: '无效的宠物ID' });
+    if (!decoration_id) return res.status(400).json({ error: '请提供 decoration_id' });
+
+    // 验证宠物属于该用户
+    const petResult = await client.query('SELECT * FROM user_pets WHERE id = $1 AND user_id = $2', [userPetId, userId]);
+    if (petResult.rowCount === 0) return res.status(404).json({ error: '宠物不存在' });
+
+    // 验证装饰存在
+    const decResult = await client.query('SELECT * FROM decorations WHERE id = $1', [decoration_id]);
+    if (decResult.rowCount === 0) return res.status(404).json({ error: '装饰不存在' });
+    const dec = decResult.rows[0];
+
+    // 验证用户持有该装饰
+    const userDec = await client.query('SELECT * FROM user_decorations WHERE user_id = $1 AND decoration_id = $2 AND quantity > 0', [userId, decoration_id]);
+    if (userDec.rowCount === 0) return res.status(400).json({ error: '你没有该装饰' });
+
+    const pet = petResult.rows[0];
+    const equipped = pet.equipped_decorations || {};
+
+    // 检查该槽位是否已有装饰
+    const existingDecId = equipped[dec.slot_type];
+
+    // 更新装备
+    equipped[dec.slot_type] = decoration_id;
+
+    await client.query(
+      'UPDATE user_pets SET equipped_decorations = $1 WHERE id = $2',
+      [JSON.stringify(equipped), userPetId]
+    );
+
+    res.json({
+      message: '装备成功',
+      slot_type: dec.slot_type,
+      decoration: { id: dec.id, name: dec.name, icon: dec.icon, bonus: Number(dec.bonus) },
+      replaced: existingDecId ? true : false
+    });
+  } catch (error) {
+    logger.error('Equip decoration error:', { error: error.message });
+    res.status(500).json({ error: '装备装饰失败' });
+  }
+});
+
+// POST /api/user/pets/:userPetId/unequip — 卸下装饰
+app.post('/api/user/pets/:userPetId/unequip', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userPetId = parseInt(req.params.userPetId);
+    const { slot_type } = req.body;
+
+    if (isNaN(userPetId)) return res.status(400).json({ error: '无效的宠物ID' });
+    if (!slot_type) return res.status(400).json({ error: '请提供 slot_type' });
+
+    const validSlots = ['head', 'neck', 'back', 'special'];
+    if (!validSlots.includes(slot_type)) return res.status(400).json({ error: '无效的槽位类型' });
+
+    const petResult = await client.query('SELECT * FROM user_pets WHERE id = $1 AND user_id = $2', [userPetId, userId]);
+    if (petResult.rowCount === 0) return res.status(404).json({ error: '宠物不存在' });
+
+    const pet = petResult.rows[0];
+    const equipped = pet.equipped_decorations || {};
+
+    if (!equipped[slot_type]) return res.status(400).json({ error: '该槽位没有装备装饰' });
+
+    delete equipped[slot_type];
+
+    await client.query(
+      'UPDATE user_pets SET equipped_decorations = $1 WHERE id = $2',
+      [JSON.stringify(equipped), userPetId]
+    );
+
+    res.json({ message: '卸下成功', slot_type });
+  } catch (error) {
+    logger.error('Unequip decoration error:', { error: error.message });
+    res.status(500).json({ error: '卸下装饰失败' });
+  }
+});
+
+// GET /api/user/decorations — 获取用户持有的装饰列表
+app.get('/api/user/decorations', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await client.query(
+      `SELECT ud.quantity, d.id, d.name, d.icon, d.slot_type, d.quality, d.bonus, d.price_type, d.price_amount
+       FROM user_decorations ud
+       JOIN decorations d ON ud.decoration_id = d.id
+       WHERE ud.user_id = $1 AND ud.quantity > 0
+       ORDER BY d.slot_type, d.quality DESC`,
+      [userId]
+    );
+
+    res.json(result.rows.map(d => ({
+      decoration_id: d.id,
+      quantity: d.quantity,
+      name: d.name,
+      icon: d.icon,
+      slot_type: d.slot_type,
+      quality: d.quality,
+      bonus: Number(d.bonus),
+      price_type: d.price_type,
+      price_amount: Number(d.price_amount)
+    })));
+  } catch (error) {
+    logger.error('Get user decorations error:', { error: error.message });
+    res.status(500).json({ error: '获取用户装饰列表失败' });
+  }
+});
+
 // ==================== 订单路由 ====================
 
 app.get('/api/orders', authenticateToken, async (req, res) => {
@@ -2181,8 +2877,10 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
     if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
     if (plot.stage < 4) return res.status(400).json({ error: '植物尚未成熟' });
     const levelMultiplier = PLOT_LEVEL_MULTIPLIER[plot.level] || 1.0;
+    const petBonus = await getPetBonus(userId);
+    const bonusMultiplier = 1 + petBonus / 100;
     const baseYield = plot.base_yield || 1;
-    const actualYield = Math.max(1, Math.round(baseYield * levelMultiplier));
+    const actualYield = Math.max(1, Math.round(baseYield * levelMultiplier * bonusMultiplier));
     await client.query('BEGIN');
     try {
       await client.query('INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1, $2, $3) ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + $3, updated_at = CURRENT_TIMESTAMP', [userId, plot.seed_id, actualYield]);
@@ -2192,7 +2890,7 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
       await client.query('ROLLBACK');
       throw err;
     }
-    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, multiplier: levelMultiplier });
+    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, multiplier: levelMultiplier, pet_bonus: petBonus, bonus_multiplier: bonusMultiplier });
   } catch (error) {
     logger.error('Harvest error', { error: error.message });
     res.status(500).json({ error: '收获失败' });
@@ -2241,6 +2939,102 @@ app.get('/api/garden', authenticateToken, async (req, res) => {
   } catch (error) {
     logger.error('Get garden error', { error: error.message });
     res.status(500).json({ error: '获取花园状态失败' });
+  }
+});
+
+// ========== AI 问答系统 ==========
+
+// 简单内存限流：每用户每分钟最多 5 次
+const aiRateLimitMap = new Map(); // userId -> { count, resetTime }
+const AI_RATE_LIMIT = 5;
+const AI_RATE_WINDOW = 60 * 1000; // 1 分钟
+
+function checkAiRateLimit(userId) {
+  const now = Date.now();
+  const record = aiRateLimitMap.get(userId);
+  if (!record || now > record.resetTime) {
+    aiRateLimitMap.set(userId, { count: 1, resetTime: now + AI_RATE_WINDOW });
+    return true;
+  }
+  if (record.count >= AI_RATE_LIMIT) {
+    return false;
+  }
+  record.count++;
+  return true;
+}
+
+// 清理过期的限流记录（每 5 分钟）
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of aiRateLimitMap) {
+    if (now > value.resetTime) aiRateLimitMap.delete(key);
+  }
+}, 5 * 60 * 1000);
+
+app.post('/api/ask', authenticateToken, async (req, res) => {
+  try {
+    const { question, conversation_id } = req.body;
+    if (!question || typeof question !== 'string' || question.trim().length === 0) {
+      return res.status(400).json({ error: '请输入问题' });
+    }
+    if (question.length > 500) {
+      return res.status(400).json({ error: '问题不能超过 500 字' });
+    }
+
+    // 限流检查
+    if (!checkAiRateLimit(req.user.id)) {
+      return res.status(429).json({ error: '提问太频繁了，请稍后再试（每分钟最多 5 次）' });
+    }
+
+    const difyApiKey = process.env.DIFY_API_KEY;
+    const difyApiUrl = process.env.DIFY_API_URL || 'https://api.dify.ai/v1';
+
+    if (!difyApiKey || difyApiKey === 'your-dify-api-key') {
+      logger.warn('Dify API key not configured');
+      return res.json({
+        answer: '🤖 AI 助手暂未配置，请联系管理员设置 Dify API Key。',
+        conversation_id: null
+      });
+    }
+
+    // 转发到 Dify Chatflow API
+    const difyResponse = await fetch(`${difyApiUrl}/chat-messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${difyApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        inputs: {},
+        query: question.trim(),
+        response_mode: 'blocking',
+        conversation_id: conversation_id || '',
+        user: `cyberplant-user-${req.user.id}`
+      })
+    });
+
+    if (!difyResponse.ok) {
+      const errorText = await difyResponse.text().catch(() => '');
+      logger.error('Dify API error', { status: difyResponse.status, body: errorText });
+      return res.json({
+        answer: '🤖 AI 助手暂时无法回答，请稍后再试。',
+        conversation_id: null
+      });
+    }
+
+    const difyData = await difyResponse.json();
+    logger.info('Dify query success', { userId: req.user.id, conversation_id: difyData.conversation_id });
+
+    res.json({
+      answer: difyData.answer || '抱歉，我暂时无法回答这个问题。',
+      conversation_id: difyData.conversation_id || null
+    });
+  } catch (error) {
+    logger.error('AI ask error', { error: error.message });
+    res.json({
+      answer: '🤖 AI 助手暂时无法回答，请稍后再试。',
+      conversation_id: null
+    });
   }
 });
 

@@ -24,10 +24,14 @@
             <router-link to="/dashboard/garden">🌱 花园</router-link>
             <router-link to="/dashboard/shop">🛒 商城</router-link>
             <router-link to="/dashboard/backpack">🎒 背包</router-link>
+            <router-link to="/dashboard/pets">🐾 宠物</router-link>
             <router-link to="/dashboard/friends">👥 好友</router-link>
             <router-link to="/dashboard/orders">📋 订单</router-link>
             <router-link to="/dashboard/user">👤 我的</router-link>
         </nav>
+
+        <!-- 宠物悬浮组件 -->
+        <PetFloating />
 
         <!-- 平板/PC 端悬浮胶囊导航栏（登录/注册页面除外，管理端页面除外） -->
         <nav 
@@ -48,6 +52,10 @@
                 <router-link to="/dashboard/backpack" class="nav-item" :class="{ active: $route.path === '/dashboard/backpack' }">
                     <span class="nav-icon">🎒</span>
                     <span class="nav-label">背包</span>
+                </router-link>
+                <router-link to="/dashboard/pets" class="nav-item" :class="{ active: $route.path === '/dashboard/pets' }">
+                    <span class="nav-icon">🐾</span>
+                    <span class="nav-label">宠物</span>
                 </router-link>
                 <router-link to="/dashboard/friends" class="nav-item" :class="{ active: $route.path === '/dashboard/friends' }">
                     <span class="nav-icon">👥</span>
@@ -73,6 +81,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
+import PetFloating from './PetFloating.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
