@@ -2514,6 +2514,85 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
   }
 });
 
+// ==================== 管理员物品管理 API ====================
+
+// POST /api/admin/items — 创建物品
+app.post('/api/admin/items', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop } = req.body;
+
+    if (!name || !item_type) {
+      return res.status(400).json({ error: '请填写物品名和类型' });
+    }
+
+    const validTypes = ['seed', 'fertilizer', 'pet_food'];
+    if (!validTypes.includes(item_type)) {
+      return res.status(400).json({ error: '无效的物品类型' });
+    }
+
+    const result = await client.query(
+      `INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [name, icon || '', rarity || 'C', item_type, grow_time || 0, base_yield || 0, buy_price || 0, sell_price || 0, currency_type || 'silver_coin', is_shop !== false]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    logger.error('Create item error', { error: error.message });
+    res.status(500).json({ error: '创建物品失败' });
+  }
+});
+
+// PUT /api/admin/items/:id — 更新物品
+app.put('/api/admin/items/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop } = req.body;
+
+    const existing = await client.query('SELECT * FROM items WHERE id = $1', [id]);
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ error: '物品不存在' });
+    }
+
+    const result = await client.query(
+      `UPDATE items SET name = $1, icon = $2, rarity = $3, item_type = $4, grow_time = $5, base_yield = $6, buy_price = $7, sell_price = $8, currency_type = $9, is_shop = $10 WHERE id = $11 RETURNING *`,
+      [
+        name || existing.rows[0].name,
+        icon !== undefined ? icon : existing.rows[0].icon,
+        rarity || existing.rows[0].rarity,
+        item_type || existing.rows[0].item_type,
+        grow_time !== undefined ? grow_time : existing.rows[0].grow_time,
+        base_yield !== undefined ? base_yield : existing.rows[0].base_yield,
+        buy_price !== undefined ? buy_price : existing.rows[0].buy_price,
+        sell_price !== undefined ? sell_price : existing.rows[0].sell_price,
+        currency_type || existing.rows[0].currency_type,
+        is_shop !== undefined ? is_shop : existing.rows[0].is_shop,
+        id
+      ]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Update item error', { error: error.message });
+    res.status(500).json({ error: '更新物品失败' });
+  }
+});
+
+// DELETE /api/admin/items/:id — 删除物品
+app.delete('/api/admin/items/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await client.query('DELETE FROM items WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: '物品不存在' });
+    }
+    res.json({ message: '物品删除成功' });
+  } catch (error) {
+    logger.error('Delete item error', { error: error.message });
+    res.status(500).json({ error: '删除物品失败' });
+  }
+});
+
 app.get('/api/admin/active-users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const today = new Date();
@@ -2589,6 +2668,25 @@ app.delete('/api/admin/orders/:id', authenticateToken, requireAdmin, async (req,
   } catch (error) {
     logger.error('Delete order error', { error: error.message });
     res.status(500).json({ error: '删除订单失败,请稍后再试' });
+  }
+});
+
+// GET /api/admin/users/:id/items — 获取用户背包物品
+app.get('/api/admin/users/:id/items', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await client.query(
+      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.grow_time, i.base_yield, i.buy_price, i.sell_price, i.currency_type
+       FROM user_items ui
+       JOIN items i ON ui.item_id = i.id
+       WHERE ui.user_id = $1 AND ui.quantity > 0
+       ORDER BY i.item_type, i.rarity, i.id`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Get admin user items error', { error: error.message });
+    res.status(500).json({ error: '获取用户背包失败' });
   }
 });
 

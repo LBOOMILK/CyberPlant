@@ -279,8 +279,7 @@ async function handleAddAdmin() {
         email: newAdmin.value.email,
         password: newAdmin.value.password,
         confirmPassword: newAdmin.value.confirmPassword,
-        role: 'admin',
-        points: 0
+        role: 'admin'
       })
     })
     
@@ -410,16 +409,6 @@ function cancelDeleteAdmin() {
 }
 
 function handleLogout() {
-  // 清除当前用户的本地存储数据
-  const userId = localStorage.getItem('user_id')
-  if (userId) {
-    localStorage.removeItem(`user_${userId}_points`)
-    localStorage.removeItem(`user_${userId}_seeds`)
-    localStorage.removeItem(`user_${userId}_crops`)
-    localStorage.removeItem(`user_${userId}_username`)
-  }
-  
-  // 清除认证信息
   localStorage.removeItem('auth_token')
   localStorage.removeItem('user_id')
   localStorage.removeItem('user_role')

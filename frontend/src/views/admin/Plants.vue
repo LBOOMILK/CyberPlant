@@ -4,70 +4,125 @@
     <AdminSidebar />
     
     <div class="admin-content">
-      <h1>植物管理</h1>
+      <h1>物品管理</h1>
       
       <div class="action-bar">
-        <button class="add-btn" @click="showAddModal = true">添加商品</button>
+        <button class="add-btn" @click="showAddModal = true">添加物品</button>
       </div>
       
-      <div class="plants-grid">
-        <div v-for="plant in plants" :key="plant.id" class="plant-card">
-          <div class="plant-icon">{{ plant.icon }}</div>
-          <h3>{{ plant.name }}</h3>
-          <p class="plant-rarity">{{ plant.rarity }}</p>
-          <p class="plant-price">{{ plant.price }}积分</p>
-          <div class="plant-actions">
-            <button class="edit-btn" @click="openEditModal(plant)">编辑</button>
-            <button class="delete-btn" @click="showDeleteModal(plant.id)">删除</button>
-          </div>
-        </div>
+      <div class="items-table">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>图标</th>
+              <th>名称</th>
+              <th>类型</th>
+              <th>稀有度</th>
+              <th>生长/秒</th>
+              <th>基础产量</th>
+              <th>购买价</th>
+              <th>出售价</th>
+              <th>货币</th>
+              <th>商店</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in items" :key="item.id">
+              <td>{{ item.id }}</td>
+              <td class="icon-cell">{{ item.icon }}</td>
+              <td>{{ item.name }}</td>
+              <td>{{ itemTypeName(item.item_type) }}</td>
+              <td><span :class="['item-rarity', item.rarity]">{{ item.rarity }}</span></td>
+              <td>{{ item.grow_time || '-' }}</td>
+              <td>{{ item.base_yield || '-' }}</td>
+              <td>{{ item.buy_price }}</td>
+              <td>{{ item.sell_price }}</td>
+              <td>{{ currencyName(item.currency_type) }}</td>
+              <td>{{ item.is_shop ? '✅' : '❌' }}</td>
+              <td>
+                <div class="action-buttons">
+                  <button class="edit-btn" @click="openEditModal(item)">编辑</button>
+                  <button class="delete-btn" @click="showDeleteModal(item.id)">删除</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       
-      <!-- 删除确认弹窗 -->
-      <Modal
-        :visible="showDeleteModalVisible"
-        title="删除确认"
-        message="确定要删除这个商品吗？"
-        confirm-text="确定删除"
-        cancel-text="取消"
-        @confirm="handleDeleteConfirm"
-        @cancel="showDeleteModalVisible = false"
-      />
-      
-      <!-- 添加商品弹窗 -->
+      <!-- 添加物品弹窗 -->
       <div v-if="showAddModal" class="modal-overlay" @mousedown.self="showAddModal = false">
-        <div class="modal-content">
-          <h3>添加商品</h3>
-          <form @submit.prevent="handleAddPlant">
-            <div class="form-group">
-              <label for="name">商品名</label>
-              <input type="text" id="name" v-model="newPlant.name" required placeholder="请输入商品名">
+        <div class="modal-content wide-modal">
+          <h3>添加物品</h3>
+          <form @submit.prevent="handleAddItem">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="name">物品名</label>
+                <input type="text" id="name" v-model="newItem.name" required placeholder="请输入物品名">
+              </div>
+              <div class="form-group">
+                <label for="icon">图标 (Emoji)</label>
+                <input type="text" id="icon" v-model="newItem.icon" placeholder="🌱">
+              </div>
             </div>
-            <div class="form-group">
-              <label for="icon">商品图 (Emoji)</label>
-              <input type="text" id="icon" v-model="newPlant.icon" required placeholder="请输入Emoji">
-              <p class="hint">例如：🌱 🌿 🌻 🌸</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="item_type">物品类型</label>
+                <select id="item_type" v-model="newItem.item_type" required>
+                  <option value="seed">🌱 种子</option>
+                  <option value="fertilizer">🧪 肥料</option>
+                  <option value="pet_food">🍖 宠物粮</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="rarity">稀有度</label>
+                <select id="rarity" v-model="newItem.rarity" required>
+                  <option value="C">C - 普通</option>
+                  <option value="B">B - 稀有</option>
+                  <option value="A">A - 史诗</option>
+                  <option value="S">S - 传说</option>
+                  <option value="SSS">SSS - 神话</option>
+                </select>
+              </div>
             </div>
-            <div class="form-group">
-              <label for="rarity">稀有度</label>
-              <select id="rarity" v-model="newPlant.rarity" required>
-                <option value="C">C - 普通</option>
-                <option value="B">B - 稀有</option>
-                <option value="A">A - 史诗</option>
-                <option value="S">S - 传说</option>
-                <option value="SSS" v-if="newPlant.plants_role !== 'use'">SSS - 神话</option>
-              </select>
+            <div class="form-row" v-if="newItem.item_type === 'seed'">
+              <div class="form-group">
+                <label for="grow_time">生长时间(秒)</label>
+                <input type="number" id="grow_time" v-model.number="newItem.grow_time" min="0" placeholder="60">
+              </div>
+              <div class="form-group">
+                <label for="base_yield">基础产量</label>
+                <input type="number" id="base_yield" v-model.number="newItem.base_yield" min="0" placeholder="1">
+              </div>
             </div>
-            <div class="form-group">
-              <label for="plants_role">商品类型</label>
-              <select id="plants_role" v-model="newPlant.plants_role" required>
-                <option value="seed">种子</option>
-                <option value="use">可使用物品</option>
-              </select>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="buy_price">购买价格</label>
+                <input type="number" id="buy_price" v-model.number="newItem.buy_price" min="0" placeholder="0">
+              </div>
+              <div class="form-group">
+                <label for="sell_price">出售价格</label>
+                <input type="number" id="sell_price" v-model.number="newItem.sell_price" min="0" placeholder="0">
+              </div>
             </div>
-            <div class="form-group">
-              <label for="price">积分价格</label>
-              <input type="number" id="price" v-model="newPlant.price" required placeholder="请输入积分价格" min="1">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="currency_type">货币类型</label>
+                <select id="currency_type" v-model="newItem.currency_type">
+                  <option value="silver_coin">🪙 银币</option>
+                  <option value="gold_coin">🥇 金币</option>
+                  <option value="diamond">💎 钻石</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="is_shop">商店出售</label>
+                <select id="is_shop" v-model="newItem.is_shop">
+                  <option :value="true">是</option>
+                  <option :value="false">否</option>
+                </select>
+              </div>
             </div>
             <div class="modal-actions">
               <button type="button" class="cancel-btn" @click="showAddModal = false">取消</button>
@@ -77,40 +132,77 @@
         </div>
       </div>
       
-      <!-- 编辑商品弹窗 -->
+      <!-- 编辑物品弹窗 -->
       <div v-if="showEditModal" class="modal-overlay" @mousedown.self="showEditModal = false">
-        <div class="modal-content">
-          <h3>编辑商品</h3>
-          <form @submit.prevent="handleEditPlant">
-            <div class="form-group">
-              <label for="edit-name">商品名</label>
-              <input type="text" id="edit-name" v-model="currentPlant.name" required placeholder="请输入商品名">
+        <div class="modal-content wide-modal">
+          <h3>编辑物品</h3>
+          <form @submit.prevent="handleEditItem">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-name">物品名</label>
+                <input type="text" id="edit-name" v-model="currentItem.name" required placeholder="请输入物品名">
+              </div>
+              <div class="form-group">
+                <label for="edit-icon">图标 (Emoji)</label>
+                <input type="text" id="edit-icon" v-model="currentItem.icon" placeholder="🌱">
+              </div>
             </div>
-            <div class="form-group">
-              <label for="edit-icon">商品图 (Emoji)</label>
-              <input type="text" id="edit-icon" v-model="currentPlant.icon" required placeholder="请输入Emoji">
-              <p class="hint">例如：🌱 🌾 🍃</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-item_type">物品类型</label>
+                <select id="edit-item_type" v-model="currentItem.item_type" required>
+                  <option value="seed">🌱 种子</option>
+                  <option value="fertilizer">🧪 肥料</option>
+                  <option value="pet_food">🍖 宠物粮</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-rarity">稀有度</label>
+                <select id="edit-rarity" v-model="currentItem.rarity" required>
+                  <option value="C">C - 普通</option>
+                  <option value="B">B - 稀有</option>
+                  <option value="A">A - 史诗</option>
+                  <option value="S">S - 传说</option>
+                  <option value="SSS">SSS - 神话</option>
+                </select>
+              </div>
             </div>
-            <div class="form-group">
-              <label for="edit-rarity">稀有度</label>
-              <select id="edit-rarity" v-model="currentPlant.rarity" required>
-                <option value="C">C - 普通</option>
-                <option value="B">B - 稀有</option>
-                <option value="A">A - 史诗</option>
-                <option value="S">S - 传说</option>
-                <option value="SSS" v-if="currentPlant.plants_role !== 'use'">SSS - 神话</option>
-              </select>
+            <div class="form-row" v-if="currentItem.item_type === 'seed'">
+              <div class="form-group">
+                <label for="edit-grow_time">生长时间(秒)</label>
+                <input type="number" id="edit-grow_time" v-model.number="currentItem.grow_time" min="0">
+              </div>
+              <div class="form-group">
+                <label for="edit-base_yield">基础产量</label>
+                <input type="number" id="edit-base_yield" v-model.number="currentItem.base_yield" min="0">
+              </div>
             </div>
-            <div class="form-group">
-              <label for="edit-plants_role">商品类型</label>
-              <select id="edit-plants_role" v-model="currentPlant.plants_role" required>
-                <option value="seed">种子</option>
-                <option value="use">肥料</option>
-              </select>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-buy_price">购买价格</label>
+                <input type="number" id="edit-buy_price" v-model.number="currentItem.buy_price" min="0">
+              </div>
+              <div class="form-group">
+                <label for="edit-sell_price">出售价格</label>
+                <input type="number" id="edit-sell_price" v-model.number="currentItem.sell_price" min="0">
+              </div>
             </div>
-            <div class="form-group">
-              <label for="edit-price">积分价格</label>
-              <input type="number" id="edit-price" v-model="currentPlant.price" required placeholder="请输入积分价格" min="1">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-currency_type">货币类型</label>
+                <select id="edit-currency_type" v-model="currentItem.currency_type">
+                  <option value="silver_coin">🪙 银币</option>
+                  <option value="gold_coin">🥇 金币</option>
+                  <option value="diamond">💎 钻石</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-is_shop">商店出售</label>
+                <select id="edit-is_shop" v-model="currentItem.is_shop">
+                  <option :value="true">是</option>
+                  <option :value="false">否</option>
+                </select>
+              </div>
             </div>
             <div class="modal-actions">
               <button type="button" class="cancel-btn" @click="showEditModal = false">取消</button>
@@ -119,193 +211,175 @@
           </form>
         </div>
       </div>
+      
+      <!-- 删除确认弹窗 -->
+      <div v-if="showDeleteModalVisible" class="modal-overlay" @mousedown.self="cancelDeleteItem">
+        <div class="modal-content">
+          <h3>⚠️ 删除物品</h3>
+          <p>确定要删除这个物品吗？</p>
+          <p class="warning-text">删除后无法恢复，已拥有该物品的用户背包数据将受影响。</p>
+          <div class="modal-actions">
+            <button class="cancel-btn" @click="cancelDeleteItem">取消</button>
+            <button class="confirm-btn" @click="confirmDeleteItem">确定删除</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
 import Toast from '@/components/Toast.vue'
 import AdminSidebar from '@/components/AdminSidebar.vue'
-import Modal from '@/components/Modal.vue'
 
-const router = useRouter()
-const plants = ref([])
+const items = ref([])
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteModalVisible = ref(false)
-const currentPlant = ref(null)
-const plantToDelete = ref(null)
-const newPlant = ref({
+const currentItem = ref(null)
+const deletingItemId = ref(null)
+const toastRef = ref(null)
+
+const newItem = ref({
   name: '',
   icon: '',
   rarity: 'C',
-  plants_role: 'seed',
-  price: 0
-})
-const toastRef = ref(null)
-
-// 监听商品类型变化，当选择可使用物品时自动切换稀有度
-watch(() => newPlant.value.plants_role, (newRole) => {
-  if (newRole === 'use' && newPlant.value.rarity === 'SSS') {
-    newPlant.value.rarity = 'S'
-  }
+  item_type: 'seed',
+  grow_time: 0,
+  base_yield: 0,
+  buy_price: 0,
+  sell_price: 0,
+  currency_type: 'silver_coin',
+  is_shop: true
 })
 
-// 加载植物数据
-async function loadPlants() {
+function itemTypeName(type) {
+  const map = { seed: '🌱 种子', fertilizer: '🧪 肥料', pet_food: '🍖 宠物粮' }
+  return map[type] || type
+}
+
+function currencyName(type) {
+  const map = { silver_coin: '🪙 银币', gold_coin: '🥇 金币', diamond: '💎 钻石' }
+  return map[type] || type
+}
+
+// 加载物品数据
+async function loadItems() {
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants`)
-    if (!response.ok) {
-      throw new Error('获取植物列表失败')
-    }
-    const data = await response.json()
-    plants.value = data
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/items/all`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (!response.ok) throw new Error('获取物品列表失败')
+    items.value = await response.json()
   } catch (error) {
-    console.error('Failed to load plants:', error)
-    plants.value = []
-    if (toastRef.value) {
-      toastRef.value.addToast(error.message || '加载植物数据失败，请检查网络连接', 'error')
-    }
+    console.error('Failed to load items:', error)
+    items.value = []
+    if (toastRef.value) toastRef.value.addToast(error.message || '加载物品数据失败', 'error')
   }
 }
 
-// 处理添加商品
-async function handleAddPlant() {
+// 添加物品
+async function handleAddItem() {
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants`, {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/items`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify(newPlant.value)
+      body: JSON.stringify(newItem.value)
     })
-    
     if (response.ok) {
-      const addedPlant = await response.json()
-      plants.value.push(addedPlant)
       showAddModal.value = false
-      // 重置表单
-      newPlant.value = {
-        name: '',
-        icon: '',
-        rarity: 'C',
-        plants_role: 'seed',
-        price: 0
-      }
-      if (toastRef.value) {
-        toastRef.value.addToast('添加商品成功', 'success')
-      }
+      newItem.value = { name: '', icon: '', rarity: 'C', item_type: 'seed', grow_time: 0, base_yield: 0, buy_price: 0, sell_price: 0, currency_type: 'silver_coin', is_shop: true }
+      await loadItems()
+      if (toastRef.value) toastRef.value.addToast('添加物品成功', 'success')
     } else {
       const errorData = await response.json()
-      if (toastRef.value) {
-        toastRef.value.addToast(errorData.error || '添加商品失败', 'error')
-      }
+      if (toastRef.value) toastRef.value.addToast(errorData.error || '添加物品失败', 'error')
     }
   } catch (error) {
-    console.error('Error adding plant:', error)
-    if (toastRef.value) {
-      toastRef.value.addToast('网络错误，请稍后再试', 'error')
-    }
+    console.error('Error adding item:', error)
+    if (toastRef.value) toastRef.value.addToast('网络错误，请稍后再试', 'error')
   }
 }
 
 // 打开编辑弹窗
-function openEditModal(plant) {
-  currentPlant.value = { ...plant }
+function openEditModal(item) {
+  currentItem.value = { ...item }
   showEditModal.value = true
 }
 
-// 处理编辑商品
-async function handleEditPlant() {
-  if (!currentPlant.value) return
-  
+// 编辑物品
+async function handleEditItem() {
+  if (!currentItem.value) return
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants/${currentPlant.value.id}`, {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/items/${currentItem.value.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify(currentPlant.value)
+      body: JSON.stringify(currentItem.value)
     })
-    
     if (response.ok) {
-      const updatedPlant = await response.json()
-      const index = plants.value.findIndex(p => p.id === updatedPlant.id)
-      if (index !== -1) {
-        plants.value[index] = updatedPlant
-      }
+      const updatedItem = await response.json()
+      const index = items.value.findIndex(i => i.id === updatedItem.id)
+      if (index !== -1) items.value[index] = updatedItem
       showEditModal.value = false
-      currentPlant.value = null
-      if (toastRef.value) {
-        toastRef.value.addToast('更新商品成功', 'success')
-      }
+      currentItem.value = null
+      if (toastRef.value) toastRef.value.addToast('更新物品成功', 'success')
     } else {
       const errorData = await response.json()
-      if (toastRef.value) {
-        toastRef.value.addToast(errorData.error || '更新商品失败', 'error')
-      }
+      if (toastRef.value) toastRef.value.addToast(errorData.error || '更新物品失败', 'error')
     }
   } catch (error) {
-    console.error('Error updating plant:', error)
-    if (toastRef.value) {
-      toastRef.value.addToast('网络错误，请稍后再试', 'error')
-    }
+    console.error('Error updating item:', error)
+    if (toastRef.value) toastRef.value.addToast('网络错误，请稍后再试', 'error')
   }
 }
 
-// 显示删除确认弹窗
-function showDeleteModal(plantId) {
-  plantToDelete.value = plantId
+// 删除相关
+function showDeleteModal(itemId) {
+  deletingItemId.value = itemId
   showDeleteModalVisible.value = true
 }
 
-// 处理删除商品
-async function handleDeleteConfirm() {
-  if (!plantToDelete.value) return
-  
+function cancelDeleteItem() {
+  showDeleteModalVisible.value = false
+  deletingItemId.value = null
+}
+
+async function confirmDeleteItem() {
+  if (!deletingItemId.value) return
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/plants/${plantToDelete.value}`, {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/items/${deletingItemId.value}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     })
-    
     if (response.ok) {
-      plants.value = plants.value.filter(p => p.id !== plantToDelete.value)
-      if (toastRef.value) {
-        toastRef.value.addToast('删除商品成功', 'success')
-      }
+      items.value = items.value.filter(i => i.id !== deletingItemId.value)
+      if (toastRef.value) toastRef.value.addToast('删除物品成功', 'success')
     } else {
       const errorData = await response.json()
-      if (toastRef.value) {
-        toastRef.value.addToast(errorData.error || '删除商品失败', 'error')
-      }
+      if (toastRef.value) toastRef.value.addToast(errorData.error || '删除物品失败', 'error')
     }
   } catch (error) {
-    console.error('Error deleting plant:', error)
-    if (toastRef.value) {
-      toastRef.value.addToast('网络错误，请稍后再试', 'error')
-    }
+    console.error('Error deleting item:', error)
+    if (toastRef.value) toastRef.value.addToast('网络错误，请稍后再试', 'error')
   } finally {
     showDeleteModalVisible.value = false
-    plantToDelete.value = null
+    deletingItemId.value = null
   }
 }
 
-function handleLogout() {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('user_role')
-  router.push('/admin/login')
-}
-
-// 生命周期
 onMounted(() => {
-  loadPlants()
+  loadItems()
 })
 </script>
 
@@ -314,130 +388,6 @@ onMounted(() => {
   display: flex;
   min-height: 100vh;
   background: #f5f5f5;
-}
-
-.admin-sidebar {
-  width: 200px;
-  background: #2c5a2a;
-  color: white;
-  padding: 20px;
-}
-
-.admin-sidebar h2 {
-  margin: 0 0 32px 0;
-  font-size: 1.5rem;
-}
-
-.admin-sidebar ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.admin-sidebar ul li {
-  margin-bottom: 12px;
-  padding: 12px 16px 12px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  position: relative;
-}
-
-.admin-sidebar ul li::before {
-  content: '•';
-  position: absolute;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-}
-
-.admin-sidebar ul li:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.admin-sidebar ul li a {
-  color: white;
-  text-decoration: none;
-  display: block;
-}
-
-/* 二级菜单样式 */
-.menu-item {
-  position: relative;
-}
-
-.menu-title {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 12px 24px;
-  border-radius: 8px;
-  transition: background-color 0.2s ease;
-  position: relative;
-}
-
-.menu-title::before {
-  content: '•';
-  position: absolute;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-}
-
-.menu-title:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.menu-arrow {
-  transition: transform 0.2s ease;
-  font-size: 0.8rem;
-}
-
-.menu-arrow.open {
-  transform: rotate(90deg);
-}
-
-.sub-menu {
-  margin: 8px 0 0 24px;
-  padding: 0;
-  list-style: none;
-  position: relative;
-}
-
-.sub-menu::before {
-  content: '';
-  position: absolute;
-  left: 12px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.sub-menu li {
-  margin-bottom: 4px;
-  padding: 8px 12px 8px 24px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  position: relative;
-}
-
-.sub-menu li::before {
-  content: '•';
-  position: absolute;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-}
-
-.sub-menu li:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.sub-menu li a {
-  display: block;
-  color: rgba(255, 255, 255, 0.9);
 }
 
 .admin-content {
@@ -456,7 +406,6 @@ onMounted(() => {
   margin-bottom: 24px;
   justify-content: flex-end;
 }
-
 
 .add-btn {
   padding: 12px 24px;
@@ -496,10 +445,23 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+.wide-modal {
+  max-width: 640px;
+}
+
 .modal-content h3 {
   margin: 0 0 24px 0;
   color: #1d6ed7;
   text-align: center;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-row .form-group {
+  flex: 1;
 }
 
 .form-group {
@@ -529,12 +491,6 @@ onMounted(() => {
 .form-group select:focus {
   outline: none;
   border-color: #4caf50;
-}
-
-.hint {
-  margin: 8px 0 0 0;
-  font-size: 0.9rem;
-  color: #999;
 }
 
 .modal-actions {
@@ -573,62 +529,66 @@ onMounted(() => {
   background: #388e3c;
 }
 
-.plants-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 24px;
+.warning-text {
+  color: #f44336;
+  font-weight: bold;
 }
 
-.plant-card {
+/* 表格样式 */
+.items-table {
   background: white;
-  padding: 24px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
 }
 
-.plant-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.items-table table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.plant-icon {
-  font-size: 3rem;
-  margin-bottom: 16px;
-}
-
-.plant-card h3 {
-  margin: 0 0 8px 0;
-  color: #333;
-}
-
-.plant-rarity {
-  margin: 0 0 8px 0;
+.items-table th,
+.items-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
   font-size: 0.9rem;
-  color: #666;
 }
 
-.plant-price {
-  margin: 0 0 16px 0;
-  font-size: 1.2rem;
+.items-table th {
+  background: #f5f5f5;
   font-weight: bold;
-  color: #1d6ed7;
+  color: #333;
+  white-space: nowrap;
 }
 
-.plant-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
+.items-table tr:hover {
+  background: #f9f9f9;
 }
+
+.icon-cell {
+  font-size: 1.4rem;
+}
+
+.item-rarity {
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.item-rarity.C { background: #9e9e9e; color: white; }
+.item-rarity.B { background: #4caf50; color: white; }
+.item-rarity.A { background: #2196f3; color: white; }
+.item-rarity.S { background: #9c27b0; color: white; }
+.item-rarity.SSS { background: #ff9800; color: white; }
 
 .edit-btn,
 .delete-btn {
-  flex: 1;
-  padding: 8px;
+  padding: 6px 12px;
   border: none;
   border-radius: 4px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
@@ -651,83 +611,76 @@ onMounted(() => {
   background: #d32f2f;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 6px;
+}
+
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .admin-page {
     background: #1a1a1a;
   }
-  
-  .admin-sidebar {
-    background: #1a3a1a;
-  }
-  
+
   .admin-content h1 {
     color: #1d6ed7;
   }
-  
-  .search-bar input {
-    background: #2a2a2a;
-    border-color: #444;
-    color: #e0e0e0;
-  }
-  
-  .plant-card {
+
+  .items-table {
     background: #2a2a2a;
   }
-  
-  .plant-card h3 {
+
+  .items-table th {
+    background: #3a3a3a;
     color: #e0e0e0;
   }
-  
-  .plant-rarity {
-    color: #aaa;
+
+  .items-table td {
+    border-bottom: 1px solid #3a3a3a;
+    color: #e0e0e0;
   }
-  
-  .plant-price {
-    color: #1d6ed7;
+
+  .items-table tr:hover {
+    background: #333;
   }
-  
+
   .modal-content {
     background: #2a2a2a;
     color: #e0e0e0;
   }
-  
+
   .modal-content h3 {
     color: #1d6ed7;
   }
-  
+
   .form-group label {
     color: #e0e0e0;
   }
-  
+
   .form-group input,
   .form-group select {
     background: #3a3a3a;
     border-color: #444;
     color: #e0e0e0;
   }
-  
+
   .form-group input:focus,
   .form-group select:focus {
     border-color: #1d6ed7;
   }
-  
-  .hint {
-    color: #777;
-  }
-  
+
   .cancel-btn {
     background: #555;
   }
-  
+
   .cancel-btn:hover {
     background: #444;
   }
-  
+
   .confirm-btn {
     background: #388e3c;
   }
-  
+
   .confirm-btn:hover {
     background: #2e7d32;
   }

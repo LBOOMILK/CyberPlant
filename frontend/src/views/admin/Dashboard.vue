@@ -56,18 +56,20 @@ const toastRef = ref(null)
 const showLogoutModal = ref(false)
 const stats = ref({
   totalUsers: 0,
-  totalPlants: 0,
-  totalSeeds: 0,
-  totalPoints: 0,
+  totalItems: 0,
+  totalSilverCoin: 0,
+  totalGoldCoin: 0,
+  totalDiamond: 0,
   totalOrders: 0,
   todayActiveUsers: 0
 })
 const currentStatIndex = ref(0)
-const statTypes = ['totalPlants', 'totalSeeds', 'totalPoints']
+const statTypes = ['totalItems', 'totalSilverCoin', 'totalGoldCoin', 'totalDiamond']
 const statLabels = {
-  totalPlants: '总植物数',
-  totalSeeds: '总种子数',
-  totalPoints: '总积分'
+  totalItems: '总物品数',
+  totalSilverCoin: '总银币',
+  totalGoldCoin: '总金币',
+  totalDiamond: '总钻石'
 }
 const recentActivity = ref([])
 
@@ -102,19 +104,20 @@ async function fetchDashboardData() {
     const usersData = await usersResponse.json()
     stats.value.totalUsers = usersData.length
 
-    // 获取植物数量
-    const plantsResponse = await fetch(`${import.meta.env.VITE_API_URL}/plants`)
-    const plantsData = await plantsResponse.json()
-    stats.value.totalPlants = plantsData.length
+    // 获取物品数量
+    const itemsResponse = await fetch(`${import.meta.env.VITE_API_URL}/items/all`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    const itemsData = await itemsResponse.json()
+    stats.value.totalItems = itemsData.length
 
-    // 计算总种子数（这里使用模拟数据，实际应从数据库中获取）
-    // 假设每个用户平均有10个种子
-    stats.value.totalSeeds = usersData.length * 10
-
-    // 计算总积分（从用户数据中获取，排除管理员）
-    stats.value.totalPoints = usersData
-      .filter(user => user.role !== 'admin')
-      .reduce((total, user) => total + (user.points || 0), 0)
+    // 计算总货币（从用户数据中获取，排除管理员）
+    const nonAdminUsers = usersData.filter(user => user.role !== 'admin')
+    stats.value.totalSilverCoin = nonAdminUsers.reduce((total, user) => total + (user.currencies?.silver_coin || 0), 0)
+    stats.value.totalGoldCoin = nonAdminUsers.reduce((total, user) => total + (user.currencies?.gold_coin || 0), 0)
+    stats.value.totalDiamond = nonAdminUsers.reduce((total, user) => total + (user.currencies?.diamond || 0), 0)
 
     // 获取订单数量
     const ordersResponse = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders`, {

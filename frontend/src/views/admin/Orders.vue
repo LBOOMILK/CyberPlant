@@ -24,7 +24,8 @@
               <th>订单ID</th>
               <th>用户ID</th>
               <th>操作类型</th>
-              <th>积分变化</th>
+              <th>货币类型</th>
+              <th>金额变化</th>
               <th>创建时间</th>
               <th>操作</th>
             </tr>
@@ -34,6 +35,7 @@
               <td>{{ order.id }}</td>
               <td>{{ order.user_id }}</td>
               <td>{{ orderTypeText(order.type) }}</td>
+              <td>{{ currencyName(order.currency_type) }}</td>
               <td :class="amountClass(order.amount)">{{ formatAmount(order.amount) }}</td>
               <td>{{ formatTime(order.created_at) }}</td>
               <td>
@@ -86,6 +88,16 @@ const deletingOrderId = ref(null)
 
 // 订单类型中文映射
 const orderTypeMap = {
+  SHOP_PURCHASE: '商店购买',
+  SHOP_SELL: '商店出售',
+  EXCHANGE: '货币兑换',
+  CURRENCY_EXCHANGE: '货币兑换',
+  CURRENCY_GIFT: '货币赠送',
+  PLOT_UNLOCK: '地块解锁',
+  PLOT_UPGRADE: '地块升级',
+  NEWBIE_PACK: '新手礼包',
+  PET_PURCHASE: '购买宠物',
+  DECORATION_PURCHASE: '购买装饰',
   PURCHASE_SEED: '购买种子',
   SELL_SEED: '卖出种子',
   SELL_CROP: '卖出作物',
@@ -96,6 +108,12 @@ const orderTypeMap = {
 // 获取订单类型中文
 function orderTypeText(type) {
   return orderTypeMap[type] || type
+}
+
+// 获取货币类型中文
+function currencyName(type) {
+  const map = { silver_coin: '🪙 银币', gold_coin: '🥇 金币', diamond: '💎 钻石' }
+  return map[type] || type || '-'
 }
 
 // 根据积分变化设置样式

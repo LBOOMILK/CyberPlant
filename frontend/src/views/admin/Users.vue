@@ -17,7 +17,9 @@
               <th>ID</th>
               <th>用户名</th>
               <th>邮箱</th>
-              <th>积分</th>
+              <th>🪙 银币</th>
+              <th>🥇 金币</th>
+              <th>💎 钻石</th>
               <th>注册时间</th>
               <th>操作</th>
             </tr>
@@ -27,7 +29,9 @@
               <td>{{ formatUserId(user.id) }}</td>
               <td>{{ user.name }}</td>
               <td>{{ user.email }}</td>
-              <td>{{ user.points || 0 }}</td>
+              <td>{{ user.currencies?.silver_coin || 0 }}</td>
+              <td>{{ user.currencies?.gold_coin || 0 }}</td>
+              <td>{{ user.currencies?.diamond || 0 }}</td>
               <td>{{ user.created_at }}</td>
               <td>
                 <div class="action-buttons">
@@ -69,10 +73,7 @@
                 </button>
               </div>
             </div>
-            <div class="form-group">
-              <label for="points">积分</label>
-              <input type="number" id="points" v-model="newUser.points" min="0" placeholder="请输入积分">
-            </div>
+
             <div class="modal-actions">
               <button type="button" class="cancel-btn" @click="showAddModal = false">取消</button>
               <button type="submit" class="confirm-btn">确认添加</button>
@@ -91,8 +92,12 @@
               <input type="email" id="edit-email" v-model="currentUser.email" required placeholder="请输入邮箱">
             </div>
             <div class="form-group">
-              <label for="edit-points">积分</label>
-              <input type="number" id="edit-points" v-model="currentUser.points" min="0" placeholder="请输入积分">
+              <label>货币余额</label>
+              <div class="currency-display">
+                <span>🪙 银币: {{ currentUser.currencies?.silver_coin || 0 }}</span>
+                <span>🥇 金币: {{ currentUser.currencies?.gold_coin || 0 }}</span>
+                <span>💎 钻石: {{ currentUser.currencies?.diamond || 0 }}</span>
+              </div>
             </div>
             <div class="modal-actions">
               <button type="button" class="cancel-btn" @click="showEditModal = false">取消</button>
@@ -129,84 +134,23 @@
         <div class="modal-content backpack-modal">
           <h3>{{ backpackUser?.name }}的背包</h3>
           
-          <div class="backpack-header">
-            <div class="tabs">
-              <button :class="{ active: backpackTab === 'seeds' }" @click="backpackTab = 'seeds'">
-                🌱 种子
-              </button>
-              <button :class="{ active: backpackTab === 'crops' }" @click="backpackTab = 'crops'">
-                🌾 作物
-              </button>
-              <button :class="{ active: backpackTab === 'uses' }" @click="backpackTab = 'uses'">
-                🧪 肥料
-              </button>
-            </div>
+          <div v-if="backpackLoading" class="loading-msg">加载中...</div>
+          
+          <div v-else-if="backpackItems.length === 0" class="empty-msg">
+            背包为空
           </div>
           
-          <!-- 种子管理 -->
-          <div v-if="backpackTab === 'seeds'" class="backpack-content">
-            <div class="backpack-items">
-              <div v-for="rarity in ['C', 'B', 'A', 'S', 'SSS']" :key="rarity" class="backpack-item">
-                <div class="item-info">
-                  <span :class="['item-rarity', rarity]">{{ rarity }}</span>
-                </div>
-                <div class="quantity-control">
-                  <button class="qty-btn minus-btn" @click="updateSeedQuantity(rarity, -1)">-</button>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    class="quantity-input" 
-                    :value="backpackUser?.seeds?.[rarity] || 0"
-                    @input="handleSeedInput(rarity, $event)"
-                    @blur="handleSeedBlur(rarity, $event)"
-                  />
-                  <button class="qty-btn plus-btn" @click="updateSeedQuantity(rarity, 1)">+</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 作物管理 -->
-          <div v-else-if="backpackTab === 'crops'" class="backpack-content">
-            <div class="backpack-items">
-              <div v-for="rarity in ['C', 'B', 'A', 'S', 'SSS']" :key="rarity" class="backpack-item">
-                <div class="item-info">
-                  <span :class="['item-rarity', rarity]">{{ rarity }}</span>
-                </div>
-                <div class="quantity-control">
-                  <button class="qty-btn minus-btn" @click="updateCropQuantity(rarity, -1)">-</button>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    class="quantity-input" 
-                    :value="backpackUser?.crops?.[rarity] || 0"
-                    @input="handleCropInput(rarity, $event)"
-                    @blur="handleCropBlur(rarity, $event)"
-                  />
-                  <button class="qty-btn plus-btn" @click="updateCropQuantity(rarity, 1)">+</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 肥料管理 -->
           <div v-else class="backpack-content">
             <div class="backpack-items">
-              <div v-for="rarity in ['C', 'B', 'A', 'S']" :key="rarity" class="backpack-item">
+              <div v-for="item in backpackItems" :key="item.item_id" class="backpack-item">
                 <div class="item-info">
-                  <span :class="['item-rarity', rarity]">{{ rarity }}</span>
+                  <span class="item-icon">{{ item.icon }}</span>
+                  <span class="item-name">{{ item.name }}</span>
+                  <span :class="['item-rarity', item.rarity]">{{ item.rarity }}</span>
+                  <span class="item-type-badge">{{ itemTypeName(item.item_type) }}</span>
                 </div>
-                <div class="quantity-control">
-                  <button class="qty-btn minus-btn" @click="updateUseQuantity(rarity, -1)">-</button>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    class="quantity-input" 
-                    :value="backpackUser?.uses?.[rarity] || 0"
-                    @input="handleUseInput(rarity, $event)"
-                    @blur="handleUseBlur(rarity, $event)"
-                  />
-                  <button class="qty-btn plus-btn" @click="updateUseQuantity(rarity, 1)">+</button>
+                <div class="item-quantity">
+                  ×{{ item.quantity }}
                 </div>
               </div>
             </div>
@@ -214,7 +158,6 @@
           
           <div class="modal-actions">
             <button type="button" class="cancel-btn" @click="showBackpackModal = false">关闭</button>
-            <button type="button" class="confirm-btn" @click="saveBackpackChanges">保存更改</button>
           </div>
         </div>
       </div>
@@ -251,8 +194,7 @@ const showPasswordModal = ref(false)
 const newUser = ref({
   email: '',
   password: '',
-  confirmPassword: '',
-  points: 0
+  confirmPassword: ''
 })
 const currentUser = ref(null)
 const currentPasswordUser = ref(null)
@@ -267,7 +209,8 @@ const showBackpackModal = ref(false)
 const showDeleteModalVisible = ref(false)
 const deletingUserId = ref(null)
 const backpackUser = ref(null)
-const backpackTab = ref('seeds')
+const backpackItems = ref([])
+const backpackLoading = ref(false)
 
 // 加载用户数据
 async function loadUsers() {
@@ -291,70 +234,18 @@ async function loadUsers() {
     data.forEach((user, index) => {
       console.log(`User ${index + 1} role:`, user.role)
     })
-    // 只显示普通用户，不显示管理员，并确保seeds和crops字段是对象格式
+    // 只显示普通用户，不显示管理员
     const filteredUsers = data.filter(user => user.role !== 'admin')
-    console.log('Filtered users:', filteredUsers)
     
-    users.value = filteredUsers.map(user => {
-      console.log('Processing user:', user)
-      // 确保seeds字段是对象格式，并且稀有度值是数字类型
-      let seeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 }
-      if (user.seeds && typeof user.seeds === 'object' && user.seeds !== null && !Array.isArray(user.seeds)) {
-        const rarities = ['C', 'B', 'A', 'S', 'SSS']
-        for (const rarity of rarities) {
-          if (user.seeds[rarity] !== undefined && !isNaN(user.seeds[rarity])) {
-            seeds[rarity] = Number(user.seeds[rarity])
-          }
-        }
-      } else {
-        // 如果user.seeds不存在或不是对象，使用默认值
-        console.log('User seeds not found or invalid, using default')
-      }
-      // 确保crops字段是对象格式，并且稀有度值是数字类型
-      let crops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 }
-      if (user.crops && typeof user.crops === 'object' && user.crops !== null && !Array.isArray(user.crops)) {
-        const rarities = ['C', 'B', 'A', 'S', 'SSS']
-        for (const rarity of rarities) {
-          if (user.crops[rarity] !== undefined && !isNaN(user.crops[rarity])) {
-            crops[rarity] = Number(user.crops[rarity])
-          }
-        }
-      } else {
-        // 如果user.crops不存在或不是对象，使用默认值
-        console.log('User crops not found or invalid, using default')
-      }
-      // 确保uses字段是对象格式，并且稀有度值是数字类型
-      let uses = { C: 0, B: 0, A: 0, S: 0 }
-      if (user.uses && typeof user.uses === 'object' && user.uses !== null && !Array.isArray(user.uses)) {
-        const rarities = ['C', 'B', 'A', 'S']
-        for (const rarity of rarities) {
-          if (user.uses[rarity] !== undefined && !isNaN(user.uses[rarity])) {
-            uses[rarity] = Number(user.uses[rarity])
-          }
-        }
-      } else {
-        // 如果user.uses不存在或不是对象，使用默认值
-        console.log('User uses not found or invalid, using default')
-      }
-      // 创建新对象，确保seeds、crops和uses字段被正确添加
-      const result = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        points: user.points || 0,
-        created_at: user.created_at,
-        seeds: seeds,
-        crops: crops,
-        uses: uses
-      }
-      console.log('Seeds:', seeds)
-      console.log('Crops:', crops)
-      console.log('Processed user seeds:', result.seeds)
-      console.log('Processed user crops:', result.crops)
-      console.log('Processed user:', result)
-      return result
-    })
+    users.value = filteredUsers.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      currencies: user.currencies || { silver_coin: 0, gold_coin: 0, diamond: 0 },
+      created_at: user.created_at,
+      last_login_at: user.last_login_at
+    }))
     
     // 按ID升序排序
     users.value.sort((a, b) => {
@@ -362,10 +253,6 @@ async function loadUsers() {
       const idB = Number(b.id)
       return idA - idB
     })
-    
-    // 打印用户数据，以便调试
-    console.log('Loaded users after map:', users.value)
-    console.log('Users value length:', users.value.length)
   } catch (error) {
     console.error('Failed to load users:', error)
     users.value = []
@@ -381,7 +268,9 @@ async function handleAddUser() {
     const token = localStorage.getItem('auth_token')
     // 确保添加的是普通用户
     const userData = {
-      ...newUser.value,
+      email: newUser.value.email,
+      password: newUser.value.password,
+      confirmPassword: newUser.value.confirmPassword,
       role: 'user'
     }
     const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
@@ -399,8 +288,7 @@ async function handleAddUser() {
       newUser.value = {
         email: '',
         password: '',
-        confirmPassword: '',
-        points: 0
+        confirmPassword: ''
       }
       // 重新加载用户列表，确保添加的用户数据格式与前端期望的格式一致
       await loadUsers()
@@ -435,7 +323,8 @@ async function handleEditUser() {
     const token = localStorage.getItem('auth_token')
     // 确保编辑的用户仍然是普通用户
     const userData = {
-      ...currentUser.value,
+      name: currentUser.value.name,
+      email: currentUser.value.email,
       role: 'user'
     }
     const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.value.id}`, {
@@ -542,9 +431,6 @@ async function handleChangePassword() {
       body: JSON.stringify({
         email: currentPasswordUser.value.email,
         role: currentPasswordUser.value.role,
-        points: currentPasswordUser.value.points,
-        seeds: currentPasswordUser.value.seeds || {},
-        crops: currentPasswordUser.value.crops || {},
         password: newPassword.value
       })
     })
@@ -585,207 +471,32 @@ function formatUserId(id) {
 
 // 背包管理相关方法
 async function openBackpackModal(user) {
-  try {
-    // 直接使用传入的用户数据，而不是从后端重新获取
-    console.log('openBackpackModal called with user:', user)
-    console.log('User type:', typeof user)
-    console.log('User keys:', Object.keys(user || {}))
-    if (!user || Object.keys(user).length === 0) {
-      console.error('User is null, undefined, or empty object')
-      if (toastRef.value) {
-        toastRef.value.addToast('用户数据不存在', 'error')
-      }
-      return
-    }
-    
-    // 根据用户ID从users数组中获取完整的用户数据
-    const fullUser = users.value.find(u => u.id === user.id)
-    console.log('Full user from users array:', fullUser)
-    
-    // 手动构建背包数据，确保seeds、crops和uses字段被正确处理
-    let seeds = { C: 0, B: 0, A: 0, S: 0, SSS: 0 }
-    let crops = { C: 0, B: 0, A: 0, S: 0, SSS: 0 }
-    let uses = { C: 0, B: 0, A: 0, S: 0 }
-    
-    // 尝试从fullUser对象中获取seeds数据
-    if (fullUser && fullUser.seeds && typeof fullUser.seeds === 'object' && fullUser.seeds !== null && !Array.isArray(fullUser.seeds)) {
-      const rarities = ['C', 'B', 'A', 'S', 'SSS']
-      for (const rarity of rarities) {
-        if (fullUser.seeds[rarity] !== undefined && !isNaN(fullUser.seeds[rarity])) {
-          seeds[rarity] = Number(fullUser.seeds[rarity])
-        }
-      }
-    }
-    
-    // 尝试从fullUser对象中获取crops数据
-    if (fullUser && fullUser.crops && typeof fullUser.crops === 'object' && fullUser.crops !== null && !Array.isArray(fullUser.crops)) {
-      const rarities = ['C', 'B', 'A', 'S', 'SSS']
-      for (const rarity of rarities) {
-        if (fullUser.crops[rarity] !== undefined && !isNaN(fullUser.crops[rarity])) {
-          crops[rarity] = Number(fullUser.crops[rarity])
-        }
-      }
-    }
-    
-    // 尝试从fullUser对象中获取uses数据
-    if (fullUser && fullUser.uses && typeof fullUser.uses === 'object' && fullUser.uses !== null && !Array.isArray(fullUser.uses)) {
-      const rarities = ['C', 'B', 'A', 'S']
-      for (const rarity of rarities) {
-        if (fullUser.uses[rarity] !== undefined && !isNaN(fullUser.uses[rarity])) {
-          uses[rarity] = Number(fullUser.uses[rarity])
-        }
-      }
-    }
-    
-    // 构建backpackUser对象
-    backpackUser.value = {
-      id: String(user.id),
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      points: user.points || 0,
-      created_at: user.created_at,
-      seeds: seeds,
-      crops: crops,
-      uses: uses
-    }
-    
-    console.log('User seeds:', user.seeds)
-    console.log('User crops:', user.crops)
-    console.log('Full user seeds:', fullUser?.seeds)
-    console.log('Full user crops:', fullUser?.crops)
-    console.log('backpackUser.value seeds:', backpackUser.value.seeds)
-    console.log('backpackUser.value crops:', backpackUser.value.crops)
-    console.log('Processed backpack data:', backpackUser.value)
-    
-    showBackpackModal.value = true
-  } catch (error) {
-    console.error('Error opening backpack modal:', error)
-    if (toastRef.value) {
-      toastRef.value.addToast('打开背包失败', 'error')
-    }
-  }
-}
+  backpackUser.value = { id: user.id, name: user.name }
+  backpackItems.value = []
+  backpackLoading.value = true
+  showBackpackModal.value = true
 
-function formatDate(dateString) {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  return date.toLocaleString()
-}
-
-const MAX_ITEM_COUNT = 999
-
-function updateSeedQuantity(rarity, delta) {
-  if (backpackUser.value && backpackUser.value.seeds) {
-    const currentValue = backpackUser.value.seeds[rarity] || 0
-    const newValue = currentValue + delta
-    backpackUser.value.seeds[rarity] = Math.min(Math.max(0, newValue), MAX_ITEM_COUNT)
-  }
-}
-
-function handleSeedInput(rarity, event) {
-  const value = parseInt(event.target.value) || 0
-  if (backpackUser.value && backpackUser.value.seeds) {
-    backpackUser.value.seeds[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
-  }
-}
-
-function handleSeedBlur(rarity, event) {
-  const value = parseInt(event.target.value) || 0
-  if (backpackUser.value && backpackUser.value.seeds) {
-    backpackUser.value.seeds[rarity] = Math.max(0, value)
-    event.target.value = backpackUser.value.seeds[rarity]
-  }
-}
-
-function updateCropQuantity(rarity, delta) {
-  if (backpackUser.value && backpackUser.value.crops) {
-    const currentValue = backpackUser.value.crops[rarity] || 0
-    const newValue = currentValue + delta
-    backpackUser.value.crops[rarity] = Math.min(Math.max(0, newValue), MAX_ITEM_COUNT)
-  }
-}
-
-function handleCropInput(rarity, event) {
-  const value = parseInt(event.target.value) || 0
-  if (backpackUser.value && backpackUser.value.crops) {
-    backpackUser.value.crops[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
-  }
-}
-
-function handleCropBlur(rarity, event) {
-  const value = parseInt(event.target.value) || 0
-  if (backpackUser.value && backpackUser.value.crops) {
-    backpackUser.value.crops[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
-    event.target.value = backpackUser.value.crops[rarity]
-  }
-}
-
-function updateUseQuantity(rarity, delta) {
-  if (backpackUser.value && backpackUser.value.uses) {
-    const currentValue = backpackUser.value.uses[rarity] || 0
-    const newValue = currentValue + delta
-    backpackUser.value.uses[rarity] = Math.min(Math.max(0, newValue), MAX_ITEM_COUNT)
-  }
-}
-
-function handleUseInput(rarity, event) {
-  const value = parseInt(event.target.value) || 0
-  if (backpackUser.value && backpackUser.value.uses) {
-    backpackUser.value.uses[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
-  }
-}
-
-function handleUseBlur(rarity, event) {
-  const value = parseInt(event.target.value) || 0
-  if (backpackUser.value && backpackUser.value.uses) {
-    backpackUser.value.uses[rarity] = Math.min(Math.max(0, value), MAX_ITEM_COUNT)
-    event.target.value = backpackUser.value.uses[rarity]
-  }
-}
-
-async function saveBackpackChanges() {
-  if (!backpackUser.value) return
-  
   try {
     const token = localStorage.getItem('auth_token')
-    const userId = String(backpackUser.value.id)
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        email: backpackUser.value.email,
-        role: backpackUser.value.role,
-        points: backpackUser.value.points,
-        seeds: backpackUser.value.seeds || {},
-        crops: backpackUser.value.crops || {},
-        uses: backpackUser.value.uses || {}
-      })
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${user.id}/items`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     })
-    
     if (response.ok) {
-      // 重新加载用户数据，确保背包数据在页面上显示出来
-      await loadUsers()
-      showBackpackModal.value = false
-      backpackUser.value = null
-      if (toastRef.value) {
-        toastRef.value.addToast('保存背包更改成功', 'success')
-      }
+      backpackItems.value = await response.json()
     } else {
-      const errorData = await response.json()
-      if (toastRef.value) {
-        toastRef.value.addToast(errorData.error || '保存背包更改失败', 'error')
-      }
+      backpackItems.value = []
     }
   } catch (error) {
-    console.error('Error saving backpack changes:', error)
-    if (toastRef.value) {
-      toastRef.value.addToast('网络错误，请稍后再试', 'error')
-    }
+    console.error('Error loading backpack:', error)
+    backpackItems.value = []
+  } finally {
+    backpackLoading.value = false
   }
+}
+
+function itemTypeName(type) {
+  const map = { seed: '🌱 种子', fertilizer: '🧪 肥料', pet_food: '🍖 宠物粮' }
+  return map[type] || type
 }
 
 // 生命周期
@@ -793,7 +504,6 @@ onMounted(() => {
   loadUsers()
 })
 </script>
-
 <style scoped>
 .admin-page {
   display: flex;
@@ -1412,6 +1122,41 @@ onMounted(() => {
   color: white;
 }
 
+.currency-display {
+  display: flex;
+  gap: 16px;
+  font-size: 0.95rem;
+  color: #333;
+  padding: 8px 0;
+}
+
+.item-icon {
+  font-size: 1.4rem;
+}
+
+.item-name {
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.item-type-badge {
+  font-size: 0.8rem;
+  color: #888;
+  margin-left: 4px;
+}
+
+.item-quantity {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #1d6ed7;
+}
+
+.loading-msg {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
 .item-time {
   font-size: 0.9rem;
   color: #666;
@@ -1453,6 +1198,18 @@ onMounted(() => {
   }
   
   .empty-msg {
+    color: #777;
+  }
+  
+  .currency-display {
+    color: #e0e0e0;
+  }
+  
+  .item-type-badge {
+    color: #aaa;
+  }
+  
+  .loading-msg {
     color: #777;
   }
 }
