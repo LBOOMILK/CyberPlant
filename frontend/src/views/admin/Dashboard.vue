@@ -169,9 +169,10 @@ onMounted(() => {
 
 .admin-content {
   flex: 1;
-  padding: 32px;
+  padding: 24px 32px;
   overflow-y: auto;
   min-height: 100vh;
+  margin-top: 0;
 }
 
 .admin-content h1 {

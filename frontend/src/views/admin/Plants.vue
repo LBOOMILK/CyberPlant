@@ -10,6 +10,7 @@
         <select v-model="filterType" class="filter-select">
           <option value="all">全部类型</option>
           <option value="seed">🌱 种子</option>
+          <option value="crop">🌾 作物</option>
           <option value="fertilizer">🧪 肥料</option>
           <option value="pet_food">🍖 宠物粮</option>
         </select>
@@ -31,6 +32,7 @@
               <th>出售价</th>
               <th>货币</th>
               <th>商店</th>
+              <th>关联作物</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -47,6 +49,7 @@
               <td>{{ item.sell_price }}</td>
               <td>{{ currencyName(item.currency_type) }}</td>
               <td>{{ item.is_shop ? '✅' : '❌' }}</td>
+              <td>{{ getCropName(item.crop_id) }}</td>
               <td>
                 <div class="action-buttons">
                   <button class="edit-btn" @click="openEditModal(item)">编辑</button>
@@ -78,6 +81,7 @@
                 <label for="item_type">物品类型</label>
                 <select id="item_type" v-model="newItem.item_type" required>
                   <option value="seed">🌱 种子</option>
+                  <option value="crop">🌾 作物</option>
                   <option value="fertilizer">🧪 肥料</option>
                   <option value="pet_food">🍖 宠物粮</option>
                 </select>
@@ -102,6 +106,20 @@
               <div class="form-group">
                 <label for="base_yield">基础产量</label>
                 <input type="number" id="base_yield" v-model.number="newItem.base_yield" min="0" placeholder="1">
+                <small class="field-hint">收获作物数量</small>
+              </div>
+            </div>
+            <!-- 作物关联选择（仅种子类型显示） -->
+            <div class="form-row" v-if="newItem.item_type === 'seed'">
+              <div class="form-group">
+                <label for="crop_id">关联作物</label>
+                <select id="crop_id" v-model="newItem.crop_id">
+                  <option :value="null">-- 无（收获种子本身）--</option>
+                  <option v-for="crop in cropItems" :key="crop.id" :value="crop.id">
+                    {{ crop.icon }} {{ crop.name }} ({{ crop.rarity }})
+                  </option>
+                </select>
+                <small class="field-hint">种子收获后获得的作物</small>
               </div>
             </div>
             <div class="form-row">
@@ -159,6 +177,7 @@
                 <label for="edit-item_type">物品类型</label>
                 <select id="edit-item_type" v-model="currentItem.item_type" required>
                   <option value="seed">🌱 种子</option>
+                  <option value="crop">🌾 作物</option>
                   <option value="fertilizer">🧪 肥料</option>
                   <option value="pet_food">🍖 宠物粮</option>
                 </select>
@@ -183,6 +202,19 @@
               <div class="form-group">
                 <label for="edit-base_yield">基础产量</label>
                 <input type="number" id="edit-base_yield" v-model.number="currentItem.base_yield" min="0">
+              </div>
+            </div>
+            <!-- 作物关联选择（仅种子类型显示） -->
+            <div class="form-row" v-if="currentItem.item_type === 'seed'">
+              <div class="form-group">
+                <label for="edit-crop_id">关联作物</label>
+                <select id="edit-crop_id" v-model="currentItem.crop_id">
+                  <option :value="null">-- 无（收获种子本身）--</option>
+                  <option v-for="crop in cropItems" :key="crop.id" :value="crop.id">
+                    {{ crop.icon }} {{ crop.name }} ({{ crop.rarity }})
+                  </option>
+                </select>
+                <small class="field-hint">种子收获后获得的作物</small>
               </div>
             </div>
             <div class="form-row">
@@ -242,6 +274,7 @@ import Toast from '@/components/Toast.vue'
 import AdminSidebar from '@/components/AdminSidebar.vue'
 
 const items = ref([])
+const cropItems = ref([])
 const filterType = ref('all')
 const showAddModal = ref(false)
 const showEditModal = ref(false)
@@ -261,21 +294,28 @@ const newItem = ref({
   rarity: 'C',
   item_type: 'seed',
   grow_time: 0,
-  base_yield: 0,
+  base_yield: 1,
   buy_price: 0,
   sell_price: 0,
   currency_type: 'silver_coin',
-  is_shop: true
+  is_shop: true,
+  crop_id: null
 })
 
 function itemTypeName(type) {
-  const map = { seed: '🌱 种子', fertilizer: '🧪 肥料', pet_food: '🍖 宠物粮' }
+  const map = { seed: '🌱 种子', crop: '🌾 作物', fertilizer: '🧪 肥料', pet_food: '🍖 宠物粮' }
   return map[type] || type
 }
 
 function currencyName(type) {
   const map = { silver_coin: '🪙 银币', gold_coin: '🥇 金币', diamond: '💎 钻石' }
   return map[type] || type
+}
+
+function getCropName(cropId) {
+  if (!cropId) return '-'
+  const crop = cropItems.value.find(c => c.id === cropId)
+  return crop ? `${crop.icon} ${crop.name}` : '-'
 }
 
 // 加载物品数据
@@ -286,10 +326,14 @@ async function loadItems() {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (!response.ok) throw new Error('获取物品列表失败')
-    items.value = await response.json()
+    const allItems = await response.json()
+    items.value = allItems
+    // 加载作物列表用于下拉选择
+    cropItems.value = allItems.filter(item => item.item_type === 'crop')
   } catch (error) {
     console.error('Failed to load items:', error)
     items.value = []
+    cropItems.value = []
     if (toastRef.value) toastRef.value.addToast(error.message || '加载物品数据失败', 'error')
   }
 }
@@ -308,7 +352,7 @@ async function handleAddItem() {
     })
     if (response.ok) {
       showAddModal.value = false
-      newItem.value = { name: '', icon: '', rarity: 'C', item_type: 'seed', grow_time: 0, base_yield: 0, buy_price: 0, sell_price: 0, currency_type: 'silver_coin', is_shop: true }
+      newItem.value = { name: '', icon: '', rarity: 'C', item_type: 'seed', grow_time: 0, base_yield: 1, buy_price: 0, sell_price: 0, currency_type: 'silver_coin', is_shop: true, crop_id: null }
       await loadItems()
       if (toastRef.value) toastRef.value.addToast('添加物品成功', 'success')
     } else {
