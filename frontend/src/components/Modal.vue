@@ -1,14 +1,20 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @mousedown.self="handleCancel">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>{{ title }}</h3>
-      </div>
-      <div class="modal-body">
-        <p class="modal-message">{{ message }}</p>
-        <div v-if="warningMessage" class="warning-message">
-          ⚠️ {{ warningMessage }}
+  <transition name="modal-fade">
+    <div v-if="visible" class="modal-overlay" @mousedown.self="handleCancel">
+      <div :class="['modal-content', `modal-size-${size}`]">
+        <div class="modal-header">
+          <slot name="header">
+            <h3>{{ title }}</h3>
+          </slot>
+          <button class="modal-close-x" @click="handleCancel">✕</button>
         </div>
+        <div class="modal-body">
+          <slot>
+            <p class="modal-message">{{ message }}</p>
+            <div v-if="warningMessage" class="warning-message">
+              ⚠️ {{ warningMessage }}
+            </div>
+          </slot>
         <div v-if="showQuantity" class="quantity-section">
           <div class="quantity-selector">
             <button @click="decreaseQuantity" class="quantity-btn" :disabled="quantity <= 1">-</button>
@@ -27,12 +33,15 @@
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="cancel-btn" @click="handleCancel">{{ cancelText }}</button>
-        <button :class="['confirm-btn', { 'confirm-btn-danger': danger }]" @click="handleConfirm">{{ confirmText }}</button>
+        <div class="modal-footer">
+          <slot name="footer">
+            <button class="cancel-btn" @click="handleCancel">{{ cancelText }}</button>
+            <button :class="['confirm-btn', { 'confirm-btn-danger': danger }]" @click="handleConfirm">{{ confirmText }}</button>
+          </slot>
+        </div>
       </div>
     </div>
-  </div>
+  </transition>
 </template>
 
 <script setup>
@@ -58,6 +67,11 @@ const props = defineProps({
   cancelText: {
     type: String,
     default: '取消'
+  },
+  size: {
+    type: String,
+    default: 'md',
+    validator: (v) => ['sm', 'md', 'lg', 'xl', 'full'].includes(v)
   },
   showQuantity: {
     type: Boolean,
@@ -155,6 +169,20 @@ function handleCancel() {
   text-align: center;
   box-shadow: 0 25px 45px rgba(0, 20, 0, 0.25);
   animation: slideUp 0.3s ease;
+  position: relative;
+}
+
+/* 尺寸变体 */
+.modal-size-sm { max-width: 320px; padding: 24px; border-radius: 32px; }
+.modal-size-md { max-width: 400px; }
+.modal-size-lg { max-width: 560px; }
+.modal-size-xl { max-width: 720px; }
+.modal-size-full { max-width: 90vw; max-height: 85vh; overflow-y: auto; }
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .modal-header h3 {
@@ -162,6 +190,24 @@ function handleCancel() {
   margin: 0 0 16px 0;
   font-size: 1.2rem;
   padding-right: 10px;
+  flex: 1;
+}
+
+.modal-close-x {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: #999;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+}
+
+.modal-close-x:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #666;
 }
 
 .modal-body {
@@ -343,6 +389,21 @@ function handleCancel() {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* 弹窗过渡动画 */
+.modal-fade-enter-active {
+  transition: opacity 0.25s ease;
+}
+.modal-fade-enter-active .modal-content {
+  animation: slideUp 0.3s ease;
+}
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
 }
 
 /* 深色模式 */

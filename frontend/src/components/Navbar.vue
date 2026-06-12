@@ -1,43 +1,76 @@
 <template>
-    <!-- 🐙 Richard was here -->
     <div class="app">
-        <!-- 右上角用户信息（登录/注册页面除外，User 页面除外，管理端页面除外） -->
-        <div 
-            v-if="!isAuthPage && !isAdminPage && $route.path !== '/dashboard/user'" 
-            class="user-info"
-            :class="{ 'dragging': isUserInfoDragging }"
-            :style="userInfoStyle"
+        <!-- 顶部信息栏（登录/注册/管理端页面除外） -->
+        <div
+            v-if="!isAuthPage && !isAdminPage && $route.path !== '/dashboard/user'"
+            class="top-bar"
         >
-            <span class="username">🌱 {{ userStore.username }}</span>
-            <span class="points">⭐ {{ userStore.totalPoints }} 积分</span>
-            <div class="user-info-drag-handle" @mousedown="startUserInfoDrag" @touchstart="startUserInfoDrag">
-                <span>⠿</span>
+            <div class="top-bar-left">
+                <span class="top-username">🌱 {{ userStore.username }}</span>
+            </div>
+            <div class="top-bar-right">
+                <CurrencyBar />
             </div>
         </div>
+
         <!-- 路由视图 -->
         <main class="main-content">
-            <router-view />
+            <router-view v-slot="{ Component }">
+                <transition name="page-fade" mode="out-in">
+                    <component :is="Component" />
+                </transition>
+            </router-view>
         </main>
 
-        <!-- 移动端底部导航栏（登录/注册页面除外，管理端页面除外） -->
-        <nav v-if="!isAuthPage && !isAdminPage" class="bottom-nav" :class="{ 'hidden': !isMobile }">
-            <router-link to="/dashboard/garden">🌱 花园</router-link>
-            <router-link to="/dashboard/shop">🛒 商城</router-link>
-            <router-link to="/dashboard/backpack">🎒 背包</router-link>
-            <router-link to="/dashboard/pets">🐾 宠物</router-link>
-            <router-link to="/dashboard/friends">👥 好友</router-link>
-            <router-link to="/dashboard/orders">📋 订单</router-link>
-            <router-link to="/dashboard/user">👤 我的</router-link>
+        <!-- 移动端汉堡菜单按钮（登录/注册页面除外，管理端页面除外） -->
+        <button
+            v-if="!isAuthPage && !isAdminPage && isMobile"
+            class="hamburger-btn"
+            :class="{ open: mobileMenuOpen }"
+            @click="mobileMenuOpen = !mobileMenuOpen"
+        >
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <!-- 移动端底部导航栏 -->
+        <nav v-if="!isAuthPage && !isAdminPage" class="bottom-nav" :class="{ expanded: mobileMenuOpen }">
+            <router-link to="/dashboard/garden" class="nav-link" @click="mobileMenuOpen = false">
+                <span class="nav-emoji">🌱</span>
+                <span class="nav-text">花园</span>
+            </router-link>
+            <router-link to="/dashboard/shop" class="nav-link" @click="mobileMenuOpen = false">
+                <span class="nav-emoji">🛒</span>
+                <span class="nav-text">商店</span>
+            </router-link>
+            <router-link to="/dashboard/backpack" class="nav-link" @click="mobileMenuOpen = false">
+                <span class="nav-emoji">🎒</span>
+                <span class="nav-text">背包</span>
+            </router-link>
+            <router-link to="/dashboard/friends" class="nav-link" @click="mobileMenuOpen = false">
+                <span class="nav-emoji">👥</span>
+                <span class="nav-text">好友</span>
+                <span v-if="friendStore.pendingRequests.length > 0" class="badge">{{ friendStore.pendingRequests.length }}</span>
+            </router-link>
+            <router-link to="/dashboard/pets" class="nav-link" @click="mobileMenuOpen = false">
+                <span class="nav-emoji">🐾</span>
+                <span class="nav-text">宠物</span>
+            </router-link>
+            <router-link to="/dashboard/user" class="nav-link" @click="mobileMenuOpen = false">
+                <span class="nav-emoji">👤</span>
+                <span class="nav-text">个人</span>
+            </router-link>
         </nav>
 
         <!-- 宠物悬浮组件 -->
         <PetFloating />
 
-        <!-- 平板/PC 端悬浮胶囊导航栏（登录/注册页面除外，管理端页面除外） -->
-        <nav 
-            v-if="!isAuthPage && !isAdminPage" 
-            class="floating-nav" 
-            :class="{ 'visible': !isMobile, 'dragging': isDragging }"
+        <!-- 平板/PC 端悬浮胶囊导航栏 -->
+        <nav
+            v-if="!isAuthPage && !isAdminPage"
+            class="floating-nav"
+            :class="{ visible: !isMobile, dragging: isDragging }"
             :style="navStyle"
         >
             <div class="nav-capsule">
@@ -47,23 +80,20 @@
                 </router-link>
                 <router-link to="/dashboard/shop" class="nav-item" :class="{ active: $route.path === '/dashboard/shop' }">
                     <span class="nav-icon">🛒</span>
-                    <span class="nav-label">商城</span>
+                    <span class="nav-label">商店</span>
                 </router-link>
                 <router-link to="/dashboard/backpack" class="nav-item" :class="{ active: $route.path === '/dashboard/backpack' }">
                     <span class="nav-icon">🎒</span>
                     <span class="nav-label">背包</span>
                 </router-link>
-                <router-link to="/dashboard/pets" class="nav-item" :class="{ active: $route.path === '/dashboard/pets' }">
-                    <span class="nav-icon">🐾</span>
-                    <span class="nav-label">宠物</span>
-                </router-link>
                 <router-link to="/dashboard/friends" class="nav-item" :class="{ active: $route.path === '/dashboard/friends' }">
                     <span class="nav-icon">👥</span>
                     <span class="nav-label">好友</span>
+                    <span v-if="friendStore.pendingRequests.length > 0" class="badge">{{ friendStore.pendingRequests.length }}</span>
                 </router-link>
-                <router-link to="/dashboard/orders" class="nav-item" :class="{ active: $route.path === '/dashboard/orders' }">
-                    <span class="nav-icon">📋</span>
-                    <span class="nav-label">订单</span>
+                <router-link to="/dashboard/pets" class="nav-item" :class="{ active: $route.path === '/dashboard/pets' }">
+                    <span class="nav-icon">🐾</span>
+                    <span class="nav-label">宠物</span>
                 </router-link>
                 <router-link to="/dashboard/user" class="nav-item" :class="{ active: $route.path === '/dashboard/user' }">
                     <span class="nav-icon">👤</span>
@@ -74,6 +104,12 @@
                 <span class="drag-icon">⠿</span>
             </div>
         </nav>
+
+        <!-- 新手欢迎弹窗 -->
+        <WelcomeModal
+            :visible="showWelcome"
+            @close="showWelcome = false"
+        />
     </div>
 </template>
 
@@ -81,15 +117,23 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
+import { useFriendStore } from '@/stores/friendStore'
+import CurrencyBar from './CurrencyBar.vue'
 import PetFloating from './PetFloating.vue'
+import WelcomeModal from './WelcomeModal.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
+const friendStore = useFriendStore()
 
 // 响应式判断是否为移动端
 const isMobile = ref(window.innerWidth < 768)
+const mobileMenuOpen = ref(false)
 
-// 判断是否为登录/注册页面（包含登录选择页面）
+// 新手欢迎
+const showWelcome = ref(false)
+
+// 判断是否为登录/注册页面
 const isAuthPage = computed(() => {
     return route.path === '/' || route.path === '/login' || route.path === '/register'
 })
@@ -101,6 +145,7 @@ const isAdminPage = computed(() => {
 
 const handleResize = () => {
     isMobile.value = window.innerWidth < 768
+    if (!isMobile.value) mobileMenuOpen.value = false
 }
 
 // 悬浮导航拖动相关状态
@@ -132,7 +177,6 @@ const onNavDrag = (e) => {
     const touch = e.touches ? e.touches[0] : e
     const newX = touch.clientX - navDragOffset.value.x
     const newY = touch.clientY - navDragOffset.value.y
-    
     navPosition.value = {
         x: Math.max(0, Math.min(newX, window.innerWidth - 400)),
         y: Math.max(0, Math.min(newY, window.innerHeight - 80))
@@ -147,55 +191,20 @@ const stopNavDrag = () => {
     document.removeEventListener('touchend', stopNavDrag)
 }
 
-// 用户信息拖动相关状态
-const isUserInfoDragging = ref(false)
-const userInfoPosition = ref({ x: 20, y: 16 })
-const userInfoDragOffset = ref({ x: 0, y: 0 })
-
-const userInfoStyle = computed(() => ({
-    right: `${userInfoPosition.value.x}px`,
-    top: `${userInfoPosition.value.y}px`
-}))
-
-const startUserInfoDrag = (e) => {
-    e.stopPropagation()
-    isUserInfoDragging.value = true
-    const touch = e.touches ? e.touches[0] : e
-    userInfoDragOffset.value = {
-        x: window.innerWidth - touch.clientX - userInfoPosition.value.x,
-        y: touch.clientY - userInfoPosition.value.y
-    }
-    document.addEventListener('mousemove', onUserInfoDrag)
-    document.addEventListener('mouseup', stopUserInfoDrag)
-    document.addEventListener('touchmove', onUserInfoDrag)
-    document.addEventListener('touchend', stopUserInfoDrag)
-}
-
-const onUserInfoDrag = (e) => {
-    if (!isUserInfoDragging.value) return
-    const touch = e.touches ? e.touches[0] : e
-    const newX = window.innerWidth - touch.clientX - userInfoDragOffset.value.x
-    const newY = touch.clientY - userInfoDragOffset.value.y
-    
-    userInfoPosition.value = {
-        x: Math.max(0, Math.min(newX, window.innerWidth - 200)),
-        y: Math.max(0, Math.min(newY, window.innerHeight - 60))
-    }
-}
-
-const stopUserInfoDrag = () => {
-    isUserInfoDragging.value = false
-    document.removeEventListener('mousemove', onUserInfoDrag)
-    document.removeEventListener('mouseup', stopUserInfoDrag)
-    document.removeEventListener('touchmove', onUserInfoDrag)
-    document.removeEventListener('touchend', stopUserInfoDrag)
-}
-
 onMounted(async () => {
     window.addEventListener('resize', handleResize)
-    // 加载用户信息
     try {
         await userStore.loadFromLocal()
+        // 加载好友请求（用于红点显示）
+        try {
+            await friendStore.loadFriends()
+        } catch (e) {
+            // 好友加载失败不影响主流程
+        }
+        // 检查新手状态
+        if (userStore.isNewUser) {
+            showWelcome.value = true
+        }
     } catch (error) {
         console.error('Failed to load user data in Navbar:', error)
     }
@@ -207,16 +216,13 @@ onUnmounted(() => {
     document.removeEventListener('mouseup', stopNavDrag)
     document.removeEventListener('touchmove', onNavDrag)
     document.removeEventListener('touchend', stopNavDrag)
-    document.removeEventListener('mousemove', onUserInfoDrag)
-    document.removeEventListener('mouseup', stopUserInfoDrag)
-    document.removeEventListener('touchmove', onUserInfoDrag)
-    document.removeEventListener('touchend', stopUserInfoDrag)
 })
-
 </script>
 
 <style>
-
+/* 全局样式重置 */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
 .app {
     min-height: 100vh;
@@ -229,9 +235,92 @@ onUnmounted(() => {
     min-height: 100vh;
     width: 100%;
     overflow-y: visible;
+    padding-top: 44px; /* 顶部栏高度 */
 }
 
-/* ========== 移动端底部导航栏样式 ========== */
+/* 页面过渡动画 */
+.page-fade-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.page-fade-leave-active { transition: opacity 0.15s ease; }
+.page-fade-enter-from { opacity: 0; transform: translateY(8px); }
+.page-fade-leave-to { opacity: 0; }
+
+/* ========== 顶部信息栏 ========== */
+.top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1001;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(46, 125, 50, 0.9);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.top-username {
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.top-bar-right {
+    display: flex;
+    align-items: center;
+}
+
+/* ========== 汉堡菜单按钮 ========== */
+.hamburger-btn {
+    position: fixed;
+    top: 8px;
+    right: 16px;
+    z-index: 1002;
+    width: 40px;
+    height: 40px;
+    background: rgba(46, 125, 50, 0.85);
+    backdrop-filter: blur(8px);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px;
+    transition: all 0.3s;
+}
+
+.hamburger-btn span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: white;
+    border-radius: 1px;
+    transition: all 0.3s;
+}
+
+.hamburger-btn.open span:nth-child(1) {
+    transform: rotate(45deg) translate(4px, 4px);
+}
+
+.hamburger-btn.open span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger-btn.open span:nth-child(3) {
+    transform: rotate(-45deg) translate(4px, -4px);
+}
+
+/* ========== 移动端底部导航栏 ========== */
 .bottom-nav {
     position: fixed;
     bottom: 0;
@@ -247,11 +336,11 @@ onUnmounted(() => {
     border-top: 1px solid rgba(0, 0, 0, 0.08);
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
     z-index: 1000;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, height 0.3s ease;
     min-height: 60px;
 }
 
-.bottom-nav a {
+.nav-link {
     text-decoration: none;
     font-size: 0.85rem;
     font-weight: 500;
@@ -268,30 +357,51 @@ onUnmounted(() => {
     min-width: 60px;
     max-width: 80px;
     height: 44px;
+    position: relative;
 }
 
-.bottom-nav a.router-link-active {
+.nav-link.router-link-active {
     color: #4caf50;
     background: rgba(76, 175, 80, 0.12);
 }
 
-.bottom-nav a:active {
+.nav-link:active {
     transform: scale(0.95);
 }
 
-.bottom-nav a span:first-child {
+.nav-emoji {
     font-size: 1.2rem;
     line-height: 1;
 }
 
-.bottom-nav a span:last-child {
+.nav-text {
     font-size: 0.7rem;
     line-height: 1;
 }
 
-/* 移动端隐藏悬浮导航 */
-.bottom-nav.hidden {
-    display: none;
+/* 红点徽章 */
+.badge {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    min-width: 16px;
+    height: 16px;
+    background: #f44336;
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    box-shadow: 0 1px 4px rgba(244, 67, 54, 0.4);
+    animation: badgePop 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes badgePop {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
 }
 
 /* ========== 平板/PC 端悬浮胶囊导航栏 ========== */
@@ -305,9 +415,6 @@ onUnmounted(() => {
     transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.1s ease;
     cursor: grab;
     user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
 }
 
 .floating-nav.visible {
@@ -352,7 +459,6 @@ onUnmounted(() => {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
     font-size: 12px;
     color: #4caf50;
     cursor: grab;
@@ -360,23 +466,11 @@ onUnmounted(() => {
     transition: all 0.2s ease;
     border: 1px solid rgba(76, 175, 80, 0.3);
     border-left: none;
-    box-shadow: 2px 2px 8px rgba(76, 175, 80, 0.2);
 }
 
 .drag-handle:hover {
     opacity: 1;
     background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(76, 175, 80, 0.4));
-    box-shadow: 3px 3px 12px rgba(76, 175, 80, 0.3);
-}
-
-.drag-handle .drag-icon {
-    font-size: 14px;
-}
-
-.drag-handle .drag-text {
-    font-size: 9px;
-    font-weight: 500;
-    letter-spacing: 0.5px;
 }
 
 .floating-nav.dragging .drag-handle {
@@ -384,7 +478,6 @@ onUnmounted(() => {
     opacity: 1;
 }
 
-/* 竖向布局的导航项 */
 .nav-item {
     display: flex;
     flex-direction: column;
@@ -398,8 +491,8 @@ onUnmounted(() => {
     font-weight: 500;
     transition: all 0.2s ease;
     cursor: pointer;
-    /* 固定最小宽度，让所有项大小一致 */
     min-width: 60px;
+    position: relative;
 }
 
 .nav-icon {
@@ -414,7 +507,6 @@ onUnmounted(() => {
     white-space: nowrap;
 }
 
-/* hover 效果 - 轻微上浮和变色 */
 .nav-item:hover {
     background: rgba(76, 175, 80, 0.12);
     color: #4caf50;
@@ -425,7 +517,6 @@ onUnmounted(() => {
     transform: scale(1.05);
 }
 
-/* 选中状态 */
 .nav-item.active {
     background: #4caf50;
     color: white;
@@ -440,108 +531,36 @@ onUnmounted(() => {
     font-weight: 500;
 }
 
-/* 选中状态下 hover 保持原有样式 */
 .nav-item.active:hover {
     background: #4caf50;
     color: white;
     transform: translateY(-2px);
 }
 
-/* 用户信息悬浮窗 */
-.user-info {
-    position: fixed;
-    top: 16px;
-    right: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(12px);
-    padding: 8px 20px;
-    padding-right: 48px;
-    border-radius: 40px;
-    z-index: 1001;
-    font-weight: bold;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    min-width: 200px;
-    max-width: 220px;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-}
-
-.user-info:hover {
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-}
-
-.user-info.dragging {
-    cursor: grabbing;
-    transform: scale(1.02);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-
-.user-info-drag-handle {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 24px;
-    height: 36px;
-    background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(76, 175, 80, 0.25));
-    border-radius: 0 40px 40px 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    color: #4caf50;
-    cursor: grab;
-    opacity: 0.6;
-    transition: all 0.2s ease;
-    border-left: 1px solid rgba(76, 175, 80, 0.2);
-}
-
-.user-info-drag-handle:hover {
-    opacity: 1;
-    background: linear-gradient(135deg, rgba(76, 175, 80, 0.25), rgba(76, 175, 80, 0.35));
-}
-
-.user-info.dragging .user-info-drag-handle {
-    cursor: grabbing;
-    opacity: 1;
-}
-
-.username {
-    color: #2c5a2a;
-}
-
-.points {
-    color: #ff9800;
-    margin-top: -10px;
+/* 浮动导航上的 badge 位置调整 */
+.floating-nav .badge {
+    top: 0;
+    right: 2px;
 }
 
 /* ========== 深色模式适配 ========== */
 @media (prefers-color-scheme: dark) {
+    .top-bar {
+        background: rgba(27, 50, 28, 0.95);
+    }
+
     .bottom-nav {
         background: rgba(30, 30, 35, 0.95);
         border-top-color: rgba(255, 255, 255, 0.08);
     }
 
-    .bottom-nav a {
+    .nav-link {
         color: #aaa;
     }
 
-    .bottom-nav a.router-link-active {
+    .nav-link.router-link-active {
         color: #8bc34a;
         background: rgba(139, 195, 74, 0.15);
-    }
-    
-    .bottom-nav a span:last-child {
-        color: inherit;
     }
 
     .nav-capsule {
@@ -567,40 +586,34 @@ onUnmounted(() => {
         color: #9ccc65;
     }
 
-    .nav-item.active .nav-icon {
-        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-    }
-
     .nav-item.active:hover {
         background: #4a4a4f;
         color: #9ccc65;
     }
+
+    .hamburger-btn {
+        background: rgba(27, 50, 28, 0.9);
+    }
 }
 
 /* ========== 响应式断点 ========== */
-/* 极窄屏（<385px）：只显示图标，隐藏文字 */
 @media (max-width: 384px) {
-    .bottom-nav a {
+    .nav-link {
         min-width: 48px;
         max-width: 56px;
         height: 40px;
         padding: 6px 8px;
     }
-    
-    .bottom-nav a span:last-child {
+
+    .nav-text {
         display: none;
     }
-    
-    .bottom-nav a span:first-child {
+
+    .nav-emoji {
         font-size: 1.3rem;
-    }
-    
-    .user-info {
-        display: none;
     }
 }
 
-/* 移动端（385px - 767px） */
 @media (min-width: 385px) and (max-width: 767px) {
     .bottom-nav {
         display: flex;
@@ -611,18 +624,24 @@ onUnmounted(() => {
     }
 }
 
-/* 平板端（768px - 1023px）和 PC 端（≥1024px）统一使用悬浮导航 */
 @media (min-width: 768px) {
     .bottom-nav {
+        display: none;
+    }
+
+    .hamburger-btn {
         display: none;
     }
 
     .floating-nav {
         display: block;
     }
+
+    .top-bar {
+        padding: 8px 24px;
+    }
 }
 
-/* 平板端微调 */
 @media (min-width: 768px) and (max-width: 1023px) {
     .nav-capsule {
         gap: 6px;
@@ -643,7 +662,6 @@ onUnmounted(() => {
     }
 }
 
-/* 大屏幕 PC 端 */
 @media (min-width: 1024px) {
     .nav-capsule {
         gap: 10px;

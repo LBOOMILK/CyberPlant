@@ -5,6 +5,9 @@
     <!-- AI 助手入口 -->
     <button class="ai-chat-btn" @click="showAIChat = true" title="AI 助手">🤖</button>
 
+    <!-- 手册入口 -->
+    <button class="handbook-btn" @click="showHandbook = true" title="花园手册">?</button>
+
     <div class="card">
       <h1>🌱 赛博花园</h1>
 
@@ -105,6 +108,9 @@
 
     <!-- AI 对话弹窗 -->
     <AIChatModal :visible="showAIChat" @close="showAIChat = false" />
+
+    <!-- 手册弹窗 -->
+    <HandbookModal :visible="showHandbook" @close="showHandbook = false" />
   </div>
 </template>
 
@@ -117,6 +123,7 @@ import PlantSelectModal from '@/components/PlantSelectModal.vue'
 import PlotModal from '@/components/PlotModal.vue'
 import UpgradeModal from '@/components/UpgradeModal.vue'
 import AIChatModal from '@/components/AIChatModal.vue'
+import HandbookModal from '@/components/HandbookModal.vue'
 
 const plotStore = usePlotStore()
 const userStore = useUserStore()
@@ -127,6 +134,7 @@ const showPlotModal = ref(false)
 const showUpgradeModal = ref(false)
 const showFertilizeSelect = ref(false)
 const showAIChat = ref(false)
+const showHandbook = ref(false)
 const selectedPlot = ref(null)
 const selectedPlotIndex = ref(null)
 const userSeeds = ref([])
@@ -312,7 +320,7 @@ onMounted(async () => {
   align-items: flex-start;
   background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
   padding: 20px;
-  padding-top: 80px;
+  padding-top: 56px;
 }
 
 .card {
@@ -542,6 +550,39 @@ footer {
   transform: scale(0.95);
 }
 
+/* 手册按钮 */
+.handbook-btn {
+  position: fixed;
+  top: 80px;
+  right: 80px;
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #2e7d32;
+  font-size: 1.5rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(46, 125, 50, 0.2);
+}
+
+.handbook-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(46, 125, 50, 0.2);
+  background: #e8f5e9;
+}
+
+.handbook-btn:active {
+  transform: scale(0.95);
+}
+
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
   .garden-page {
@@ -560,5 +601,7 @@ footer {
   .multiplier-tag { background: rgba(255,255,255,0.1); color: #aaa; }
   footer { color: #a0a080; }
   .ai-chat-btn { background: linear-gradient(135deg, #4caf50, #388e3c); box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3); }
+  .handbook-btn { background: rgba(40, 40, 45, 0.9); color: #81c784; border-color: rgba(76, 175, 80, 0.3); }
+  .handbook-btn:hover { background: rgba(76, 175, 80, 0.15); }
 }
 </style>

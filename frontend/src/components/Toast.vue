@@ -18,8 +18,8 @@ import { ref, onMounted, onUnmounted } from 'vue'
 const toasts = ref([])
 let toastId = 0
 
-function addToast(message, type = 'info') {
-  if (toasts.value.length >= 3) {
+function addToast(message, type = 'info', duration = 2800) {
+  if (toasts.value.length >= 5) {
     toasts.value.shift()
   }
   
@@ -27,14 +27,17 @@ function addToast(message, type = 'info') {
     id: toastId++,
     message,
     type,
+    duration,
     index: toasts.value.length
   }
   
   toasts.value.push(newToast)
   
-  setTimeout(() => {
-    removeToast(newToast.id)
-  }, 2800)
+  if (duration > 0) {
+    setTimeout(() => {
+      removeToast(newToast.id)
+    }, duration)
+  }
 }
 
 function removeToast(id) {
