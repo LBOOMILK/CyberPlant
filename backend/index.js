@@ -3307,13 +3307,15 @@ app.post('/api/user/plots/:plotIndex/water', authenticateToken, async (req, res)
     const plantedAt = new Date(plot.planted_at).getTime();
     const now = Date.now();
     const elapsed = (now - plantedAt) / 1000;
-    const expectedStage = Math.min(4, Math.floor(elapsed / stageTime));
-    const newStage = Math.min(plot.stage + 1, expectedStage, 4);
-    if (newStage === plot.stage) {
-      const nextStageTime = (plot.stage + 1) * stageTime;
+    // 每次浇水只能推进一个阶段
+    const nextStage = plot.stage + 1;
+    if (nextStage > 4) return res.status(400).json({ error: '植物已成熟' });
+    const nextStageTime = nextStage * stageTime;
+    if (elapsed < nextStageTime) {
       const remaining = Math.ceil(nextStageTime - elapsed);
       return res.status(400).json({ error: `植物还在生长中，还需 ${remaining} 秒` });
     }
+    const newStage = nextStage;
     await client.query('UPDATE garden_plots SET stage = $1, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND plot_index = $3', [newStage, userId, plotIndex]);
     res.json({ message: '浇水成功', plot_index: plotIndex, stage: newStage, stage_icon: newStage < 4 ? STAGE_ICONS[newStage] : (plot.crop_icon || '🌿'), is_mature: newStage >= 4 });
   } catch (error) {
@@ -3392,23 +3394,15 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
     const bonusMultiplier = 1 + petBonus / 100;
     const baseYield = plot.base_yield || 1;
     const actualYield = Math.max(1, Math.round(baseYield * levelMultiplier * bonusMultiplier));
-    // 收获获得货币：sell_price × actualYield
-    const sellPrice = Number(plot.sell_price) || 1;
-    const currencyReward = sellPrice * actualYield;
-    const currencyType = plot.currency_type || 'silver_coin';
     await client.query('BEGIN');
     try {
-      // 收获获得作物物品到背包
+      // 收获获得作物物品到背包（种子，可重复种植或卖出）
       await client.query(
         `INSERT INTO user_items (user_id, item_id, quantity)
          VALUES ($1, $2, $3)
          ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + $3, updated_at = CURRENT_TIMESTAMP`,
         [userId, plot.seed_id, actualYield]
       );
-      // 同时获得货币
-      await addCurrency(userId, currencyType, currencyReward);
-      // 记录订单
-      await createOrder(userId, 'HARVEST', currencyType, currencyReward);
       // 清空地块
       await client.query('UPDATE garden_plots SET seed_id = NULL, stage = 0, planted_at = NULL, last_watered_at = NULL WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
       await client.query('COMMIT');
@@ -3417,7 +3411,7 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
       throw err;
     }
     const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
-    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, item_reward: { item_id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, quantity: actualYield }, currency_reward: currencyReward, currency_type: currencyType, multiplier: levelMultiplier, pet_bonus: petBonus, bonus_multiplier: bonusMultiplier, currencies: { silver_coin: Number(cur.rows[0].silver_coin), gold_coin: Number(cur.rows[0].gold_coin), diamond: Number(cur.rows[0].diamond) } });
+    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, item_reward: { item_id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, quantity: actualYield }, currencies: { silver_coin: Number(cur.rows[0].silver_coin), gold_coin: Number(cur.rows[0].gold_coin), diamond: Number(cur.rows[0].diamond) } });
   } catch (error) {
     logger.error('Harvest error', { error: error.message });
     res.status(500).json({ error: '收获失败' });
