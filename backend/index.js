@@ -1095,6 +1095,220 @@ app.get('/api/items/all', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// ==================== 商店系统 API (Phase 3) ====================
+
+// Tab 到 item_type 的映射
+const SHOP_TAB_MAP = {
+  seeds: 'seed',
+  fertilizers: 'fertilizer',
+  pets: 'pet',
+  pet_food: 'pet_food',
+  decorations: 'decoration'
+};
+
+// GET /api/shop?tab=seeds|fertilizers|pets|pet_food|decorations
+app.get('/api/shop', authenticateToken, async (req, res) => {
+  try {
+    const tab = req.query.tab;
+    if (!tab || !SHOP_TAB_MAP[tab]) {
+      return res.status(400).json({ error: '无效的 tab 参数，可选：seeds, fertilizers, pets, pet_food, decorations' });
+    }
+    const itemType = SHOP_TAB_MAP[tab];
+    const result = await client.query(
+      'SELECT id, name, icon, rarity, item_type, buy_price, sell_price, currency_type, grow_time, base_yield FROM items WHERE item_type = $1 AND is_shop = true ORDER BY rarity, id',
+      [itemType]
+    );
+    res.json(result.rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      icon: r.icon,
+      rarity: r.rarity,
+      item_type: r.item_type,
+      buy_price: Number(r.buy_price),
+      sell_price: Number(r.sell_price),
+      currency_type: r.currency_type,
+      grow_time: r.grow_time,
+      base_yield: r.base_yield
+    })));
+  } catch (error) {
+    logger.error('Get shop items error:', { error: error.message });
+    res.status(500).json({ error: '获取商店物品失败' });
+  }
+});
+
+// POST /api/user/shop/purchase
+app.post('/api/user/shop/purchase', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { item_id, quantity } = req.body;
+
+    if (!item_id || !quantity || quantity <= 0 || !Number.isInteger(quantity)) {
+      return res.status(400).json({ error: '请提供有效的 item_id 和 quantity（正整数）' });
+    }
+    if (quantity > MAX_ITEM_COUNT) {
+      return res.status(400).json({ error: `单次购买数量不能超过 ${MAX_ITEM_COUNT}` });
+    }
+
+    const itemResult = await client.query('SELECT * FROM items WHERE id = $1 AND is_shop = true', [item_id]);
+    if (itemResult.rowCount === 0) {
+      return res.status(404).json({ error: '物品不存在或不在商店出售' });
+    }
+    const item = itemResult.rows[0];
+    const totalCost = Number(item.buy_price) * quantity;
+    const currencyType = item.currency_type;
+
+    await client.query('BEGIN');
+    try {
+      await deductCurrency(userId, currencyType, totalCost);
+
+      await client.query(
+        `INSERT INTO user_items (user_id, item_id, quantity)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + $3, updated_at = CURRENT_TIMESTAMP`,
+        [userId, item_id, quantity]
+      );
+
+      await createOrder(userId, 'SHOP_PURCHASE', currencyType, totalCost);
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      if (err.message === 'Insufficient balance') {
+        return res.status(400).json({ error: '余额不足' });
+      }
+      throw err;
+    }
+
+    const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+    const userItem = await client.query('SELECT quantity FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
+
+    res.json({
+      message: '购买成功',
+      item: { id: item.id, name: item.name, icon: item.icon, rarity: item.rarity },
+      quantity,
+      total_cost: totalCost,
+      currency_type: currencyType,
+      remaining_quantity: userItem.rowCount > 0 ? userItem.rows[0].quantity : 0,
+      currencies: {
+        silver_coin: Number(cur.rows[0].silver_coin),
+        gold_coin: Number(cur.rows[0].gold_coin),
+        diamond: Number(cur.rows[0].diamond)
+      }
+    });
+  } catch (error) {
+    logger.error('Purchase error:', { error: error.message });
+    res.status(500).json({ error: '购买失败' });
+  }
+});
+
+// POST /api/user/shop/sell
+app.post('/api/user/shop/sell', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { item_id, quantity } = req.body;
+
+    if (!item_id || !quantity || quantity <= 0 || !Number.isInteger(quantity)) {
+      return res.status(400).json({ error: '请提供有效的 item_id 和 quantity（正整数）' });
+    }
+
+    const itemResult = await client.query('SELECT * FROM items WHERE id = $1', [item_id]);
+    if (itemResult.rowCount === 0) {
+      return res.status(404).json({ error: '物品不存在' });
+    }
+    const item = itemResult.rows[0];
+
+    if (item.item_type === 'decoration') {
+      return res.status(400).json({ error: '装饰物品不可出售' });
+    }
+
+    const userItemResult = await client.query('SELECT * FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
+    if (userItemResult.rowCount === 0 || userItemResult.rows[0].quantity < quantity) {
+      return res.status(400).json({ error: '物品数量不足' });
+    }
+
+    const totalRevenue = Number(item.sell_price) * quantity;
+    const currencyType = item.currency_type;
+    const currentQty = userItemResult.rows[0].quantity;
+
+    await client.query('BEGIN');
+    try {
+      await addCurrency(userId, currencyType, totalRevenue);
+
+      const newQty = currentQty - quantity;
+      if (newQty <= 0) {
+        await client.query('DELETE FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
+      } else {
+        await client.query('UPDATE user_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND item_id = $3', [newQty, userId, item_id]);
+      }
+
+      await createOrder(userId, 'SHOP_SELL', currencyType, totalRevenue);
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+
+    const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+
+    res.json({
+      message: '出售成功',
+      item: { id: item.id, name: item.name, icon: item.icon, rarity: item.rarity },
+      quantity,
+      total_revenue: totalRevenue,
+      currency_type: currencyType,
+      remaining_quantity: currentQty - quantity > 0 ? currentQty - quantity : 0,
+      currencies: {
+        silver_coin: Number(cur.rows[0].silver_coin),
+        gold_coin: Number(cur.rows[0].gold_coin),
+        diamond: Number(cur.rows[0].diamond)
+      }
+    });
+  } catch (error) {
+    logger.error('Sell error:', { error: error.message });
+    res.status(500).json({ error: '出售失败' });
+  }
+});
+
+// GET /api/user/backpack
+app.get('/api/user/backpack', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await client.query(
+      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.grow_time, i.base_yield, i.buy_price, i.sell_price, i.currency_type
+       FROM user_items ui
+       JOIN items i ON ui.item_id = i.id
+       WHERE ui.user_id = $1 AND ui.quantity > 0
+       ORDER BY i.item_type, i.rarity, i.id`,
+      [userId]
+    );
+
+    const grouped = {};
+    for (const row of result.rows) {
+      const type = row.item_type;
+      if (!grouped[type]) grouped[type] = [];
+      grouped[type].push({
+        item_id: row.item_id,
+        quantity: row.quantity,
+        name: row.name,
+        icon: row.icon,
+        rarity: row.rarity,
+        item_type: row.item_type,
+        grow_time: row.grow_time,
+        base_yield: row.base_yield,
+        buy_price: Number(row.buy_price),
+        sell_price: Number(row.sell_price),
+        currency_type: row.currency_type
+      });
+    }
+
+    res.json({ groups: grouped });
+  } catch (error) {
+    logger.error('Get backpack error:', { error: error.message });
+    res.status(500).json({ error: '获取背包物品失败' });
+  }
+});
+
 // ==================== 订单路由 ====================
 
 app.get('/api/orders', authenticateToken, async (req, res) => {
