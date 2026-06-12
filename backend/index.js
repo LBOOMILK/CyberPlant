@@ -1563,6 +1563,15 @@ app.get('/api/user/friends', authenticateToken, async (req, res) => {
       [userId]
     );
 
+    // 我发出的被拒绝请求
+    const rejectedResult = await client.query(
+      `SELECT f.id, f.friend_id as receiver_id, u.name as receiver_name, f.created_at
+       FROM friendships f
+       JOIN users u ON u.id = f.friend_id
+       WHERE f.user_id = $1 AND f.status = 'rejected'`,
+      [userId]
+    );
+
     res.json({
       friends: acceptedResult.rows.map(r => ({
         friendship_id: r.id,
@@ -1577,6 +1586,12 @@ app.get('/api/user/friends', authenticateToken, async (req, res) => {
         created_at: r.created_at
       })),
       sent_requests: sentResult.rows.map(r => ({
+        friendship_id: r.id,
+        receiver_id: r.receiver_id,
+        receiver_name: r.receiver_name,
+        created_at: r.created_at
+      })),
+      rejected_requests: rejectedResult.rows.map(r => ({
         friendship_id: r.id,
         receiver_id: r.receiver_id,
         receiver_name: r.receiver_name,
@@ -1674,7 +1689,7 @@ app.post('/api/user/friends/:friendshipId', authenticateToken, async (req, res) 
       await client.query('UPDATE friendships SET status = $1 WHERE id = $2', ['accepted', friendshipId]);
       res.json({ message: '已接受好友请求' });
     } else {
-      await client.query('DELETE FROM friendships WHERE id = $1', [friendshipId]);
+      await client.query('UPDATE friendships SET status = $1 WHERE id = $2', ['rejected', friendshipId]);
       res.json({ message: '已拒绝好友请求' });
     }
   } catch (error) {
@@ -3383,7 +3398,14 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
     const currencyType = plot.currency_type || 'silver_coin';
     await client.query('BEGIN');
     try {
-      // 增加货币
+      // 收获获得作物物品到背包
+      await client.query(
+        `INSERT INTO user_items (user_id, item_id, quantity)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + $3, updated_at = CURRENT_TIMESTAMP`,
+        [userId, plot.seed_id, actualYield]
+      );
+      // 同时获得货币
       await addCurrency(userId, currencyType, currencyReward);
       // 记录订单
       await createOrder(userId, 'HARVEST', currencyType, currencyReward);
@@ -3395,7 +3417,7 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
       throw err;
     }
     const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
-    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, currency_reward: currencyReward, currency_type: currencyType, multiplier: levelMultiplier, pet_bonus: petBonus, bonus_multiplier: bonusMultiplier, currencies: { silver_coin: Number(cur.rows[0].silver_coin), gold_coin: Number(cur.rows[0].gold_coin), diamond: Number(cur.rows[0].diamond) } });
+    res.json({ message: '收获成功', plot_index: plotIndex, crop: { id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, rarity: plot.rarity }, yield: actualYield, item_reward: { item_id: plot.seed_id, name: plot.crop_name, icon: plot.crop_icon, quantity: actualYield }, currency_reward: currencyReward, currency_type: currencyType, multiplier: levelMultiplier, pet_bonus: petBonus, bonus_multiplier: bonusMultiplier, currencies: { silver_coin: Number(cur.rows[0].silver_coin), gold_coin: Number(cur.rows[0].gold_coin), diamond: Number(cur.rows[0].diamond) } });
   } catch (error) {
     logger.error('Harvest error', { error: error.message });
     res.status(500).json({ error: '收获失败' });

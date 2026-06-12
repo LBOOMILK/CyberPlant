@@ -10,6 +10,7 @@ export const useFriendStore = defineStore('friend', () => {
   const friends = ref([])
   const pendingRequests = ref([])
   const sentRequests = ref([])
+  const rejectedRequests = ref([])
   const searchResults = ref([])
   const loading = ref(false)
 
@@ -36,6 +37,7 @@ export const useFriendStore = defineStore('friend', () => {
       friends.value = data.friends || []
       pendingRequests.value = data.pending_requests || []
       sentRequests.value = data.sent_requests || []
+      rejectedRequests.value = data.rejected_requests || []
       return data
     } catch (error) {
       console.error('loadFriends error:', error)
@@ -111,6 +113,21 @@ export const useFriendStore = defineStore('friend', () => {
     return data
   }
 
+  // ========== 重新发送好友请求 ==========
+  async function resendRequest(friendshipId, friendId) {
+    // 先删除旧的被拒绝记录
+    const delResponse = await fetch(`${API_URL}/user/friends/${friendshipId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    if (!delResponse.ok) {
+      const err = await delResponse.json()
+      throw new Error(err.error || '操作失败')
+    }
+    // 重新发送请求
+    return await sendRequest(friendId)
+  }
+
   // ========== 送礼 ==========
   async function sendGift(friendId, giftData) {
     const response = await fetch(`${API_URL}/user/friends/${friendId}/gift`, {
@@ -169,10 +186,12 @@ export const useFriendStore = defineStore('friend', () => {
     friends,
     pendingRequests,
     sentRequests,
+    rejectedRequests,
     searchResults,
     loading,
     loadFriends,
     sendRequest,
+    resendRequest,
     handleRequest,
     deleteFriend,
     searchUsers,

@@ -285,9 +285,11 @@ async function handleHarvest() {
   try {
     const data = await plotStore.harvest(selectedPlot.value.plot_index)
     await userStore.loadCurrencies()
+    await shopStore.loadBackpack()
     showPlotModal.value = false
     const currencyName = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }[data.currency_type] || '货币'
-    addToast(`🏆 收获成功！获得 ${data.currency_reward} ${currencyName}`, 'success')
+    const itemInfo = data.item_reward ? `${data.item_reward.icon}${data.item_reward.name}×${data.item_reward.quantity}` : ''
+    addToast(`🏆 收获成功！获得 ${itemInfo} + ${data.currency_reward} ${currencyName}`, 'success')
   } catch (error) {
     addToast(error.message, 'error')
   }

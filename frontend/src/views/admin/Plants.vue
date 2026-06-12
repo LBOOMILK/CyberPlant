@@ -25,7 +25,7 @@
               <th>名称</th>
               <th>类型</th>
               <th>稀有度</th>
-              <th>生长/秒</th>
+              <th>总生长时间/秒</th>
               <th>基础产量</th>
               <th>购买价</th>
               <th>出售价</th>
@@ -95,8 +95,9 @@
             </div>
             <div class="form-row" v-if="newItem.item_type === 'seed'">
               <div class="form-group">
-                <label for="grow_time">生长时间(秒)</label>
+                <label for="grow_time">总生长时间(秒)</label>
                 <input type="number" id="grow_time" v-model.number="newItem.grow_time" min="0" placeholder="60">
+                <small class="field-hint">每阶段 = 总时间 ÷ 4</small>
               </div>
               <div class="form-group">
                 <label for="base_yield">基础产量</label>
@@ -175,8 +176,9 @@
             </div>
             <div class="form-row" v-if="currentItem.item_type === 'seed'">
               <div class="form-group">
-                <label for="edit-grow_time">生长时间(秒)</label>
+                <label for="edit-grow_time">总生长时间(秒)</label>
                 <input type="number" id="edit-grow_time" v-model.number="currentItem.grow_time" min="0">
+                <small class="field-hint">每阶段 = 总时间 ÷ 4</small>
               </div>
               <div class="form-group">
                 <label for="edit-base_yield">基础产量</label>
@@ -643,6 +645,14 @@ onMounted(() => {
 .action-buttons {
   display: flex;
   gap: 6px;
+}
+
+.field-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 4px;
+  font-weight: normal;
 }
 
 /* 深色模式 */

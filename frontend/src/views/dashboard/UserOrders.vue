@@ -53,11 +53,26 @@ const computedOrders = computed(() => {
 
 // 订单类型中文映射
 const orderTypeMap = {
+  SHOP_PURCHASE: '购买物品',
+  SHOP_SELL: '出售物品',
   PURCHASE_SEED: '购买种子',
-  SELL_SEED: '卖出种子',
-  SELL_CROP: '卖出作物',
-  PURCHASE_USE: '购买肥料',
-  SELL_USE: '卖出肥料'
+  SELL_SEED: '出售种子',
+  SELL_CROP: '出售作物',
+  PURCHASE_FERTILIZER: '购买肥料',
+  SELL_FERTILIZER: '出售肥料',
+  PURCHASE_PET: '购买宠物',
+  PET_PURCHASE: '购买宠物',
+  PURCHASE_PET_FOOD: '购买宠物粮',
+  SELL_PET_FOOD: '出售宠物粮',
+  PURCHASE_DECORATION: '购买装饰',
+  DECORATION_PURCHASE: '购买装饰',
+  CURRENCY_EXCHANGE: '货币兑换',
+  EXCHANGE: '货币兑换',
+  CURRENCY_GIFT: '赠送礼物',
+  PLOT_UNLOCK: '解锁地块',
+  PLOT_UPGRADE: '升级地块',
+  NEWBIE_PACK: '新手礼包',
+  HARVEST: '收获作物'
 }
 
 // 获取订单类型文本
@@ -67,20 +82,11 @@ function orderTypeText(type) {
 
 // 获取订单类型样式类
 function orderTypeClass(type) {
-  switch (type) {
-    case 'PURCHASE_SEED':
-      return 'type-purchase'
-    case 'SELL_SEED':
-      return 'type-sell'
-    case 'SELL_CROP':
-      return 'type-sell'
-    case 'PURCHASE_USE':
-      return 'type-purchase'
-    case 'SELL_USE':
-      return 'type-sell'
-    default:
-      return ''
-  }
+  if (type.includes('SELL') || type === 'HARVEST') return 'type-sell'
+  if (type.includes('PURCHASE') || type.includes('UNLOCK') || type.includes('UPGRADE')) return 'type-purchase'
+  if (type === 'EXCHANGE' || type === 'CURRENCY_EXCHANGE') return 'type-exchange'
+  if (type.includes('GIFT')) return 'type-gift'
+  return ''
 }
 
 // 格式化时间
@@ -100,7 +106,7 @@ function formatTime(timeString) {
 // 格式化金额
 function formatAmount(amount) {
   const sign = amount > 0 ? '+' : ''
-  return `${sign}${amount} 积分`
+  return `${sign}${amount}`
 }
 
 // 获取金额样式类
@@ -283,6 +289,16 @@ onUnmounted(() => {
   color: #388e3c;
 }
 
+.type-exchange {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.type-gift {
+  background: #fce4ec;
+  color: #c2185b;
+}
+
 .order-time {
   font-size: 0.875rem;
   color: #666;
@@ -353,6 +369,16 @@ onUnmounted(() => {
   .type-sell {
     background: rgba(56, 142, 60, 0.2);
     color: #81c784;
+  }
+
+  .type-exchange {
+    background: rgba(230, 81, 0, 0.2);
+    color: #ffb74d;
+  }
+
+  .type-gift {
+    background: rgba(194, 24, 91, 0.2);
+    color: #f48fb1;
   }
 
   .amount-positive {

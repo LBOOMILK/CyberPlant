@@ -96,6 +96,32 @@
       </div>
     </div>
 
+    <!-- 被拒绝的请求 -->
+    <div v-if="friendStore.rejectedRequests.length > 0" class="section">
+      <div class="section-header" @click="showRejected = !showRejected">
+        <h3>❌ 被拒绝 <span class="badge-rejected">{{ friendStore.rejectedRequests.length }}</span></h3>
+        <span class="toggle-arrow">{{ showRejected ? '▼' : '▶' }}</span>
+      </div>
+      <div v-if="showRejected" class="request-list">
+        <div
+          v-for="req in friendStore.rejectedRequests"
+          :key="req.friendship_id"
+          class="request-card rejected-card"
+        >
+          <span class="user-avatar">👤</span>
+          <div class="request-info">
+            <span class="request-name">{{ req.receiver_name }}</span>
+            <span class="request-time">{{ formatTime(req.created_at) }}</span>
+          </div>
+          <span class="rejected-label">被拒绝</span>
+          <div class="request-actions">
+            <button class="resend-btn" @click="handleResend(req)" title="重新发送">🔄</button>
+            <button class="delete-rejected-btn" @click="handleDeleteRejected(req)" title="删除">🗑️</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 好友列表 -->
     <div class="section">
       <div class="section-header">
@@ -201,6 +227,7 @@ let searchTimer = null
 // 展开/折叠
 const showPending = ref(true)
 const showSent = ref(false)
+const showRejected = ref(false)
 
 // 删除弹窗
 const showDeleteModal = ref(false)
@@ -347,6 +374,24 @@ async function handleRequest(friendshipId, action) {
   try {
     await friendStore.handleRequest(friendshipId, action)
     addToast(action === 'accept' ? '已接受好友请求' : '已拒绝好友请求', 'success')
+  } catch (e) {
+    addToast(e.message, 'error')
+  }
+}
+
+async function handleResend(req) {
+  try {
+    await friendStore.resendRequest(req.friendship_id, req.receiver_id)
+    addToast('好友请求已重新发送', 'success')
+  } catch (e) {
+    addToast(e.message, 'error')
+  }
+}
+
+async function handleDeleteRejected(req) {
+  try {
+    await friendStore.deleteFriend(req.friendship_id)
+    addToast('已删除', 'success')
   } catch (e) {
     addToast(e.message, 'error')
   }
@@ -788,6 +833,49 @@ function formatTime(dateStr) {
   font-style: italic;
 }
 
+.rejected-label {
+  font-size: 0.8rem;
+  color: #f44336;
+  font-weight: 600;
+}
+
+.rejected-card {
+  border-color: #ffcdd2 !important;
+}
+
+.badge-rejected {
+  background: #f44336;
+  color: white;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.resend-btn, .delete-rejected-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.resend-btn:hover {
+  background: rgba(33, 150, 243, 0.15);
+  transform: scale(1.1);
+}
+
+.delete-rejected-btn:hover {
+  background: rgba(239, 83, 80, 0.15);
+  transform: scale(1.1);
+}
+
 /* 好友列表 */
 .friend-list {
   display: flex;
@@ -914,6 +1002,10 @@ function formatTime(dateStr) {
 
   .request-time { color: #888; }
   .pending-label { color: #ffb74d; }
+  .rejected-label { color: #ef9a9a; }
+  .rejected-card { border-color: #555 !important; }
+  .badge-rejected { background: #c62828; }
+  .resend-btn, .delete-rejected-btn { background: rgba(255, 255, 255, 0.08); }
   .badge { background: #388e3c; }
   .toggle-arrow { color: #888; }
   .accept-btn { background: #388e3c; }
