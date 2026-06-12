@@ -37,6 +37,7 @@ const router = createRouter({
         { path: 'garden', name: 'garden', component: () => import('../views/dashboard/Garden.vue') },
         { path: 'shop', name: 'shop', component: () => import('../views/dashboard/Shop.vue') },
         { path: 'backpack', name: 'backpack', component: () => import('../views/dashboard/Backpack.vue') },
+        { path: 'friends', name: 'friends', component: () => import('../views/dashboard/FriendList.vue') },
         { path: 'orders', name: 'orders', component: () => import('../views/dashboard/UserOrders.vue') },
         { path: 'user', name: 'user', component: () => import('../views/dashboard/User.vue') },
       ]

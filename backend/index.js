@@ -205,6 +205,42 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_orders_user_id_created_at ON orders(user_id, created_at)
     `);
 
+    // friendships 表
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS friendships (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(50) NOT NULL,
+        friend_id VARCHAR(50) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, friend_id)
+      )
+    `);
+
+    // gifts 表
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS gifts (
+        id SERIAL PRIMARY KEY,
+        sender_id VARCHAR(50) NOT NULL,
+        receiver_id VARCHAR(50) NOT NULL,
+        gift_type VARCHAR(20) NOT NULL,
+        item_id INT,
+        currency_type VARCHAR(20),
+        amount BIGINT DEFAULT 0,
+        discount_rate NUMERIC(3,2) DEFAULT 1.00,
+        status VARCHAR(20) DEFAULT 'accepted',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // friendships 索引
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_friendships_user_id ON friendships(user_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_friendships_friend_id ON friendships(friend_id)
+    `);
+
     // ========== 插入物品种子数据 ==========
     const itemsCheck = await client.query('SELECT COUNT(*) as count FROM items');
     if (parseInt(itemsCheck.rows[0].count) === 0) {
@@ -951,6 +987,28 @@ app.put('/api/users/me', authenticateToken, async (req, res) => {
   }
 });
 
+// 搜索用户（必须在 /api/users/:id 之前，避免被 :id 捕获）
+app.get('/api/users/search', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const q = req.query.q;
+
+    if (!q || q.trim().length === 0) return res.status(400).json({ error: '请提供搜索关键词' });
+
+    const result = await client.query(
+      `SELECT id, name FROM users
+       WHERE id != $1 AND (name ILIKE $2 OR id::text ILIKE $2)
+       LIMIT 20`,
+      [userId, `%${q.trim()}%`]
+    );
+
+    res.json(result.rows.map(r => ({ id: r.id, name: r.name })));
+  } catch (error) {
+    logger.error('Search users error:', { error: error.message });
+    res.status(500).json({ error: '搜索用户失败' });
+  }
+});
+
 // 获取单个用户
 app.get('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -1306,6 +1364,362 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
   } catch (error) {
     logger.error('Get backpack error:', { error: error.message });
     res.status(500).json({ error: '获取背包物品失败' });
+  }
+});
+
+// ==================== 好友系统 API (Phase 4) ====================
+
+const MAX_FRIENDS = 50;
+
+// 折算规则：1-100=80%, 101-500=60%, 501+=50%
+function calcDiscountRate(amount) {
+  if (amount <= 100) return 0.8;
+  if (amount <= 500) return 0.6;
+  return 0.5;
+}
+
+// GET /api/user/friends — 获取好友列表
+app.get('/api/user/friends', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // 已接受的好友（我发起的 + 对方发起的）
+    const acceptedResult = await client.query(
+      `SELECT f.id, f.friend_id, f.user_id, f.created_at, u.name as friend_name
+       FROM friendships f
+       JOIN users u ON u.id = f.friend_id
+       WHERE f.user_id = $1 AND f.status = 'accepted'
+       UNION
+       SELECT f.id, f.user_id as friend_id, f.friend_id as user_id, f.created_at, u.name as friend_name
+       FROM friendships f
+       JOIN users u ON u.id = f.user_id
+       WHERE f.friend_id = $1 AND f.status = 'accepted'`,
+      [userId]
+    );
+
+    // 待处理的请求（别人发给我的）
+    const pendingResult = await client.query(
+      `SELECT f.id, f.user_id as sender_id, u.name as sender_name, f.created_at
+       FROM friendships f
+       JOIN users u ON u.id = f.user_id
+       WHERE f.friend_id = $1 AND f.status = 'pending'`,
+      [userId]
+    );
+
+    // 我发出的待处理请求
+    const sentResult = await client.query(
+      `SELECT f.id, f.friend_id as receiver_id, u.name as receiver_name, f.created_at
+       FROM friendships f
+       JOIN users u ON u.id = f.friend_id
+       WHERE f.user_id = $1 AND f.status = 'pending'`,
+      [userId]
+    );
+
+    res.json({
+      friends: acceptedResult.rows.map(r => ({
+        friendship_id: r.id,
+        friend_id: r.friend_id,
+        friend_name: r.friend_name,
+        created_at: r.created_at
+      })),
+      pending_requests: pendingResult.rows.map(r => ({
+        friendship_id: r.id,
+        sender_id: r.sender_id,
+        sender_name: r.sender_name,
+        created_at: r.created_at
+      })),
+      sent_requests: sentResult.rows.map(r => ({
+        friendship_id: r.id,
+        receiver_id: r.receiver_id,
+        receiver_name: r.receiver_name,
+        created_at: r.created_at
+      }))
+    });
+  } catch (error) {
+    logger.error('Get friends error:', { error: error.message });
+    res.status(500).json({ error: '获取好友列表失败' });
+  }
+});
+
+// POST /api/user/friends — 发送好友请求
+app.post('/api/user/friends', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { friend_id } = req.body;
+
+    if (!friend_id) return res.status(400).json({ error: '请提供 friend_id' });
+    if (friend_id === userId) return res.status(400).json({ error: '不能添加自己为好友' });
+
+    // 验证对方存在
+    const targetUser = await client.query('SELECT id, name FROM users WHERE id = $1', [friend_id]);
+    if (targetUser.rowCount === 0) return res.status(404).json({ error: '用户不存在' });
+
+    // 检查是否已是好友或有待处理请求
+    const existing = await client.query(
+      `SELECT * FROM friendships
+       WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
+      [userId, friend_id]
+    );
+    if (existing.rowCount > 0) {
+      const row = existing.rows[0];
+      if (row.status === 'accepted') return res.status(400).json({ error: '已经是好友了' });
+      return res.status(400).json({ error: '已存在待处理的好友请求' });
+    }
+
+    // 检查好友上限
+    const friendCount = await client.query(
+      `SELECT COUNT(*) as count FROM friendships
+       WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'`,
+      [userId]
+    );
+    if (parseInt(friendCount.rows[0].count) >= MAX_FRIENDS) {
+      return res.status(400).json({ error: `好友数量已达上限（${MAX_FRIENDS}）` });
+    }
+
+    const result = await client.query(
+      'INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, $3) RETURNING *',
+      [userId, friend_id, 'pending']
+    );
+
+    res.status(201).json({
+      message: '好友请求已发送',
+      friendship: {
+        id: result.rows[0].id,
+        friend_id: result.rows[0].friend_id,
+        status: result.rows[0].status
+      }
+    });
+  } catch (error) {
+    logger.error('Send friend request error:', { error: error.message });
+    res.status(500).json({ error: '发送好友请求失败' });
+  }
+});
+
+// POST /api/user/friends/:friendshipId — 接受/拒绝好友请求
+app.post('/api/user/friends/:friendshipId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const friendshipId = parseInt(req.params.friendshipId);
+    const { action } = req.body;
+
+    if (!action || !['accept', 'reject'].includes(action)) {
+      return res.status(400).json({ error: '请提供有效的 action (accept/reject)' });
+    }
+
+    const friendship = await client.query('SELECT * FROM friendships WHERE id = $1', [friendshipId]);
+    if (friendship.rowCount === 0) return res.status(404).json({ error: '好友请求不存在' });
+
+    const f = friendship.rows[0];
+    if (f.friend_id !== userId) return res.status(403).json({ error: '只有接收方可以操作' });
+    if (f.status !== 'pending') return res.status(400).json({ error: '该请求已处理' });
+
+    if (action === 'accept') {
+      // 检查好友上限
+      const friendCount = await client.query(
+        `SELECT COUNT(*) as count FROM friendships
+         WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'`,
+        [userId]
+      );
+      if (parseInt(friendCount.rows[0].count) >= MAX_FRIENDS) {
+        return res.status(400).json({ error: `好友数量已达上限（${MAX_FRIENDS}）` });
+      }
+      await client.query('UPDATE friendships SET status = $1 WHERE id = $2', ['accepted', friendshipId]);
+      res.json({ message: '已接受好友请求' });
+    } else {
+      await client.query('DELETE FROM friendships WHERE id = $1', [friendshipId]);
+      res.json({ message: '已拒绝好友请求' });
+    }
+  } catch (error) {
+    logger.error('Handle friend request error:', { error: error.message });
+    res.status(500).json({ error: '处理好友请求失败' });
+  }
+});
+
+// DELETE /api/user/friends/:friendshipId — 删除好友
+app.delete('/api/user/friends/:friendshipId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const friendshipId = parseInt(req.params.friendshipId);
+
+    const friendship = await client.query('SELECT * FROM friendships WHERE id = $1', [friendshipId]);
+    if (friendship.rowCount === 0) return res.status(404).json({ error: '好友关系不存在' });
+
+    const f = friendship.rows[0];
+    if (f.user_id !== userId && f.friend_id !== userId) {
+      return res.status(403).json({ error: '无权操作' });
+    }
+
+    await client.query('DELETE FROM friendships WHERE id = $1', [friendshipId]);
+    res.json({ message: '好友已删除' });
+  } catch (error) {
+    logger.error('Delete friend error:', { error: error.message });
+    res.status(500).json({ error: '删除好友失败' });
+  }
+});
+
+// POST /api/user/friends/:friendId/gift — 送礼
+app.post('/api/user/friends/:friendId/gift', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const friendId = req.params.friendId;
+    const { gift_type, item_id, currency_type, amount } = req.body;
+
+    if (!gift_type || !['item', 'currency'].includes(gift_type)) {
+      return res.status(400).json({ error: '请提供有效的 gift_type (item/currency)' });
+    }
+
+    // 验证好友关系
+    const friendship = await client.query(
+      `SELECT * FROM friendships
+       WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)) AND status = 'accepted'`,
+      [userId, friendId]
+    );
+    if (friendship.rowCount === 0) return res.status(400).json({ error: '对方不是你的好友' });
+
+    // 验证接收方存在
+    const receiver = await client.query('SELECT id FROM users WHERE id = $1', [friendId]);
+    if (receiver.rowCount === 0) return res.status(404).json({ error: '接收方不存在' });
+
+    await client.query('BEGIN');
+    try {
+      if (gift_type === 'item') {
+        if (!item_id) { await client.query('ROLLBACK'); return res.status(400).json({ error: '请提供 item_id' }); }
+
+        // 验证拥有该物品
+        const userItem = await client.query(
+          'SELECT * FROM user_items WHERE user_id = $1 AND item_id = $2 AND quantity > 0',
+          [userId, item_id]
+        );
+        if (userItem.rowCount === 0) { await client.query('ROLLBACK'); return res.status(400).json({ error: '你没有该物品' }); }
+
+        // 扣减发送方
+        const newQty = userItem.rows[0].quantity - 1;
+        if (newQty <= 0) {
+          await client.query('DELETE FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
+        } else {
+          await client.query('UPDATE user_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND item_id = $3', [newQty, userId, item_id]);
+        }
+
+        // 增加接收方
+        await client.query(
+          `INSERT INTO user_items (user_id, item_id, quantity)
+           VALUES ($1, $2, 1)
+           ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + 1, updated_at = CURRENT_TIMESTAMP`,
+          [friendId, item_id]
+        );
+
+        // 创建 gifts 记录
+        await client.query(
+          'INSERT INTO gifts (sender_id, receiver_id, gift_type, item_id, amount, discount_rate, status) VALUES ($1, $2, $3, $4, 1, 1.00, $5)',
+          [userId, friendId, 'item', item_id, 'accepted']
+        );
+
+        await client.query('COMMIT');
+        res.json({ message: '送礼成功' });
+
+      } else { // currency
+        if (!currency_type || !amount || amount <= 0) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: '请提供有效的 currency_type 和 amount' });
+        }
+        const validTypes = ['silver_coin', 'gold_coin', 'diamond'];
+        if (!validTypes.includes(currency_type)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: '无效的货币类型' });
+        }
+
+        const discountRate = calcDiscountRate(amount);
+        const receiveAmount = Math.floor(amount * discountRate);
+
+        await deductCurrency(userId, currency_type, amount);
+        await addCurrency(friendId, currency_type, receiveAmount);
+
+        await client.query(
+          'INSERT INTO gifts (sender_id, receiver_id, gift_type, currency_type, amount, discount_rate, status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [userId, friendId, 'currency', currency_type, amount, discountRate, 'accepted']
+        );
+
+        await client.query('COMMIT');
+        res.json({
+          message: '送礼成功',
+          spent: amount,
+          received: receiveAmount,
+          discount_rate: discountRate
+        });
+      }
+    } catch (err) {
+      await client.query('ROLLBACK');
+      if (err.message === 'Insufficient balance') return res.status(400).json({ error: '余额不足' });
+      throw err;
+    }
+  } catch (error) {
+    logger.error('Gift error:', { error: error.message });
+    res.status(500).json({ error: '送礼失败' });
+  }
+});
+
+// POST /api/user/friends/:friendId/transfer — 货币转让
+app.post('/api/user/friends/:friendId/transfer', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const friendId = req.params.friendId;
+    const { currency_type, amount } = req.body;
+
+    if (!currency_type || !amount || amount <= 0) {
+      return res.status(400).json({ error: '请提供有效的 currency_type 和 amount' });
+    }
+    const validTypes = ['silver_coin', 'gold_coin', 'diamond'];
+    if (!validTypes.includes(currency_type)) {
+      return res.status(400).json({ error: '无效的货币类型' });
+    }
+
+    // 验证好友关系
+    const friendship = await client.query(
+      `SELECT * FROM friendships
+       WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)) AND status = 'accepted'`,
+      [userId, friendId]
+    );
+    if (friendship.rowCount === 0) return res.status(400).json({ error: '对方不是你的好友' });
+
+    const receiver = await client.query('SELECT id FROM users WHERE id = $1', [friendId]);
+    if (receiver.rowCount === 0) return res.status(404).json({ error: '接收方不存在' });
+
+    const discountRate = calcDiscountRate(amount);
+    const receiveAmount = Math.floor(amount * discountRate);
+
+    await client.query('BEGIN');
+    try {
+      await deductCurrency(userId, currency_type, amount);
+      await addCurrency(friendId, currency_type, receiveAmount);
+
+      await client.query(
+        'INSERT INTO gifts (sender_id, receiver_id, gift_type, currency_type, amount, discount_rate, status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [userId, friendId, 'transfer', currency_type, amount, discountRate, 'accepted']
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      if (err.message === 'Insufficient balance') return res.status(400).json({ error: '余额不足' });
+      throw err;
+    }
+
+    // 返回最新余额
+    const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+    res.json({
+      message: '转让成功',
+      spent: amount,
+      received: receiveAmount,
+      discount_rate: discountRate,
+      currencies: {
+        silver_coin: Number(cur.rows[0].silver_coin),
+        gold_coin: Number(cur.rows[0].gold_coin),
+        diamond: Number(cur.rows[0].diamond)
+      }
+    });
+  } catch (error) {
+    logger.error('Transfer error:', { error: error.message });
+    res.status(500).json({ error: '转让失败' });
   }
 });
 
