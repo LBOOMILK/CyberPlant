@@ -121,6 +121,7 @@
 import { ref, onMounted } from 'vue'
 import { usePlotStore } from '@/stores/plotStore'
 import { useUserStore } from '@/stores/userStore'
+import { useShopStore } from '@/stores/shopStore'
 import Toast from '@/components/Toast.vue'
 import PlantSelectModal from '@/components/PlantSelectModal.vue'
 import PlotModal from '@/components/PlotModal.vue'
@@ -130,6 +131,7 @@ import HandbookModal from '@/components/HandbookModal.vue'
 
 const plotStore = usePlotStore()
 const userStore = useUserStore()
+const shopStore = useShopStore()
 const toastRef = ref(null)
 
 const showPlantSelect = ref(false)
@@ -282,6 +284,7 @@ async function handleHarvest() {
   try {
     const data = await plotStore.harvest(selectedPlot.value.plot_index)
     await userStore.loadCurrencies()
+    await shopStore.loadBackpack()
     showPlotModal.value = false
     addToast(`🏆 收获成功！获得 ${data.yield} 个 ${data.crop?.name || '作物'}`, 'success')
   } catch (error) {

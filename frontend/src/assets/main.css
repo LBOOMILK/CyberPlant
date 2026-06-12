@@ -5,6 +5,7 @@
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  background: transparent;
 }
 
 /* 深色模式下全局背景色跟随主题 */

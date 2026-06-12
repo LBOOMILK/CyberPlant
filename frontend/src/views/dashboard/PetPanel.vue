@@ -857,12 +857,40 @@ onMounted(async () => {
     color: #81c784;
   }
 
+  .subtitle {
+    color: #aaa;
+  }
+
+  .section-title {
+    color: #bbb;
+  }
+
   .pet-card {
     background: #2a2a2f;
   }
 
+  .pet-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  }
+
   .pet-name {
     color: #e0e0e0;
+  }
+
+  .pet-level {
+    color: #aaa;
+  }
+
+  .progress-bar {
+    background: #444;
+  }
+
+  .progress-label {
+    color: #aaa;
+  }
+
+  .progress-text {
+    color: #aaa;
   }
 
   .pet-detail {
@@ -877,12 +905,39 @@ onMounted(async () => {
     background: #333;
   }
 
+  .stat-label {
+    color: #aaa;
+  }
+
   .slot-item {
     background: #333;
   }
 
   .slot-item.filled {
     background: #2e3b2e;
+  }
+
+  .slot-label {
+    color: #aaa;
+  }
+
+  .slot-dec {
+    color: #e0e0e0;
+  }
+
+  .slot-btn {
+    border-color: #555;
+    color: #aaa;
+  }
+
+  .slot-btn:hover {
+    background: #c62828;
+    border-color: #c62828;
+  }
+
+  .btn-cancel {
+    background: #4a4a4a;
+    color: #e0e0e0;
   }
 
   .modal-content {
@@ -897,8 +952,32 @@ onMounted(async () => {
     background: #3a3020;
   }
 
+  .food-item:hover {
+    background: #3a3020;
+  }
+
   .food-name {
     color: #e0e0e0;
+  }
+
+  .food-effects {
+    color: #aaa;
+  }
+
+  .food-count {
+    color: #aaa;
+  }
+
+  .no-food {
+    color: #888;
+  }
+
+  .no-food .hint {
+    color: #666;
+  }
+
+  .detail-meta .rarity-tag {
+    color: white;
   }
 }
 

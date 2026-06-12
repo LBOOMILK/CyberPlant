@@ -460,6 +460,36 @@ function formatTime(dateStr) {
   max-width: 440px;
 }
 
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: rgba(255, 248, 235, 0.98);
+  border-radius: 24px;
+  padding: 24px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 45px rgba(0, 20, 0, 0.25);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -854,8 +884,10 @@ function formatTime(dateStr) {
   .page-header h2, .section-header h3 { color: #8bc34a; }
   .gift-box-btn { border-color: #ff9800; background: rgba(255,152,0,0.15); color: #ffb74d; }
   .modal-header h3 { color: #8bc34a; }
+  .modal-content { background: rgba(30, 30, 25, 0.98); }
   .gift-card { background: rgba(40,40,40,0.8); border-color: #444; }
   .gift-detail { color: #e0e0e0; }
+  .gift-sender { color: #aaa; }
   .accept-all-btn { background: #388e3c; }
 
   .search-box {
@@ -869,6 +901,8 @@ function formatTime(dateStr) {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   }
   .user-name, .request-name, .friend-name { color: #e0e0e0; }
+  .user-id { color: #888; }
+  .search-loading, .search-empty { color: #888; }
 
   .request-card, .friend-card {
     background: rgba(40, 40, 40, 0.8);
@@ -877,5 +911,18 @@ function formatTime(dateStr) {
   .friend-card:hover { border-color: #4caf50; background: rgba(76, 175, 80, 0.08); }
 
   .gift-btn, .delete-btn { background: rgba(255, 255, 255, 0.08); }
+
+  .request-time { color: #888; }
+  .pending-label { color: #ffb74d; }
+  .badge { background: #388e3c; }
+  .toggle-arrow { color: #888; }
+  .accept-btn { background: #388e3c; }
+  .reject-btn { background: #c62828; }
+  .empty-state { color: #888; }
+  .loading { color: #888; }
+  .close-btn { color: #aaa; }
+  .close-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .add-btn { background: #388e3c; }
+  .add-btn:disabled { background: #555; }
 }
 </style>
