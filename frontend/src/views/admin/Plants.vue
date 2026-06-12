@@ -4,9 +4,15 @@
     <AdminSidebar />
     
     <div class="admin-content">
-      <h1>物品管理</h1>
+      <h1>商店管理</h1>
       
       <div class="action-bar">
+        <select v-model="filterType" class="filter-select">
+          <option value="all">全部类型</option>
+          <option value="seed">🌱 种子</option>
+          <option value="fertilizer">🧪 肥料</option>
+          <option value="pet_food">🍖 宠物粮</option>
+        </select>
         <button class="add-btn" @click="showAddModal = true">添加物品</button>
       </div>
       
@@ -29,7 +35,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in items" :key="item.id">
+            <tr v-for="item in filteredItems" :key="item.id">
               <td>{{ item.id }}</td>
               <td class="icon-cell">{{ item.icon }}</td>
               <td>{{ item.name }}</td>
@@ -229,17 +235,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Toast from '@/components/Toast.vue'
 import AdminSidebar from '@/components/AdminSidebar.vue'
 
 const items = ref([])
+const filterType = ref('all')
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteModalVisible = ref(false)
 const currentItem = ref(null)
 const deletingItemId = ref(null)
 const toastRef = ref(null)
+
+const filteredItems = computed(() => {
+  if (filterType.value === 'all') return items.value
+  return items.value.filter(i => i.item_type === filterType.value)
+})
 
 const newItem = ref({
   name: '',
@@ -405,6 +417,23 @@ onMounted(() => {
   display: flex;
   margin-bottom: 24px;
   justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
+}
+
+.filter-select {
+  padding: 10px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: white;
+  color: #333;
+  cursor: pointer;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #4caf50;
 }
 
 .add-btn {
@@ -683,6 +712,12 @@ onMounted(() => {
 
   .confirm-btn:hover {
     background: #2e7d32;
+  }
+
+  .filter-select {
+    background: #3a3a3a;
+    border-color: #444;
+    color: #e0e0e0;
   }
 }
 </style>

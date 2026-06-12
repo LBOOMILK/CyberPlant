@@ -113,8 +113,15 @@ function openBuyModal(item) {
   // 计算最大可购买数量
   const balance = userStore.currencies.value[item.currency_type] || 0
   const maxByBalance = item.buy_price > 0 ? Math.floor(balance / item.buy_price) : 0
-  const maxByCap = 999 - getOwnedQty(item.id)
-  maxBuyQty.value = Math.max(1, Math.min(maxByBalance, maxByCap))
+  // 宠物和装饰没有数量上限
+  if (item.item_type === 'pet') {
+    maxBuyQty.value = 1
+  } else if (item.item_type === 'decoration') {
+    maxBuyQty.value = Math.max(1, maxByBalance)
+  } else {
+    const maxByCap = 999 - getOwnedQty(item.id)
+    maxBuyQty.value = Math.max(1, Math.min(maxByBalance, maxByCap))
+  }
 
   buyModalVisible.value = true
 }
@@ -123,7 +130,7 @@ function openBuyModal(item) {
 async function handleBuyConfirm(quantity) {
   if (!buyItem.value) return
   try {
-    await shopStore.purchase(buyItem.value.id, quantity)
+    await shopStore.purchase(buyItem.value.id, quantity, buyItem.value.item_type)
     addToast(`🎉 购买成功！获得 ${buyItem.value.icon} ${buyItem.value.name} ×${quantity}`, 'success')
   } catch (error) {
     addToast(`💔 ${error.message || '购买失败'}`, 'error')

@@ -4,18 +4,33 @@
             <div class="avatar">🧑‍🌾</div>
             <h2>{{ userStore.username }}</h2>
 
+            <!-- 货币余额（同一行显示） -->
+            <div class="currency-row">
+                <span class="currency-item">🪙 {{ userStore.currencies.silver_coin }}</span>
+                <span class="currency-item">🥇 {{ userStore.currencies.gold_coin }}</span>
+                <span class="currency-item">💎 {{ userStore.currencies.diamond }}</span>
+            </div>
+
             <div class="stats">
                 <div class="stat-item">
-                    <span class="stat-label">⭐ 总积分</span>
-                    <span class="stat-value">{{ userStore.totalPoints }}</span>
-                </div>
-                <div class="stat-item">
                     <span class="stat-label">🌱 种子数量</span>
-                    <span class="stat-value">{{ userStore.seedCount }}</span>
+                    <span class="stat-value">{{ seedCount }}</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">🌾 作物数量</span>
-                    <span class="stat-value">{{ userStore.cropCount }}</span>
+                    <span class="stat-value">{{ cropCount }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">👥 好友数量</span>
+                    <span class="stat-value">{{ friendCount }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">🐾 宠物数量</span>
+                    <span class="stat-value">{{ petCount }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">🎀 装饰品数量</span>
+                    <span class="stat-value">{{ decorationCount }}</span>
                 </div>
             </div>
 
@@ -123,15 +138,61 @@ const nameForm = ref({
     newName: ''
 })
 
+// 统计数据
+const seedCount = ref(0)
+const cropCount = ref(0)
+const friendCount = ref(0)
+const petCount = ref(0)
+const decorationCount = ref(0)
+
 // 生命周期
 onMounted(async () => {
     try {
         await userStore.loadFromLocal()
+        await loadStats()
     } catch (error) {
         console.error('Failed to load user data:', error)
         addToast(error.message || '获取用户数据失败，请检查网络连接', 'error')
     }
 })
+
+async function loadStats() {
+    const token = localStorage.getItem('auth_token')
+    if (!token) return
+    const headers = { 'Authorization': `Bearer ${token}` }
+    const apiUrl = import.meta.env.VITE_API_URL
+
+    try {
+        // 并行加载背包、好友、宠物、装饰
+        const [backpackRes, friendsRes, petsRes, decsRes] = await Promise.all([
+            fetch(`${apiUrl}/user/backpack`, { headers }),
+            fetch(`${apiUrl}/user/friends`, { headers }),
+            fetch(`${apiUrl}/user/pets`, { headers }),
+            fetch(`${apiUrl}/user/decorations`, { headers })
+        ])
+
+        if (backpackRes.ok) {
+            const data = await backpackRes.json()
+            const groups = data.groups || {}
+            seedCount.value = (groups.seed || []).reduce((s, i) => s + i.quantity, 0)
+            cropCount.value = (groups.crop || []).reduce((s, i) => s + i.quantity, 0)
+        }
+        if (friendsRes.ok) {
+            const data = await friendsRes.json()
+            friendCount.value = (data.friends || []).length
+        }
+        if (petsRes.ok) {
+            const data = await petsRes.json()
+            petCount.value = (data.pets || []).length
+        }
+        if (decsRes.ok) {
+            const data = await decsRes.json()
+            decorationCount.value = data.reduce((s, d) => s + d.quantity, 0)
+        }
+    } catch (e) {
+        console.error('Failed to load stats:', e)
+    }
+}
 
 function addToast(message, type = 'info') {
     if (toastRef.value) {
@@ -279,6 +340,20 @@ function handleLogout() {
 .profile-card h2 {
     color: #2c5a2a;
     margin-bottom: 24px;
+}
+
+.currency-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding: 10px 0;
+}
+
+.currency-item {
+    font-weight: bold;
+    font-size: 1rem;
+    color: #2e7d32;
 }
 
 .stats {
@@ -493,6 +568,10 @@ function handleLogout() {
     }
 
     .stat-value {
+        color: #8bc34a;
+    }
+
+    .currency-item {
         color: #8bc34a;
     }
     

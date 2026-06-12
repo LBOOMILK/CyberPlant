@@ -2,7 +2,27 @@
   <div v-if="visible" class="modal-overlay" @mousedown.self="$emit('close')">
     <div class="modal-content">
       <h3>{{ plot?.crop?.icon || '🌱' }} 地块 #{{ plot?.plot_index }}</h3>
-      <div v-if="plot && plot.crop" class="plot-detail">
+      <!-- 空地状态 -->
+      <div v-else-if="plot && !plot.seed_id" class="plot-detail">
+        <div class="crop-header">
+          <span class="crop-emoji">🌾</span>
+          <div class="crop-name-row">
+            <span class="crop-name">空闲地块</span>
+          </div>
+        </div>
+        <div class="info-panel">
+          <div class="info-row">
+            <span>🏷️ 地块等级</span>
+            <span :style="{ color: levelColors[plot.level], fontWeight: 'bold' }">Lv.{{ plot.level }} ({{ plot.multiplier }}x)</span>
+          </div>
+        </div>
+        <div class="action-buttons">
+          <button class="action-btn plant-btn" @click="$emit('plant')">🌱 种植</button>
+          <button class="action-btn upgrade-btn-inline" @click="$emit('upgrade')">⬆️ 升级</button>
+        </div>
+      </div>
+      <!-- 有植物状态 -->
+      <div v-else-if="plot && plot.crop" class="plot-detail">
         <div class="crop-header">
           <span class="crop-emoji">{{ getStageDisplay(plot) }}</span>
           <div class="crop-name-row">
@@ -34,7 +54,7 @@
           </div>
         </div>
       </div>
-      <div class="action-buttons">
+      <div v-if="plot && plot.seed_id" class="action-buttons">
         <button
           class="action-btn water-btn"
           @click="$emit('water')"
@@ -56,7 +76,7 @@
           :disabled="!canRemove"
         >🗑️ 铲除</button>
       </div>
-      <div class="bottom-actions">
+      <div v-if="plot && plot.seed_id" class="bottom-actions">
         <button @click="$emit('upgrade')" class="upgrade-link">⬆️ 升级地块 (Lv.{{ plot?.level }})</button>
         <button @click="$emit('close')" class="close-btn">关闭</button>
       </div>
@@ -73,7 +93,7 @@ const props = defineProps({
   plot: Object
 })
 
-defineEmits(['close', 'water', 'fertilize', 'harvest', 'remove', 'upgrade'])
+defineEmits(['close', 'water', 'fertilize', 'harvest', 'remove', 'upgrade', 'plant'])
 
 const plotStore = usePlotStore()
 const { levelColors, stageIcons } = plotStore
@@ -116,8 +136,9 @@ function getProgress(plot) {
   const stageTime = growTime / 4
   if (!plot.planted_at) return 0
   const elapsed = (Date.now() - new Date(plot.planted_at).getTime()) / 1000
-  const totalProgress = Math.min(100, (elapsed / growTime) * 100)
-  return totalProgress
+  // 每阶段独立进度
+  const stageElapsed = elapsed - (plot.stage * stageTime)
+  return Math.min(100, Math.max(0, (stageElapsed / stageTime) * 100))
 }
 </script>
 
@@ -238,6 +259,8 @@ h3 {
   opacity: 0.4;
   cursor: not-allowed;
 }
+.plant-btn { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.upgrade-btn-inline { background: linear-gradient(135deg, #3b82f6, #2563eb); }
 .water-btn { background: linear-gradient(135deg, #2e7d32, #1b5e20); }
 .fertilize-btn { background: linear-gradient(135deg, #7b1fa2, #5c1078); }
 .harvest-btn { background: linear-gradient(135deg, #ff9800, #f57c00); }

@@ -86,12 +86,27 @@ export const useShopStore = defineStore('shop', () => {
   }
 
   // ========== 购买物品 ==========
-  async function purchase(itemId, quantity) {
-    const response = await fetch(`${API_URL}/user/shop/purchase`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ item_id: itemId, quantity })
-    })
+  async function purchase(itemId, quantity, itemType) {
+    let response
+    if (itemType === 'pet') {
+      response = await fetch(`${API_URL}/user/pets/purchase`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ pet_id: itemId })
+      })
+    } else if (itemType === 'decoration') {
+      response = await fetch(`${API_URL}/user/decorations/purchase`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ decoration_id: itemId, quantity: quantity || 1 })
+      })
+    } else {
+      response = await fetch(`${API_URL}/user/shop/purchase`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ item_id: itemId, quantity })
+      })
+    }
     if (!response.ok) {
       const err = await response.json()
       throw new Error(err.error || '购买失败')

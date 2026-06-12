@@ -31,7 +31,7 @@
           </ul>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/plants" class="menu-link" @click="closeMobileMenu">植物管理</router-link>
+          <router-link to="/admin/plants" class="menu-link" @click="closeMobileMenu">商店管理</router-link>
         </li>
         <li class="menu-item">
           <router-link to="/admin/orders" class="menu-link" @click="closeMobileMenu">订单管理</router-link>

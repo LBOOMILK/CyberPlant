@@ -22,6 +22,9 @@
 
         <!-- 物品网格 -->
         <div v-if="expanded[group.type]" class="items-grid">
+          <div v-if="group.items.length === 0" class="empty-group-hint">
+            暂无物品
+          </div>
           <div
             v-for="item in group.items"
             :key="item.item_id"
@@ -54,9 +57,6 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-if="totalItems === 0" class="empty-msg">
-        背包空空如也，去商店逛逛吧~
-      </div>
     </div>
 
     <!-- Toast -->
@@ -123,20 +123,18 @@ const sellModalVisible = ref(false)
 const sellItem = ref(null)
 const sellModalMessage = ref('')
 
-// 计算显示的分组（只显示有物品的分组）
+// 计算显示的分组（显示所有分组）
 const displayGroups = computed(() => {
   const groups = []
-  const order = ['seed', 'fertilizer', 'crop', 'pet_food', 'pet', 'decoration']
+  const order = ['seed', 'fertilizer', 'crop', 'pet_food']
   for (const type of order) {
-    const items = shopStore.backpack[type]
-    if (items && items.length > 0) {
-      groups.push({
-        type,
-        icon: groupConfig[type]?.icon || '📦',
-        label: groupConfig[type]?.label || type,
-        items
-      })
-    }
+    const items = shopStore.backpack[type] || []
+    groups.push({
+      type,
+      icon: groupConfig[type]?.icon || '📦',
+      label: groupConfig[type]?.label || type,
+      items
+    })
   }
   return groups
 })
@@ -367,6 +365,14 @@ onMounted(async () => {
   margin-top: 4px;
 }
 
+.empty-group-hint {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-size: 0.9rem;
+  grid-column: 1 / -1;
+}
+
 .loading-msg,
 .empty-msg {
   text-align: center;
@@ -424,6 +430,10 @@ onMounted(async () => {
 
   .sell-btn:hover {
     background: #bf360c;
+  }
+
+  .empty-group-hint {
+    color: #888;
   }
 
   .loading-msg,

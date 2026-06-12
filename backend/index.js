@@ -1281,6 +1281,45 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
     if (!tab || !SHOP_TAB_MAP[tab]) {
       return res.status(400).json({ error: '无效的 tab 参数，可选：seeds, fertilizers, pets, pet_food, decorations' });
     }
+
+    // 宠物和装饰从各自的表查询
+    if (tab === 'pets') {
+      const result = await client.query(
+        'SELECT id, name, icon, rarity, base_bonus, price_type, price_amount FROM pets ORDER BY rarity, id'
+      );
+      return res.json(result.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        icon: r.icon,
+        rarity: r.rarity,
+        item_type: 'pet',
+        buy_price: Number(r.price_amount),
+        sell_price: 0,
+        currency_type: r.price_type,
+        grow_time: 0,
+        base_yield: Number(r.base_bonus)
+      })));
+    }
+
+    if (tab === 'decorations') {
+      const result = await client.query(
+        'SELECT id, name, icon, slot_type, quality, bonus, price_type, price_amount FROM decorations ORDER BY quality DESC, id'
+      );
+      return res.json(result.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        icon: r.icon,
+        rarity: r.quality,
+        item_type: 'decoration',
+        buy_price: Number(r.price_amount),
+        sell_price: 0,
+        currency_type: r.price_type,
+        grow_time: 0,
+        base_yield: Number(r.bonus),
+        slot_type: r.slot_type
+      })));
+    }
+
     const itemType = SHOP_TAB_MAP[tab];
     const result = await client.query(
       'SELECT id, name, icon, rarity, item_type, buy_price, sell_price, currency_type, grow_time, base_yield FROM items WHERE item_type = $1 AND is_shop = true ORDER BY rarity, id',
@@ -1451,7 +1490,7 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
       [userId]
     );
 
-    const grouped = {};
+    const grouped = { seed: [], fertilizer: [], crop: [], pet_food: [] };
     for (const row of result.rows) {
       const type = row.item_type;
       if (!grouped[type]) grouped[type] = [];
@@ -1686,6 +1725,21 @@ app.post('/api/user/friends/:friendId/gift', authenticateToken, async (req, res)
     );
     if (friendship.rowCount === 0) return res.status(400).json({ error: '对方不是你的好友' });
 
+    // 防刷机制1：新账户限制（注册不满24小时不能送礼）
+    const senderUser = await client.query('SELECT created_at FROM users WHERE id = $1', [userId]);
+    if (senderUser.rowCount > 0) {
+      const accountAge = Date.now() - new Date(senderUser.rows[0].created_at).getTime();
+      if (accountAge < 24 * 60 * 60 * 1000) {
+        return res.status(400).json({ error: '新注册用户需满24小时后才能送礼' });
+      }
+    }
+
+    // 防刷机制2：好友时间限制（添加好友满24小时后才能互送）
+    const friendshipAge = Date.now() - new Date(friendship.rows[0].created_at).getTime();
+    if (friendshipAge < 24 * 60 * 60 * 1000) {
+      return res.status(400).json({ error: '添加好友满24小时后才能互送礼物' });
+    }
+
     // 验证接收方存在
     const receiver = await client.query('SELECT id FROM users WHERE id = $1', [friendId]);
     if (receiver.rowCount === 0) return res.status(404).json({ error: '接收方不存在' });
@@ -1702,30 +1756,46 @@ app.post('/api/user/friends/:friendId/gift', authenticateToken, async (req, res)
         );
         if (userItem.rowCount === 0) { await client.query('ROLLBACK'); return res.status(400).json({ error: '你没有该物品' }); }
 
-        // 扣减发送方
-        const newQty = userItem.rows[0].quantity - 1;
-        if (newQty <= 0) {
-          await client.query('DELETE FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
-        } else {
-          await client.query('UPDATE user_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND item_id = $3', [newQty, userId, item_id]);
+        // 获取物品价值用于每日限额计算
+        const itemInfo = await client.query('SELECT buy_price, currency_type FROM items WHERE id = $1', [item_id]);
+        let itemValueInSilver = 0;
+        if (itemInfo.rowCount > 0) {
+          const price = Number(itemInfo.rows[0].buy_price);
+          const curType = itemInfo.rows[0].currency_type;
+          if (curType === 'gold_coin') itemValueInSilver = price * 100;
+          else if (curType === 'diamond') itemValueInSilver = price * 10000;
+          else itemValueInSilver = price;
         }
 
-        // 增加接收方
-        await client.query(
-          `INSERT INTO user_items (user_id, item_id, quantity)
-           VALUES ($1, $2, 1)
-           ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + 1, updated_at = CURRENT_TIMESTAMP`,
-          [friendId, item_id]
+        // 防刷机制3：每日接收礼物上限（等值500银币）
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const dailyReceived = await client.query(
+          `SELECT COALESCE(SUM(
+            CASE
+              WHEN currency_type = 'gold_coin' THEN amount * 100
+              WHEN currency_type = 'diamond' THEN amount * 10000
+              ELSE amount
+            END
+          ), 0) as total
+          FROM gifts
+          WHERE receiver_id = $1 AND status = 'accepted' AND created_at >= $2`,
+          [friendId, todayStart]
         );
+        const dailyTotal = Number(dailyReceived.rows[0].total) + itemValueInSilver;
+        if (dailyTotal > 500) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: '对方今日接收礼物已达上限（等值500银币）' });
+        }
 
-        // 创建 gifts 记录
+        // 创建 pending 礼物记录（不直接到账）
         await client.query(
           'INSERT INTO gifts (sender_id, receiver_id, gift_type, item_id, amount, discount_rate, status) VALUES ($1, $2, $3, $4, 1, 1.00, $5)',
-          [userId, friendId, 'item', item_id, 'accepted']
+          [userId, friendId, 'item', item_id, 'pending']
         );
 
         await client.query('COMMIT');
-        res.json({ message: '送礼成功' });
+        res.json({ message: '礼物已送出，等待对方接收' });
 
       } else { // currency
         if (!currency_type || !amount || amount <= 0) {
@@ -1738,22 +1808,48 @@ app.post('/api/user/friends/:friendId/gift', authenticateToken, async (req, res)
           return res.status(400).json({ error: '无效的货币类型' });
         }
 
+        // 防刷机制3：每日接收礼物上限（等值500银币）
+        let valueInSilver = amount;
+        if (currency_type === 'gold_coin') valueInSilver = amount * 100;
+        else if (currency_type === 'diamond') valueInSilver = amount * 10000;
+
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const dailyReceived = await client.query(
+          `SELECT COALESCE(SUM(
+            CASE
+              WHEN currency_type = 'gold_coin' THEN amount * 100
+              WHEN currency_type = 'diamond' THEN amount * 10000
+              ELSE amount
+            END
+          ), 0) as total
+          FROM gifts
+          WHERE receiver_id = $1 AND status = 'accepted' AND created_at >= $2`,
+          [friendId, todayStart]
+        );
+        const dailyTotal = Number(dailyReceived.rows[0].total) + valueInSilver;
+        if (dailyTotal > 500) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: '对方今日接收礼物已达上限（等值500银币）' });
+        }
+
         const discountRate = calcDiscountRate(amount);
         const receiveAmount = Math.floor(amount * discountRate);
 
+        // 扣除发送方货币
         await deductCurrency(userId, currency_type, amount);
-        await addCurrency(friendId, currency_type, receiveAmount);
 
+        // 创建 pending 礼物记录（不直接到账）
         await client.query(
           'INSERT INTO gifts (sender_id, receiver_id, gift_type, currency_type, amount, discount_rate, status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-          [userId, friendId, 'currency', currency_type, amount, discountRate, 'accepted']
+          [userId, friendId, 'currency', currency_type, receiveAmount, discountRate, 'pending']
         );
 
         await client.query('COMMIT');
         res.json({
-          message: '送礼成功',
+          message: '礼物已送出，等待对方接收',
           spent: amount,
-          received: receiveAmount,
+          receive_amount: receiveAmount,
           discount_rate: discountRate
         });
       }
@@ -1765,6 +1861,189 @@ app.post('/api/user/friends/:friendId/gift', authenticateToken, async (req, res)
   } catch (error) {
     logger.error('Gift error:', { error: error.message });
     res.status(500).json({ error: '送礼失败' });
+  }
+});
+
+// ==================== 礼物箱 API ====================
+
+// GET /api/user/gifts — 获取待接收礼物列表
+app.get('/api/user/gifts', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await client.query(
+      `SELECT g.*, u.name as sender_name
+       FROM gifts g
+       JOIN users u ON u.id = g.sender_id
+       WHERE g.receiver_id = $1 AND g.status = 'pending'
+       ORDER BY g.created_at DESC`,
+      [userId]
+    );
+
+    const gifts = [];
+    for (const g of result.rows) {
+      let giftInfo = { gift_type: g.gift_type };
+      if (g.gift_type === 'item' && g.item_id) {
+        const item = await client.query('SELECT name, icon, rarity FROM items WHERE id = $1', [g.item_id]);
+        if (item.rowCount > 0) {
+          giftInfo.item = { id: g.item_id, name: item.rows[0].name, icon: item.rows[0].icon, rarity: item.rows[0].rarity };
+        }
+      }
+      if (g.gift_type === 'currency') {
+        giftInfo.currency_type = g.currency_type;
+        giftInfo.amount = Number(g.amount);
+      }
+
+      gifts.push({
+        id: g.id,
+        sender_id: g.sender_id,
+        sender_name: g.sender_name,
+        ...giftInfo,
+        created_at: g.created_at
+      });
+    }
+
+    res.json({ gifts, count: gifts.length });
+  } catch (error) {
+    logger.error('Get gifts error:', { error: error.message });
+    res.status(500).json({ error: '获取礼物箱失败' });
+  }
+});
+
+// POST /api/user/gifts/:giftId/accept — 接收礼物
+app.post('/api/user/gifts/:giftId/accept', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const giftId = parseInt(req.params.giftId);
+
+    if (isNaN(giftId)) return res.status(400).json({ error: '无效的礼物ID' });
+
+    const giftResult = await client.query('SELECT * FROM gifts WHERE id = $1 AND receiver_id = $2 AND status = $3', [giftId, userId, 'pending']);
+    if (giftResult.rowCount === 0) return res.status(404).json({ error: '礼物不存在或已接收' });
+
+    const gift = giftResult.rows[0];
+
+    await client.query('BEGIN');
+    try {
+      if (gift.gift_type === 'item' && gift.item_id) {
+        // 物品礼物：扣减发送方，增加接收方
+        const senderItem = await client.query('SELECT quantity FROM user_items WHERE user_id = $1 AND item_id = $2', [gift.sender_id, gift.item_id]);
+        if (senderItem.rowCount === 0 || senderItem.rows[0].quantity <= 0) {
+          // 发送方已没有该物品，标记为过期
+          await client.query('UPDATE gifts SET status = $1 WHERE id = $2', ['expired', giftId]);
+          await client.query('COMMIT');
+          return res.status(400).json({ error: '发送方已没有该物品，礼物已过期' });
+        }
+
+        // 扣减发送方
+        const newQty = senderItem.rows[0].quantity - 1;
+        if (newQty <= 0) {
+          await client.query('DELETE FROM user_items WHERE user_id = $1 AND item_id = $2', [gift.sender_id, gift.item_id]);
+        } else {
+          await client.query('UPDATE user_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND item_id = $3', [newQty, gift.sender_id, gift.item_id]);
+        }
+
+        // 增加接收方
+        await client.query(
+          `INSERT INTO user_items (user_id, item_id, quantity)
+           VALUES ($1, $2, 1)
+           ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + 1, updated_at = CURRENT_TIMESTAMP`,
+          [userId, gift.item_id]
+        );
+      } else if (gift.gift_type === 'currency') {
+        // 货币礼物：直接增加接收方
+        await addCurrency(userId, gift.currency_type, Number(gift.amount));
+      }
+
+      // 标记为已接收
+      await client.query('UPDATE gifts SET status = $1 WHERE id = $2', ['accepted', giftId]);
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+
+    // 返回最新货币
+    const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+    res.json({
+      message: '礼物接收成功',
+      currencies: {
+        silver_coin: Number(cur.rows[0].silver_coin),
+        gold_coin: Number(cur.rows[0].gold_coin),
+        diamond: Number(cur.rows[0].diamond)
+      }
+    });
+  } catch (error) {
+    logger.error('Accept gift error:', { error: error.message });
+    res.status(500).json({ error: '接收礼物失败' });
+  }
+});
+
+// POST /api/user/gifts/accept-all — 一键接收所有礼物
+app.post('/api/user/gifts/accept-all', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const pendingGifts = await client.query('SELECT * FROM gifts WHERE receiver_id = $1 AND status = $2', [userId, 'pending']);
+
+    if (pendingGifts.rowCount === 0) {
+      return res.json({ message: '没有待接收的礼物', accepted: 0 });
+    }
+
+    let accepted = 0;
+    let failed = 0;
+
+    await client.query('BEGIN');
+    try {
+      for (const gift of pendingGifts.rows) {
+        try {
+          if (gift.gift_type === 'item' && gift.item_id) {
+            const senderItem = await client.query('SELECT quantity FROM user_items WHERE user_id = $1 AND item_id = $2', [gift.sender_id, gift.item_id]);
+            if (senderItem.rowCount === 0 || senderItem.rows[0].quantity <= 0) {
+              await client.query('UPDATE gifts SET status = $1 WHERE id = $2', ['expired', gift.id]);
+              failed++;
+              continue;
+            }
+            const newQty = senderItem.rows[0].quantity - 1;
+            if (newQty <= 0) {
+              await client.query('DELETE FROM user_items WHERE user_id = $1 AND item_id = $2', [gift.sender_id, gift.item_id]);
+            } else {
+              await client.query('UPDATE user_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND item_id = $3', [newQty, gift.sender_id, gift.item_id]);
+            }
+            await client.query(
+              `INSERT INTO user_items (user_id, item_id, quantity)
+               VALUES ($1, $2, 1)
+               ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + 1, updated_at = CURRENT_TIMESTAMP`,
+              [userId, gift.item_id]
+            );
+          } else if (gift.gift_type === 'currency') {
+            await addCurrency(userId, gift.currency_type, Number(gift.amount));
+          }
+          await client.query('UPDATE gifts SET status = $1 WHERE id = $2', ['accepted', gift.id]);
+          accepted++;
+        } catch (e) {
+          failed++;
+        }
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+
+    const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
+    res.json({
+      message: `接收完成：成功 ${accepted} 个${failed > 0 ? `，失败 ${failed} 个` : ''}`,
+      accepted,
+      failed,
+      currencies: {
+        silver_coin: Number(cur.rows[0].silver_coin),
+        gold_coin: Number(cur.rows[0].gold_coin),
+        diamond: Number(cur.rows[0].diamond)
+      }
+    });
+  } catch (error) {
+    logger.error('Accept all gifts error:', { error: error.message });
+    res.status(500).json({ error: '接收礼物失败' });
   }
 });
 

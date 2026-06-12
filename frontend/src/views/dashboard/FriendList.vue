@@ -1,7 +1,12 @@
 <template>
   <div class="friend-page">
+    <Toast ref="toastRef" />
     <div class="page-header">
       <h2>👥 好友</h2>
+      <button class="gift-box-btn" @click="openGiftBox">
+        🎁 礼物箱
+        <span v-if="pendingGiftCount > 0" class="gift-badge">{{ pendingGiftCount }}</span>
+      </button>
     </div>
 
     <!-- 搜索区域 -->
@@ -139,6 +144,35 @@
       @close="showGiftModal = false"
       @gift-sent="handleGift"
     />
+
+    <!-- 礼物箱弹窗 -->
+    <div v-if="showGiftBox" class="modal-overlay" @mousedown.self="showGiftBox = false">
+      <div class="modal-content gift-box-modal">
+        <div class="modal-header">
+          <h3>🎁 礼物箱</h3>
+          <button class="close-btn" @click="showGiftBox = false">✕</button>
+        </div>
+        <div v-if="giftBoxLoading" class="loading">加载中...</div>
+        <div v-else-if="pendingGifts.length === 0" class="empty-state">
+          <p>📭 没有待接收的礼物</p>
+        </div>
+        <div v-else class="gift-list">
+          <div v-for="gift in pendingGifts" :key="gift.id" class="gift-card">
+            <div class="gift-info">
+              <span class="gift-sender">来自 {{ gift.sender_name }}</span>
+              <span v-if="gift.gift_type === 'item'" class="gift-detail">
+                {{ gift.item?.icon }} {{ gift.item?.name }}
+              </span>
+              <span v-else-if="gift.gift_type === 'currency'" class="gift-detail">
+                {{ getCurrencyIcon(gift.currency_type) }} {{ gift.amount }} {{ getCurrencyName(gift.currency_type) }}
+              </span>
+            </div>
+            <button class="accept-btn" @click="acceptGift(gift.id)">接收</button>
+          </div>
+          <button class="accept-all-btn" @click="acceptAllGifts">一键接收全部</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -148,9 +182,15 @@ import { useFriendStore } from '@/stores/friendStore'
 import { useUserStore } from '@/stores/userStore'
 import Modal from '@/components/Modal.vue'
 import GiftModal from '@/components/GiftModal.vue'
+import Toast from '@/components/Toast.vue'
 
 const friendStore = useFriendStore()
 const userStore = useUserStore()
+const toastRef = ref(null)
+
+function addToast(message, type = 'info') {
+  if (toastRef.value) toastRef.value.addToast(message, type)
+}
 
 // 搜索
 const searchKeyword = ref('')
@@ -170,13 +210,90 @@ const deleteTarget = ref(null)
 const showGiftModal = ref(false)
 const giftTarget = ref(null)
 
+// 礼物箱
+const showGiftBox = ref(false)
+const pendingGifts = ref([])
+const pendingGiftCount = ref(0)
+const giftBoxLoading = ref(false)
+
 onMounted(async () => {
   try {
     await friendStore.loadFriends()
+    await loadPendingGifts()
   } catch (e) {
     console.error('Failed to load friends:', e)
   }
 })
+
+async function loadPendingGifts() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/user/gifts`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (response.ok) {
+      const data = await response.json()
+      pendingGifts.value = data.gifts || []
+      pendingGiftCount.value = data.count || 0
+    }
+  } catch (e) {
+    console.error('Failed to load gifts:', e)
+  }
+}
+
+async function openGiftBox() {
+  showGiftBox.value = true
+  giftBoxLoading.value = true
+  await loadPendingGifts()
+  giftBoxLoading.value = false
+}
+
+async function acceptGift(giftId) {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/user/gifts/${giftId}/accept`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.error || '接收失败')
+    }
+    await loadPendingGifts()
+    addToast('🎁 礼物接收成功', 'success')
+  } catch (e) {
+    addToast(e.message, 'error')
+  }
+}
+
+async function acceptAllGifts() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/user/gifts/accept-all`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.error || '接收失败')
+    }
+    const data = await response.json()
+    await loadPendingGifts()
+    addToast(data.message, 'success')
+  } catch (e) {
+    addToast(e.message, 'error')
+  }
+}
+
+function getCurrencyIcon(type) {
+  const map = { silver_coin: '🪙', gold_coin: '🥇', diamond: '💎' }
+  return map[type] || '🪙'
+}
+
+function getCurrencyName(type) {
+  const map = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }
+  return map[type] || '银币'
+}
 
 // 搜索防抖
 function onSearchInput() {
@@ -220,16 +337,18 @@ async function sendFriendRequest(friendId) {
     searchKeyword.value = ''
     friendStore.searchResults = []
     showSearch.value = false
+    addToast('好友请求已发送', 'success')
   } catch (e) {
-    alert(e.message)
+    addToast(e.message, 'error')
   }
 }
 
 async function handleRequest(friendshipId, action) {
   try {
     await friendStore.handleRequest(friendshipId, action)
+    addToast(action === 'accept' ? '已接受好友请求' : '已拒绝好友请求', 'success')
   } catch (e) {
-    alert(e.message)
+    addToast(e.message, 'error')
   }
 }
 
@@ -244,8 +363,9 @@ async function doDeleteFriend() {
     await friendStore.deleteFriend(deleteTarget.value.friendship_id)
     showDeleteModal.value = false
     deleteTarget.value = null
+    addToast('好友已删除', 'success')
   } catch (e) {
-    alert(e.message)
+    addToast(e.message, 'error')
   }
 }
 
@@ -260,8 +380,9 @@ async function handleGift(giftData) {
     await friendStore.sendGift(giftTarget.value.friend_id, giftData)
     showGiftModal.value = false
     giftTarget.value = null
+    addToast('🎁 礼物已送出，等待对方接收', 'success')
   } catch (e) {
-    alert(e.message)
+    addToast(e.message, 'error')
   }
 }
 
@@ -291,12 +412,122 @@ function formatTime(dateStr) {
 .page-header {
   text-align: center;
   margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .page-header h2 {
   color: #2c5a2a;
   margin: 0;
   font-size: 1.4rem;
+}
+
+.gift-box-btn {
+  position: relative;
+  padding: 8px 16px;
+  border: 2px solid #ff9800;
+  border-radius: 20px;
+  background: rgba(255, 152, 0, 0.08);
+  color: #e65100;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.gift-box-btn:hover {
+  background: rgba(255, 152, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.gift-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #f44336;
+  color: white;
+  font-size: 0.7rem;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gift-box-modal {
+  max-width: 440px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #2c5a2a;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #999;
+  padding: 4px 8px;
+}
+
+.gift-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.gift-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid #e8e8e8;
+}
+
+.gift-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gift-sender {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.gift-detail {
+  font-weight: 600;
+  color: #333;
+}
+
+.accept-all-btn {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 12px;
+  background: #4caf50;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+
+.accept-all-btn:hover {
+  background: #388e3c;
 }
 
 /* 搜索区域 */
@@ -621,6 +852,11 @@ function formatTime(dateStr) {
     background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
   }
   .page-header h2, .section-header h3 { color: #8bc34a; }
+  .gift-box-btn { border-color: #ff9800; background: rgba(255,152,0,0.15); color: #ffb74d; }
+  .modal-header h3 { color: #8bc34a; }
+  .gift-card { background: rgba(40,40,40,0.8); border-color: #444; }
+  .gift-detail { color: #e0e0e0; }
+  .accept-all-btn { background: #388e3c; }
 
   .search-box {
     background: rgba(40, 40, 40, 0.8);

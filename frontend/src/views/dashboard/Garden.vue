@@ -34,7 +34,6 @@
           <!-- 地块编号 -->
           <div class="plot-header">
             <span class="plot-index">#{{ plot.plot_index }}</span>
-            <span v-if="plot.is_unlocked" class="plot-level" :style="{ color: plotStore.levelColors[plot.level] }">Lv.{{ plot.level }}</span>
           </div>
 
           <!-- 未解锁状态 -->
@@ -59,11 +58,14 @@
             <div class="progress-bar">
               <div class="progress-fill" :style="{ width: getProgress(plot) + '%' }"></div>
             </div>
-            <div class="stage-text">{{ getStageName(plot.stage) }}</div>
+            <div class="stage-text">{{ getStageName(plot.stage) }} {{ plot.stage < 4 ? getStageProgressText(plot) : '' }}</div>
           </div>
 
-          <!-- 产出倍率标签 -->
-          <div v-if="plot.is_unlocked" class="multiplier-tag">{{ plot.multiplier }}x</div>
+          <!-- 等级和倍率标签 -->
+          <div v-if="plot.is_unlocked" class="plot-tags">
+            <span class="level-tag" :style="{ color: plotStore.levelColors[plot.level] }">Lv.{{ plot.level }}</span>
+            <span class="multiplier-tag">{{ plot.multiplier }}x</span>
+          </div>
         </div>
       </div>
 
@@ -88,6 +90,7 @@
       @harvest="handleHarvest"
       @remove="handleRemove"
       @upgrade="openUpgradeModal"
+      @plant="handlePlotPlant"
     />
 
     <!-- 升级弹窗 -->
@@ -148,24 +151,36 @@ function getStageName(stage) {
   return ['种子', '发芽', '出叶', '初熟', '成熟'][stage] || '未知'
 }
 
+function getStageProgressText(plot) {
+  if (!plot.crop || !plot.planted_at) return ''
+  const growTime = plot.crop.grow_time || 60
+  const stageTime = growTime / 4
+  const elapsed = (Date.now() - new Date(plot.planted_at).getTime()) / 1000
+  const stageElapsed = elapsed - (plot.stage * stageTime)
+  const remaining = Math.max(0, Math.ceil(stageTime - stageElapsed))
+  if (remaining <= 0) return '可浇水'
+  if (remaining < 60) return `${remaining}秒`
+  if (remaining < 3600) return `${Math.floor(remaining / 60)}分`
+  return `${Math.floor(remaining / 3600)}时`
+}
+
 function getProgress(plot) {
   if (!plot.crop) return 0
   if (plot.stage >= 4) return 100
   if (!plot.planted_at) return 0
   const growTime = plot.crop.grow_time || 60
+  const stageTime = growTime / 4
   const elapsed = (Date.now() - new Date(plot.planted_at).getTime()) / 1000
-  return Math.min(100, (elapsed / growTime) * 100)
+  // 每阶段独立进度
+  const stageElapsed = elapsed - (plot.stage * stageTime)
+  return Math.min(100, Math.max(0, (stageElapsed / stageTime) * 100))
 }
 
 function handlePlotClick(plot) {
   if (!plot.is_unlocked) return
   selectedPlot.value = plot
   selectedPlotIndex.value = plot.plot_index
-  if (plot.seed_id) {
-    showPlotModal.value = true
-  } else {
-    openPlantSelect(plot.plot_index)
-  }
+  showPlotModal.value = true
 }
 
 async function openPlantSelect(plotIndex) {
@@ -282,6 +297,11 @@ async function handleRemove() {
   } catch (error) {
     addToast(error.message, 'error')
   }
+}
+
+function handlePlotPlant() {
+  showPlotModal.value = false
+  openPlantSelect(selectedPlot.value.plot_index)
 }
 
 function openUpgradeModal() {
@@ -502,10 +522,24 @@ h1 {
   color: #888;
 }
 
-.multiplier-tag {
+.plot-tags {
   position: absolute;
-  top: 8px;
+  bottom: 8px;
   right: 8px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.level-tag {
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.multiplier-tag {
   background: rgba(0, 0, 0, 0.15);
   color: #555;
   font-size: 0.7rem;
@@ -599,6 +633,7 @@ footer {
   .unlock-cost { color: #aaa; }
   .empty-body .empty-text { color: #aaa; }
   .multiplier-tag { background: rgba(255,255,255,0.1); color: #aaa; }
+  .level-tag { background: rgba(255,255,255,0.1); }
   footer { color: #a0a080; }
   .ai-chat-btn { background: linear-gradient(135deg, #4caf50, #388e3c); box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3); }
   .handbook-btn { background: rgba(40, 40, 45, 0.9); color: #81c784; border-color: rgba(76, 175, 80, 0.3); }
