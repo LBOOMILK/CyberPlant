@@ -3,7 +3,7 @@
     <div class="modal-content">
       <h3>{{ plot?.crop?.icon || '🌱' }} 地块 #{{ plot?.plot_index }}</h3>
       <!-- 空地状态 -->
-      <div v-else-if="plot && !plot.seed_id" class="plot-detail">
+      <div v-if="plot && !plot.seed_id" class="plot-detail">
         <div class="crop-header">
           <span class="crop-emoji">🌾</span>
           <div class="crop-name-row">
