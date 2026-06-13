@@ -117,13 +117,9 @@ function openBuyModal(item) {
   // 计算最大可购买数量
   const balance = userStore.currencies[item.currency_type] || 0
   const maxByBalance = item.buy_price > 0 ? Math.floor(balance / item.buy_price) : 0
-  // 宠物和装饰没有数量上限
-  if (item.item_type === 'pet') {
+  // 宠物和装饰限购 1 个
+  if (item.item_type === 'pet' || item.item_type === 'decoration') {
     maxBuyQty.value = 1
-  } else if (item.item_type === 'decoration') {
-    // 装饰限购 1 个
-    const owned = getOwnedQty(item.id, item.item_type)
-    maxBuyQty.value = owned >= 1 ? 0 : Math.max(1, maxByBalance)
   } else {
     const maxByCap = 999 - getOwnedQty(item.id, item.item_type)
     maxBuyQty.value = Math.max(1, Math.min(maxByBalance, maxByCap))

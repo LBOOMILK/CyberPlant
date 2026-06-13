@@ -522,6 +522,11 @@ async function handleEquip(dec) {
     targetSlot = dec.slot_type || dec.bonus_type
   }
   
+  if (selectedSlot.value && dec.slot_type !== selectedSlot.value) {
+    showToast(`该饰品只能装备到${petStore.slotConfig[dec.slot_type]?.label}槽位！`, 'error')
+    return
+  }
+  
   actionLoading.value = true
   try {
     const result = await petStore.equipDecoration(selectedPet.value.user_pet_id, targetSlot, dec.item_id)

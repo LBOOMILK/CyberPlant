@@ -176,7 +176,21 @@ const exchangeDesc = computed(() => {
 })
 
 const canExchange = computed(() => {
-  return exchangeAmount.value > 0
+  if (exchangeAmount.value <= 0) return false
+  
+  const rule = exchangeRules[exchangeFrom.value]
+  if (!rule) return false
+  
+  // 向上兑换需要满足最小数量（如 100银币→1金币）
+  const isUpgrade = exchangeFrom.value === 'silver_coin->gold_coin' || exchangeFrom.value === 'gold_coin->diamond'
+  if (isUpgrade && exchangeAmount.value < rule.rate) {
+    return false
+  }
+  
+  // 检查余额是否足够
+  const [from] = exchangeFrom.value.split('->')
+  const balance = userStore.currencies[from] || 0
+  return exchangeAmount.value <= balance
 })
 
 function openExchange() {
@@ -507,7 +521,8 @@ watch(() => petStore.activePet, () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -515,122 +530,202 @@ watch(() => petStore.activePet, () => {
 }
 
 .exchange-panel {
-  background: rgba(255, 248, 235, 0.98);
-  border-radius: 24px;
-  padding: 24px;
+  background: linear-gradient(145deg, #fffef7, #f5f0e6);
+  border-radius: 28px;
+  padding: 28px;
   width: 90%;
-  max-width: 380px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(76, 175, 80, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  animation: panelScaleIn 0.3s ease-out;
+}
+
+@keyframes panelScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .exchange-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(76, 175, 80, 0.15);
 }
 
 .exchange-header h3 {
   margin: 0;
-  color: #2c5a2a;
-  font-size: 1.2rem;
+  color: #1e4d1e;
+  font-size: 1.35rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .close-btn {
-  background: none;
+  background: rgba(0, 0, 0, 0.05);
   border: none;
-  font-size: 1.2rem;
+  font-size: 1rem;
   cursor: pointer;
-  color: #999;
-  padding: 4px 8px;
-  border-radius: 8px;
+  color: #777;
+  padding: 8px 12px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
 }
 
 .close-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
+  transform: rotate(90deg);
 }
 
 .exchange-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .exchange-row {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .exchange-row label {
-  font-size: 0.85rem;
-  color: #666;
-  font-weight: 500;
+  font-size: 0.9rem;
+  color: #4a5568;
+  font-weight: 600;
+  padding-left: 4px;
 }
 
-.exchange-select,
-.exchange-input {
-  padding: 10px 14px;
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
+.exchange-select {
+  padding: 14px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
   font-size: 0.95rem;
   background: white;
-  color: #333;
+  color: #2d3748;
   outline: none;
-  transition: border-color 0.2s;
+  transition: all 0.25s ease;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
 }
 
-.exchange-select:focus,
+.exchange-select:hover {
+  border-color: #a7f3a0;
+}
+
+.exchange-select:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+.exchange-input {
+  padding: 14px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  background: white;
+  color: #2d3748;
+  outline: none;
+  transition: all 0.25s ease;
+}
+
+.exchange-input:hover {
+  border-color: #a7f3a0;
+}
+
 .exchange-input:focus {
-  border-color: #4caf50;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+.exchange-input::-webkit-outer-spin-button,
+.exchange-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.exchange-input[type=number] {
+  -moz-appearance: textfield;
 }
 
 .exchange-arrow {
   text-align: center;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
+  padding: 8px 0;
 }
 
 .exchange-preview {
   text-align: center;
-  padding: 12px;
-  background: rgba(76, 175, 80, 0.08);
-  border-radius: 12px;
-  font-size: 0.95rem;
-  color: #555;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.08));
+  border-radius: 16px;
+  font-size: 1rem;
+  color: #4a5568;
+  border: 1px solid rgba(34, 197, 94, 0.15);
 }
 
 .preview-value {
-  color: #2e7d32;
+  color: #16a34a;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
+  margin-left: 4px;
 }
 
 .exchange-desc {
   text-align: center;
-  font-size: 0.8rem;
-  color: #999;
+  font-size: 0.85rem;
+  color: #a0aec0;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 10px;
 }
 
 .exchange-confirm {
-  padding: 12px;
+  padding: 16px;
   border: none;
   border-radius: 16px;
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: white;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
 }
 
 .exchange-confirm:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(34, 197, 94, 0.4);
+  background: linear-gradient(135deg, #22d36e, #16a34a);
+}
+
+.exchange-confirm:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
 .exchange-confirm:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .fade-enter-active,
