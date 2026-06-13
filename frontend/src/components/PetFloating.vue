@@ -89,7 +89,7 @@
                   type="number"
                   min="1"
                   class="exchange-input"
-                  placeholder="输入数量"
+                  :placeholder="exchangePlaceholder"
                 />
               </div>
               <div class="exchange-preview" v-if="exchangePreview">
@@ -146,10 +146,10 @@ function formatNumber(n) {
 
 // 兑换选项
 const exchangeOptions = [
-  { key: 'silver_coin->gold_coin', label: '银币 → 金币 (100:1)' },
-  { key: 'gold_coin->diamond', label: '金币 → 钻石 (100:1)' },
-  { key: 'gold_coin->silver_coin', label: '金币 → 银币 (1:95)' },
-  { key: 'diamond->gold_coin', label: '钻石 → 金币 (1:90)' }
+  { key: 'silver_coin->gold_coin', label: '银币 → 金币 (100银币=1金币)' },
+  { key: 'gold_coin->diamond', label: '金币 → 钻石 (100金币=1钻石)' },
+  { key: 'gold_coin->silver_coin', label: '金币 → 银币 (1金币=95银币，5%损耗)' },
+  { key: 'diamond->gold_coin', label: '钻石 → 金币 (1钻石=90金币，10%损耗)' }
 ]
 
 const exchangeRules = {
@@ -173,6 +173,19 @@ const exchangePreview = computed(() => {
 const exchangeDesc = computed(() => {
   const opt = exchangeOptions.find(o => o.key === exchangeFrom.value)
   return opt ? opt.label : ''
+})
+
+// 兑换输入提示
+const exchangePlaceholder = computed(() => {
+  const names = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }
+  const [from, to] = exchangeFrom.value.split('->')
+  const rule = exchangeRules[exchangeFrom.value]
+  if (!rule) return '输入数量'
+  const isUpgrade = from === 'silver_coin' || (from === 'gold_coin' && to === 'diamond')
+  if (isUpgrade) {
+    return `输入${names[from]}数量（最少${rule.rate}）`
+  }
+  return `输入${names[from]}数量以兑换${names[to]}`
 })
 
 const canExchange = computed(() => {
@@ -537,9 +550,8 @@ watch(() => petStore.activePet, () => {
   max-width: 400px;
   box-shadow: 
     0 25px 50px rgba(0, 0, 0, 0.15),
-    0 0 0 1px rgba(76, 175, 80, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+    0 0 0 1px rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.2);
   animation: panelScaleIn 0.3s ease-out;
 }
 
@@ -585,7 +597,7 @@ watch(() => petStore.activePet, () => {
 }
 
 .close-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.15);
   color: #333;
   transform: rotate(90deg);
 }
@@ -780,6 +792,7 @@ watch(() => petStore.activePet, () => {
 
   .exchange-panel {
     background: rgba(30, 30, 25, 0.98);
+    border-color: rgba(76, 175, 80, 0.3);
   }
 
   .exchange-header h3 {
@@ -791,7 +804,8 @@ watch(() => petStore.activePet, () => {
   }
 
   .close-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
   }
 
   .exchange-row label {
@@ -803,6 +817,13 @@ watch(() => petStore.activePet, () => {
     background: #2a2a2a;
     border-color: #555;
     color: #e0e0e0;
+  }
+
+  .exchange-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
   }
 
   .exchange-select:focus,
