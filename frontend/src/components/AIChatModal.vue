@@ -258,6 +258,21 @@ async function sendMessage() {
   background: #f8faf8;
 }
 
+/* 滚动条样式 */
+.ai-messages::-webkit-scrollbar {
+  width: 6px;
+}
+.ai-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ai-messages::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+.ai-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
 .ai-welcome {
   text-align: center;
   padding: 40px 20px;

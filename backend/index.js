@@ -143,6 +143,7 @@ async function initDatabase() {
         stage INT DEFAULT 0,
         planted_at TIMESTAMP,
         last_watered_at TIMESTAMP,
+        is_dead BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -155,13 +156,13 @@ async function initDatabase() {
         icon VARCHAR(50),
         rarity VARCHAR(50),
         item_type VARCHAR(50) NOT NULL,
-        grow_time INT DEFAULT 0,
         base_yield INT DEFAULT 0,
         buy_price INT DEFAULT 0,
         sell_price INT DEFAULT 0,
         currency_type VARCHAR(20) DEFAULT 'silver_coin',
         is_shop BOOLEAN DEFAULT true,
         crop_id INT DEFAULT NULL,
+        water_cd INT DEFAULT 5,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (crop_id) REFERENCES items(id) ON DELETE SET NULL
       )
@@ -176,6 +177,33 @@ async function initDatabase() {
       await client.query(`
         ALTER TABLE items ADD COLUMN crop_id INT DEFAULT NULL
       `);
+    }
+
+    // 如果 water_cd 字段不存在，添加它
+    const waterCdCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'items' AND column_name = 'water_cd'
+    `);
+    if (waterCdCheck.rowCount === 0) {
+      await client.query(`
+        ALTER TABLE items ADD COLUMN water_cd INT DEFAULT 5
+      `);
+      logger.info('Added water_cd column to items table');
+    }
+    
+    // 将现有种子的 water_cd 更新为5秒
+    await client.query(`
+      UPDATE items SET water_cd = 5 WHERE item_type = 'seed' AND (water_cd IS NULL OR water_cd != 5)
+    `);
+    
+    // 如果 grow_time 字段存在，删除它（已废弃，改为自动计算 5×water_cd）
+    const growTimeCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'items' AND column_name = 'grow_time'
+    `);
+    if (growTimeCheck.rowCount > 0) {
+      await client.query(`ALTER TABLE items DROP COLUMN grow_time`);
+      logger.info('Dropped grow_time column from items table');
     }
 
     // user_items 表
@@ -268,7 +296,7 @@ async function initDatabase() {
         pet_id INT NOT NULL,
         level INT DEFAULT 1,
         growth_points INT DEFAULT 0,
-        hunger INT DEFAULT 100,
+        hunger INT DEFAULT 20,
         is_active BOOLEAN DEFAULT false,
         last_fed_at TIMESTAMP,
         feeding_end_at TIMESTAMP,
@@ -379,25 +407,25 @@ async function initDatabase() {
     // 作物数据定义
     const crops = [
       // C级作物
-      ['土豆', '🥔', 'C', 'crop', 0, 1, 5, 3, 'silver_coin', true],
-      ['胡萝卜', '🥕', 'C', 'crop', 0, 1, 6, 4, 'silver_coin', true],
-      ['白菜', '🥬', 'C', 'crop', 0, 1, 4, 2, 'silver_coin', true],
-      ['黄瓜', '🥒', 'C', 'crop', 0, 1, 7, 4, 'silver_coin', true],
+      ['土豆', '🥔', 'C', 'crop', 1, 5, 3, 'silver_coin', true],
+      ['胡萝卜', '🥕', 'C', 'crop', 1, 6, 4, 'silver_coin', true],
+      ['白菜', '🥬', 'C', 'crop', 1, 4, 2, 'silver_coin', true],
+      ['黄瓜', '🥒', 'C', 'crop', 1, 7, 4, 'silver_coin', true],
       // B级作物
-      ['番茄', '🍅', 'B', 'crop', 0, 2, 15, 8, 'silver_coin', true],
-      ['蓝莓', '🫐', 'B', 'crop', 0, 2, 17, 9, 'silver_coin', true],
-      ['玉米', '🌽', 'B', 'crop', 0, 2, 12, 6, 'silver_coin', true],
-      ['南瓜', '🎃', 'B', 'crop', 0, 2, 20, 10, 'silver_coin', true],
+      ['番茄', '🍅', 'B', 'crop', 2, 15, 8, 'silver_coin', true],
+      ['蓝莓', '🫐', 'B', 'crop', 2, 17, 9, 'silver_coin', true],
+      ['玉米', '🌽', 'B', 'crop', 2, 12, 6, 'silver_coin', true],
+      ['南瓜', '🎃', 'B', 'crop', 2, 20, 10, 'silver_coin', true],
       // A级作物
-      ['草莓', '🍓', 'A', 'crop', 0, 3, 40, 20, 'gold_coin', true],
-      ['西瓜', '🍉', 'A', 'crop', 0, 3, 50, 25, 'gold_coin', true],
-      ['葡萄', '🍇', 'A', 'crop', 0, 3, 30, 15, 'gold_coin', true],
+      ['草莓', '🍓', 'A', 'crop', 3, 40, 20, 'gold_coin', true],
+      ['西瓜', '🍉', 'A', 'crop', 3, 50, 25, 'gold_coin', true],
+      ['葡萄', '🍇', 'A', 'crop', 3, 30, 15, 'gold_coin', true],
       // S级作物
-      ['玫瑰', '🌹', 'S', 'crop', 0, 5, 100, 50, 'gold_coin', true],
-      ['兰花', '🌸', 'S', 'crop', 0, 5, 125, 60, 'gold_coin', true],
+      ['玫瑰', '🌹', 'S', 'crop', 5, 100, 50, 'gold_coin', true],
+      ['兰花', '🌸', 'S', 'crop', 5, 125, 60, 'gold_coin', true],
       // SSS级作物（不在商店出售）
-      ['金盏花', '🌟', 'SSS', 'crop', 0, 8, 250, 125, 'diamond', false],
-      ['星尘花', '✨', 'SSS', 'crop', 0, 10, 400, 200, 'diamond', false],
+      ['金盏花', '🌟', 'SSS', 'crop', 8, 250, 125, 'diamond', false],
+      ['星尘花', '✨', 'SSS', 'crop', 10, 400, 200, 'diamond', false],
     ];
 
     // 种子与作物对应关系（按名称匹配）
@@ -424,7 +452,7 @@ async function initDatabase() {
       logger.info('No crops found, inserting crop data...');
       for (const crop of crops) {
         await client.query(
-          'INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+          'INSERT INTO items (name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
           crop
         );
       }
@@ -452,30 +480,30 @@ async function initDatabase() {
       // 种子数据（crop_id 已通过上面更新逻辑设置）
       const cropSeeds = [
         // C级
-        ['土豆种子', '🥔', 'C', 'seed', 30, 1, 10, 5, 'silver_coin', true],
-        ['胡萝卜种子', '🥕', 'C', 'seed', 35, 1, 12, 6, 'silver_coin', true],
-        ['白菜种子', '🥬', 'C', 'seed', 25, 1, 8, 4, 'silver_coin', true],
-        ['黄瓜种子', '🥒', 'C', 'seed', 40, 1, 15, 7, 'silver_coin', true],
+        ['土豆种子', '🥔', 'C', 'seed', 1, 10, 5, 'silver_coin', true],
+        ['胡萝卜种子', '🥕', 'C', 'seed', 1, 12, 6, 'silver_coin', true],
+        ['白菜种子', '🥬', 'C', 'seed', 1, 8, 4, 'silver_coin', true],
+        ['黄瓜种子', '🥒', 'C', 'seed', 1, 15, 7, 'silver_coin', true],
         // B级
-        ['番茄种子', '🍅', 'B', 'seed', 60, 2, 30, 15, 'silver_coin', true],
-        ['蓝莓种子', '🫐', 'B', 'seed', 70, 2, 35, 17, 'silver_coin', true],
-        ['玉米种子', '🌽', 'B', 'seed', 55, 2, 25, 12, 'silver_coin', true],
-        ['南瓜种子', '🎃', 'B', 'seed', 80, 2, 40, 20, 'silver_coin', true],
+        ['番茄种子', '🍅', 'B', 'seed', 2, 30, 15, 'silver_coin', true],
+        ['蓝莓种子', '🫐', 'B', 'seed', 2, 35, 17, 'silver_coin', true],
+        ['玉米种子', '🌽', 'B', 'seed', 2, 25, 12, 'silver_coin', true],
+        ['南瓜种子', '🎃', 'B', 'seed', 2, 40, 20, 'silver_coin', true],
         // A级
-        ['草莓种子', '🍓', 'A', 'seed', 120, 3, 80, 40, 'gold_coin', true],
-        ['西瓜种子', '🍉', 'A', 'seed', 150, 3, 100, 50, 'gold_coin', true],
-        ['葡萄种子', '🍇', 'A', 'seed', 100, 3, 60, 30, 'gold_coin', true],
+        ['草莓种子', '🍓', 'A', 'seed', 3, 80, 40, 'gold_coin', true],
+        ['西瓜种子', '🍉', 'A', 'seed', 3, 100, 50, 'gold_coin', true],
+        ['葡萄种子', '🍇', 'A', 'seed', 3, 60, 30, 'gold_coin', true],
         // S级
-        ['玫瑰种子', '🌹', 'S', 'seed', 200, 5, 200, 100, 'gold_coin', true],
-        ['兰花种子', '🌸', 'S', 'seed', 240, 5, 250, 125, 'gold_coin', true],
+        ['玫瑰种子', '🌹', 'S', 'seed', 5, 200, 100, 'gold_coin', true],
+        ['兰花种子', '🌸', 'S', 'seed', 5, 250, 125, 'gold_coin', true],
         // SSS级（不在商店出售）
-        ['金盏花种子', '🌟', 'SSS', 'seed', 300, 8, 500, 250, 'diamond', false],
-        ['星尘花种子', '✨', 'SSS', 'seed', 360, 10, 800, 400, 'diamond', false],
+        ['金盏花种子', '🌟', 'SSS', 'seed', 8, 500, 250, 'diamond', false],
+        ['星尘花种子', '✨', 'SSS', 'seed', 10, 800, 400, 'diamond', false],
       ];
 
       for (const seed of cropSeeds) {
         const result = await client.query(
-          'INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
+          'INSERT INTO items (name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
           seed
         );
         // 设置 crop_id
@@ -487,26 +515,26 @@ async function initDatabase() {
 
       // 肥料 (2种)
       const fertilizers = [
-        ['普通肥料', '🧪', 'C', 'fertilizer', 0, 0, 30, 15, 'silver_coin', true],
-        ['高级肥料', '⚗️', 'A', 'fertilizer', 0, 0, 200, 100, 'gold_coin', true],
+        ['普通肥料', '🧪', 'C', 'fertilizer', 0, 30, 15, 'silver_coin', true],
+        ['高级肥料', '⚗️', 'A', 'fertilizer', 0, 200, 100, 'gold_coin', true],
       ];
       for (const f of fertilizers) {
         await client.query(
-          'INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+          'INSERT INTO items (name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
           f
         );
       }
 
       // 宠物粮 (4种)
       const petFoods = [
-        ['普通粮', '🍖', 'C', 'pet_food', 0, 0, 80, 40, 'silver_coin', true],
-        ['精良粮', '🥩', 'B', 'pet_food', 0, 0, 200, 100, 'silver_coin', true],
-        ['高级粮', '🍱', 'A', 'pet_food', 0, 0, 500, 250, 'gold_coin', true],
-        ['稀有粮', '🍜', 'S', 'pet_food', 0, 0, 1500, 750, 'gold_coin', true],
+        ['普通粮', '🍖', 'C', 'pet_food', 0, 80, 40, 'silver_coin', true],
+        ['精良粮', '🥩', 'B', 'pet_food', 0, 200, 100, 'silver_coin', true],
+        ['高级粮', '🍱', 'A', 'pet_food', 0, 500, 250, 'gold_coin', true],
+        ['稀有粮', '🍜', 'S', 'pet_food', 0, 1500, 750, 'gold_coin', true],
       ];
       for (const pf of petFoods) {
         await client.query(
-          'INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+          'INSERT INTO items (name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
           pf
         );
       }
@@ -542,7 +570,7 @@ async function initDatabase() {
       );
       await client.query(
         'INSERT INTO currencies (user_id, silver_coin, gold_coin, diamond) VALUES ($1, $2, $3, $4)',
-        [test1Id, 100, 0, 0]
+        [test1Id, 10000, 10000, 10000]
       );
       // 创建6块地，第1块已解锁
       for (let i = 1; i <= 6; i++) {
@@ -572,7 +600,7 @@ async function initDatabase() {
       );
       await client.query(
         'INSERT INTO currencies (user_id, silver_coin, gold_coin, diamond) VALUES ($1, $2, $3, $4)',
-        [test2Id, 100, 0, 0]
+        [test2Id, 10000, 10000, 10000]
       );
       for (let i = 1; i <= 6; i++) {
         await client.query(
@@ -1019,7 +1047,7 @@ app.get('/api/user/items', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await client.query(
-      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.grow_time, i.base_yield, i.buy_price, i.sell_price, i.currency_type
+      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.base_yield, i.buy_price, i.sell_price, i.currency_type, i.water_cd
        FROM user_items ui
        JOIN items i ON ui.item_id = i.id
        WHERE ui.user_id = $1 AND ui.quantity > 0
@@ -1033,11 +1061,12 @@ app.get('/api/user/items', authenticateToken, async (req, res) => {
       icon: r.icon,
       rarity: r.rarity,
       item_type: r.item_type,
-      grow_time: r.grow_time,
       base_yield: r.base_yield,
       buy_price: r.buy_price,
       sell_price: r.sell_price,
-      currency_type: r.currency_type
+      currency_type: r.currency_type,
+      water_cd: r.water_cd || 5,
+      grow_time: (r.water_cd || 5) * 5 // 自动计算
     })));
   } catch (error) {
     logger.error('Get user items error', { error: error.message });
@@ -1400,7 +1429,6 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
         buy_price: Number(r.price_amount),
         sell_price: 0,
         currency_type: r.price_type,
-        grow_time: 0,
         base_yield: Number(r.base_bonus)
       })));
     }
@@ -1418,7 +1446,6 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
         buy_price: Number(r.price_amount),
         sell_price: 0,
         currency_type: r.price_type,
-        grow_time: 0,
         base_yield: Number(r.bonus),
         slot_type: r.slot_type
       })));
@@ -1426,7 +1453,7 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
 
     const itemType = SHOP_TAB_MAP[tab];
     const result = await client.query(
-      'SELECT id, name, icon, rarity, item_type, buy_price, sell_price, currency_type, grow_time, base_yield FROM items WHERE item_type = $1 AND is_shop = true ORDER BY rarity, id',
+      'SELECT id, name, icon, rarity, item_type, buy_price, sell_price, currency_type, base_yield, water_cd FROM items WHERE item_type = $1 AND is_shop = true ORDER BY rarity, id',
       [itemType]
     );
     res.json(result.rows.map(r => ({
@@ -1435,11 +1462,12 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
       icon: r.icon,
       rarity: r.rarity,
       item_type: r.item_type,
-      buy_price: Number(r.buy_price),
-      sell_price: Number(r.sell_price),
+      buy_price: r.buy_price,
+      sell_price: r.sell_price,
       currency_type: r.currency_type,
-      grow_time: r.grow_time,
-      base_yield: r.base_yield
+      base_yield: r.base_yield,
+      water_cd: r.water_cd || 5,
+      grow_time: (r.water_cd || 5) * 5 // 自动计算
     })));
   } catch (error) {
     logger.error('Get shop items error:', { error: error.message });
@@ -1586,7 +1614,7 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await client.query(
-      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.grow_time, i.base_yield, i.buy_price, i.sell_price, i.currency_type
+      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.base_yield, i.buy_price, i.sell_price, i.currency_type, i.water_cd
        FROM user_items ui
        JOIN items i ON ui.item_id = i.id
        WHERE ui.user_id = $1 AND ui.quantity > 0
@@ -1594,7 +1622,7 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
       [userId]
     );
 
-    const grouped = { seed: [], fertilizer: [], crop: [], pet_food: [] };
+    const grouped = { seed: [], fertilizer: [], crop: [], pet_food: [], decoration: [] };
     for (const row of result.rows) {
       const type = row.item_type;
       if (!grouped[type]) grouped[type] = [];
@@ -1605,11 +1633,35 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
         icon: row.icon,
         rarity: row.rarity,
         item_type: row.item_type,
-        grow_time: row.grow_time,
         base_yield: row.base_yield,
         buy_price: Number(row.buy_price),
         sell_price: Number(row.sell_price),
-        currency_type: row.currency_type
+        currency_type: row.currency_type,
+        water_cd: row.water_cd || 5,
+        grow_time: (row.water_cd || 5) * 5 // 自动计算
+      });
+    }
+
+    // 添加装饰分组（从 user_decorations 表）
+    const decorationsResult = await client.query(
+      `SELECT ud.decoration_id, ud.quantity, d.name, d.icon, d.quality, d.slot_type, d.bonus
+       FROM user_decorations ud
+       JOIN decorations d ON ud.decoration_id = d.id
+       WHERE ud.user_id = $1 AND ud.quantity > 0
+       ORDER BY d.quality, d.id`,
+      [userId]
+    );
+
+    for (const row of decorationsResult.rows) {
+      grouped.decoration.push({
+        item_id: row.decoration_id,
+        quantity: row.quantity,
+        name: row.name,
+        icon: row.icon,
+        rarity: row.quality,
+        item_type: 'decoration',
+        bonus_type: row.slot_type,
+        bonus_value: Number(row.bonus)
       });
     }
 
@@ -2388,13 +2440,22 @@ app.post('/api/user/pets/purchase', authenticateToken, async (req, res) => {
 
     const pet = petTemplate.rows[0];
 
+    // 检查用户是否已拥有该宠物（防止重复购买）
+    const existingPet = await client.query(
+      'SELECT * FROM user_pets WHERE user_id = $1 AND pet_id = $2',
+      [userId, pet_id]
+    );
+    if (existingPet.rowCount > 0) {
+      return res.status(400).json({ error: '您已拥有该宠物，无法重复购买' });
+    }
+
     await client.query('BEGIN');
     try {
       await deductCurrency(userId, pet.price_type, Number(pet.price_amount));
 
       const newUserPet = await client.query(
         `INSERT INTO user_pets (user_id, pet_id, level, growth_points, hunger, is_active)
-         VALUES ($1, $2, 1, 0, 100, false)
+         VALUES ($1, $2, 1, 0, 20, false)
          RETURNING *`,
         [userId, pet_id]
       );
@@ -2424,7 +2485,7 @@ app.post('/api/user/pets/purchase', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/user/pets/:userPetId/activate — 激活宠物
+// POST /api/user/pets/:userPetId/activate — 激活/停用宠物（切换状态）
 app.post('/api/user/pets/:userPetId/activate', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -2438,33 +2499,37 @@ app.post('/api/user/pets/:userPetId/activate', authenticateToken, async (req, re
     );
     if (petResult.rowCount === 0) return res.status(404).json({ error: '宠物不存在' });
 
+    const pet = petResult.rows[0];
+    const isCurrentlyActive = pet.is_active;
+
     await client.query('BEGIN');
     try {
-      // 将所有宠物设为非激活
-      await client.query('UPDATE user_pets SET is_active = false WHERE user_id = $1', [userId]);
-      // 激活当前宠物
-      await client.query('UPDATE user_pets SET is_active = true WHERE id = $1', [userPetId]);
+      if (isCurrentlyActive) {
+        await client.query('UPDATE user_pets SET is_active = false WHERE id = $1', [userPetId]);
+      } else {
+        await client.query('UPDATE user_pets SET is_active = false WHERE user_id = $1', [userId]);
+        await client.query('UPDATE user_pets SET is_active = true WHERE id = $1', [userPetId]);
+      }
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
     }
 
-    const pet = petResult.rows[0];
-    const template = await client.query('SELECT * FROM pets WHERE id = $1', [pet.pet_id]);
+    const updatedPet = await client.query('SELECT * FROM user_pets WHERE id = $1 AND user_id = $2', [userPetId, userId]);
+    const template = await client.query('SELECT * FROM pets WHERE id = $1', [updatedPet.rows[0].pet_id]);
     const bonus = await getPetBonus(userId);
 
     res.json({
-      message: '激活成功',
-      pet: formatPetData(pet, template.rows[0]),
+      message: isCurrentlyActive ? '宠物已休息' : '激活成功',
+      pet: formatPetData(updatedPet.rows[0], template.rows[0]),
       current_bonus: bonus
     });
   } catch (error) {
     logger.error('Activate pet error:', { error: error.message });
-    res.status(500).json({ error: '激活宠物失败' });
+    res.status(500).json({ error: '操作宠物失败' });
   }
 });
-
 // POST /api/user/pets/:userPetId/feed — 喂食
 app.post('/api/user/pets/:userPetId/feed', authenticateToken, async (req, res) => {
   try {
@@ -2545,7 +2610,7 @@ app.post('/api/user/pets/:userPetId/feed', authenticateToken, async (req, res) =
         `UPDATE user_pets
          SET growth_points = $1, hunger = $2, level = $3, last_fed_at = $4, feeding_end_at = $5
          WHERE id = $6`,
-        [newLevel >= 6 ? newGrowthPoints : newGrowthPoints, newHunger, newLevel, now, feedingEnd, userPetId]
+        [remainingGrowth, newHunger, newLevel, now, feedingEnd, userPetId]
       );
 
       await client.query('COMMIT');
@@ -2646,17 +2711,18 @@ app.post('/api/user/decorations/purchase', authenticateToken, async (req, res) =
     const { decoration_id, quantity } = req.body;
 
     if (!decoration_id) return res.status(400).json({ error: '请提供 decoration_id' });
-    const qty = quantity || 1;
-    if (qty <= 0 || !Number.isInteger(qty)) return res.status(400).json({ error: '数量无效' });
+    
+    // 限制只能购买1个
+    const qty = 1;
 
     const decResult = await client.query('SELECT * FROM decorations WHERE id = $1', [decoration_id]);
     if (decResult.rowCount === 0) return res.status(404).json({ error: '装饰不存在' });
 
     const dec = decResult.rows[0];
 
-    // 限购检查：每种装饰每人只能购买 1 个
+    // 限购检查：每种装饰每人最多购买 1 个
     const existingDec = await client.query('SELECT quantity FROM user_decorations WHERE user_id = $1 AND decoration_id = $2', [userId, decoration_id]);
-    if (existingDec.rowCount > 0 && existingDec.rows[0].quantity >= 1) {
+    if (existingDec.rowCount > 0) {
       return res.status(400).json({ error: '该装饰已拥有，无法重复购买' });
     }
 
@@ -2668,8 +2734,7 @@ app.post('/api/user/decorations/purchase', authenticateToken, async (req, res) =
 
       await client.query(
         `INSERT INTO user_decorations (user_id, decoration_id, quantity)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (user_id, decoration_id) DO UPDATE SET quantity = user_decorations.quantity + $3, updated_at = CURRENT_TIMESTAMP`,
+         VALUES ($1, $2, $3)`,
         [userId, decoration_id, qty]
       );
 
@@ -2683,7 +2748,6 @@ app.post('/api/user/decorations/purchase', authenticateToken, async (req, res) =
     }
 
     const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
-    const userDec = await client.query('SELECT quantity FROM user_decorations WHERE user_id = $1 AND decoration_id = $2', [userId, decoration_id]);
 
     res.json({
       message: '购买成功',
@@ -2691,7 +2755,6 @@ app.post('/api/user/decorations/purchase', authenticateToken, async (req, res) =
       quantity: qty,
       total_cost: totalCost,
       currency_type: dec.price_type,
-      remaining_quantity: userDec.rowCount > 0 ? userDec.rows[0].quantity : 0,
       currencies: {
         silver_coin: Number(cur.rows[0].silver_coin),
         gold_coin: Number(cur.rows[0].gold_coin),
@@ -2709,10 +2772,14 @@ app.post('/api/user/pets/:userPetId/equip', authenticateToken, async (req, res) 
   try {
     const userId = req.user.id;
     const userPetId = parseInt(req.params.userPetId);
-    const { decoration_id } = req.body;
+    const { decoration_id, slot_type } = req.body;
 
     if (isNaN(userPetId)) return res.status(400).json({ error: '无效的宠物ID' });
     if (!decoration_id) return res.status(400).json({ error: '请提供 decoration_id' });
+    if (!slot_type) return res.status(400).json({ error: '请提供 slot_type' });
+
+    const validSlots = ['head', 'neck', 'back', 'special'];
+    if (!validSlots.includes(slot_type)) return res.status(400).json({ error: '无效的槽位类型' });
 
     // 验证宠物属于该用户
     const petResult = await client.query('SELECT * FROM user_pets WHERE id = $1 AND user_id = $2', [userPetId, userId]);
@@ -2727,32 +2794,62 @@ app.post('/api/user/pets/:userPetId/equip', authenticateToken, async (req, res) 
     const userDec = await client.query('SELECT * FROM user_decorations WHERE user_id = $1 AND decoration_id = $2 AND quantity > 0', [userId, decoration_id]);
     if (userDec.rowCount === 0) return res.status(400).json({ error: '你没有该装饰' });
 
-    const pet = petResult.rows[0];
-    const equipped = pet.equipped_decorations || {};
-
-    // 检查该槽位是否已有装饰
-    const existingDecId = equipped[dec.slot_type];
-
-    // 更新装备
-    equipped[dec.slot_type] = decoration_id;
-
-    await client.query(
-      'UPDATE user_pets SET equipped_decorations = $1 WHERE id = $2',
-      [JSON.stringify(equipped), userPetId]
+    const targetPet = petResult.rows[0];
+    
+    // 检查该饰品是否已被其他宠物装备
+    const otherPetResult = await client.query(
+      `SELECT id, pet_id FROM user_pets 
+       WHERE user_id = $1 AND id != $2 AND equipped_decorations @> '{"${slot_type}": ${decoration_id}}'`,
+      [userId, userPetId]
     );
 
+    let replacedPet = null;
+    await client.query('BEGIN');
+    try {
+      // 如果饰品已被其他宠物装备，先卸下
+      if (otherPetResult.rowCount > 0) {
+        const otherPet = otherPetResult.rows[0];
+        const otherEquipped = otherPet.equipped_decorations || {};
+        delete otherEquipped[slot_type];
+        await client.query(
+          'UPDATE user_pets SET equipped_decorations = $1 WHERE id = $2',
+          [JSON.stringify(otherEquipped), otherPet.id]
+        );
+        
+        const otherPetTemplate = await client.query('SELECT * FROM pets WHERE id = $1', [otherPet.pet_id]);
+        replacedPet = {
+          id: otherPet.id,
+          name: otherPet.name,
+          icon: otherPetTemplate.rows[0]?.icon || '🐾'
+        };
+      }
+
+      // 装备到目标宠物
+      const equipped = targetPet.equipped_decorations || {};
+      equipped[slot_type] = decoration_id;
+
+      await client.query(
+        'UPDATE user_pets SET equipped_decorations = $1 WHERE id = $2',
+        [JSON.stringify(equipped), userPetId]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+
     res.json({
-      message: '装备成功',
-      slot_type: dec.slot_type,
+      message: replacedPet ? '装备成功，已从其他宠物卸下' : '装备成功',
+      slot_type: slot_type,
       decoration: { id: dec.id, name: dec.name, icon: dec.icon, bonus: Number(dec.bonus) },
-      replaced: existingDecId ? true : false
+      replaced_pet: replacedPet
     });
   } catch (error) {
     logger.error('Equip decoration error:', { error: error.message });
     res.status(500).json({ error: '装备装饰失败' });
   }
 });
-
 // POST /api/user/pets/:userPetId/unequip — 卸下装饰
 app.post('/api/user/pets/:userPetId/unequip', authenticateToken, async (req, res) => {
   try {
@@ -2918,7 +3015,7 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
 // POST /api/admin/items — 创建物品
 app.post('/api/admin/items', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop, crop_id } = req.body;
+    const { name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop, crop_id, water_cd } = req.body;
 
     if (!name || !item_type) {
       return res.status(400).json({ error: '请填写物品名和类型' });
@@ -2937,10 +3034,13 @@ app.post('/api/admin/items', authenticateToken, requireAdmin, async (req, res) =
       }
     }
 
+    // 验证 water_cd 不能超过 240 秒
+    const validWaterCd = water_cd ? Math.min(240, Math.max(10, Number(water_cd))) : 5;
+
     const result = await client.query(
-      `INSERT INTO items (name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop, crop_id)
+      `INSERT INTO items (name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop, crop_id, water_cd)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-      [name, icon || '', rarity || 'C', item_type, grow_time || 0, base_yield || 0, buy_price || 0, sell_price || 0, currency_type || 'silver_coin', is_shop !== false, crop_id || null]
+      [name, icon || '', rarity || 'C', item_type, base_yield || 0, buy_price || 0, sell_price || 0, currency_type || 'silver_coin', is_shop !== false, crop_id || null, validWaterCd]
     );
 
     res.status(201).json(result.rows[0]);
@@ -2954,7 +3054,7 @@ app.post('/api/admin/items', authenticateToken, requireAdmin, async (req, res) =
 app.put('/api/admin/items/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, icon, rarity, item_type, grow_time, base_yield, buy_price, sell_price, currency_type, is_shop, crop_id } = req.body;
+    const { name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop, crop_id, water_cd } = req.body;
 
     const existing = await client.query('SELECT * FROM items WHERE id = $1', [id]);
     if (existing.rowCount === 0) {
@@ -2969,20 +3069,23 @@ app.put('/api/admin/items/:id', authenticateToken, requireAdmin, async (req, res
       }
     }
 
+    // 验证 water_cd 不能超过 240 秒
+    const validWaterCd = water_cd !== undefined ? Math.min(240, Math.max(10, Number(water_cd))) : existing.rows[0].water_cd || 5;
+
     const result = await client.query(
-      `UPDATE items SET name = $1, icon = $2, rarity = $3, item_type = $4, grow_time = $5, base_yield = $6, buy_price = $7, sell_price = $8, currency_type = $9, is_shop = $10, crop_id = $11 WHERE id = $12 RETURNING *`,
+      `UPDATE items SET name = $1, icon = $2, rarity = $3, item_type = $4, base_yield = $5, buy_price = $6, sell_price = $7, currency_type = $8, is_shop = $9, crop_id = $10, water_cd = $11 WHERE id = $12 RETURNING *`,
       [
         name || existing.rows[0].name,
         icon !== undefined ? icon : existing.rows[0].icon,
         rarity || existing.rows[0].rarity,
         item_type || existing.rows[0].item_type,
-        grow_time !== undefined ? grow_time : existing.rows[0].grow_time,
         base_yield !== undefined ? base_yield : existing.rows[0].base_yield,
         buy_price !== undefined ? buy_price : existing.rows[0].buy_price,
         sell_price !== undefined ? sell_price : existing.rows[0].sell_price,
         currency_type || existing.rows[0].currency_type,
         is_shop !== undefined ? is_shop : existing.rows[0].is_shop,
         crop_id !== undefined ? crop_id : existing.rows[0].crop_id,
+        validWaterCd,
         id
       ]
     );
@@ -3006,6 +3109,89 @@ app.delete('/api/admin/items/:id', authenticateToken, requireAdmin, async (req, 
   } catch (error) {
     logger.error('Delete item error', { error: error.message });
     res.status(500).json({ error: '删除物品失败' });
+  }
+});
+
+// ==================== 管理员宠物管理 API ====================
+
+// GET /api/pets/all — 获取所有宠物模板
+app.get('/api/pets/all', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await client.query('SELECT * FROM pets ORDER BY rarity, id');
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Get pets error', { error: error.message });
+    res.status(500).json({ error: '获取宠物列表失败' });
+  }
+});
+
+// POST /api/admin/pets — 创建宠物
+app.post('/api/admin/pets', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { name, icon, rarity, base_bonus, price_amount, price_type, is_shop } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: '请填写宠物名' });
+    }
+
+    const result = await client.query(
+      `INSERT INTO pets (name, icon, rarity, base_bonus, price_amount, price_type, is_shop)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [name, icon || '🐾', rarity || 'C', base_bonus || 5, price_amount || 100, price_type || 'silver_coin', is_shop !== false]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    logger.error('Create pet error', { error: error.message });
+    res.status(500).json({ error: '创建宠物失败' });
+  }
+});
+
+// PUT /api/admin/pets/:id — 更新宠物
+app.put('/api/admin/pets/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, icon, rarity, base_bonus, price_amount, price_type, is_shop } = req.body;
+
+    const existing = await client.query('SELECT * FROM pets WHERE id = $1', [id]);
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ error: '宠物不存在' });
+    }
+
+    const result = await client.query(
+      `UPDATE pets SET name = $1, icon = $2, rarity = $3, base_bonus = $4, price_amount = $5, price_type = $6, is_shop = $7
+       WHERE id = $8 RETURNING *`,
+      [
+        name || existing.rows[0].name,
+        icon || existing.rows[0].icon,
+        rarity || existing.rows[0].rarity,
+        base_bonus || existing.rows[0].base_bonus,
+        price_amount || existing.rows[0].price_amount,
+        price_type || existing.rows[0].price_type,
+        is_shop !== undefined ? is_shop : existing.rows[0].is_shop,
+        id
+      ]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Update pet error', { error: error.message });
+    res.status(500).json({ error: '更新宠物失败' });
+  }
+});
+
+// DELETE /api/admin/pets/:id — 删除宠物
+app.delete('/api/admin/pets/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await client.query('DELETE FROM pets WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: '宠物不存在' });
+    }
+    res.json({ message: '宠物删除成功' });
+  } catch (error) {
+    logger.error('Delete pet error', { error: error.message });
+    res.status(500).json({ error: '删除宠物失败' });
   }
 });
 
@@ -3211,7 +3397,7 @@ app.get('/api/admin/users/:id/items', authenticateToken, requireAdmin, async (re
   try {
     const { id } = req.params;
     const result = await client.query(
-      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.grow_time, i.base_yield, i.buy_price, i.sell_price, i.currency_type
+      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.base_yield, i.buy_price, i.sell_price, i.currency_type, i.water_cd
        FROM user_items ui
        JOIN items i ON ui.item_id = i.id
        WHERE ui.user_id = $1 AND ui.quantity > 0
@@ -3282,10 +3468,16 @@ app.get('/api/user/plots', authenticateToken, async (req, res) => {
       let cropInfo = null;
       if (plot.seed_id) {
         const itemResult = await client.query(
-          'SELECT id, name, icon, rarity, item_type, grow_time, base_yield FROM items WHERE id = $1',
+          'SELECT id, name, icon, rarity, item_type, base_yield, water_cd FROM items WHERE id = $1',
           [plot.seed_id]
         );
-        if (itemResult.rowCount > 0) cropInfo = itemResult.rows[0];
+        if (itemResult.rowCount > 0) {
+          const item = itemResult.rows[0];
+          cropInfo = {
+            ...item,
+            grow_time: (item.water_cd || 5) * 5 // 自动计算：5个阶段 × 浇水CD
+          };
+        }
       }
       plots.push({
         id: plot.id,
@@ -3296,7 +3488,8 @@ app.get('/api/user/plots', authenticateToken, async (req, res) => {
         stage: plot.stage,
         planted_at: plot.planted_at,
         last_watered_at: plot.last_watered_at,
-        crop: cropInfo ? { id: cropInfo.id, name: cropInfo.name, icon: cropInfo.icon, rarity: cropInfo.rarity, item_type: cropInfo.item_type, grow_time: cropInfo.grow_time, base_yield: cropInfo.base_yield } : null,
+        is_dead: plot.is_dead || false,
+        crop: cropInfo ? { id: cropInfo.id, name: cropInfo.name, icon: cropInfo.icon, rarity: cropInfo.rarity, item_type: cropInfo.item_type, base_yield: cropInfo.base_yield, water_cd: Math.min(240, cropInfo.water_cd || 5), grow_time: (cropInfo.water_cd || 5) * 5 } : null,
         stage_icon: plot.seed_id ? (plot.stage < 4 ? STAGE_ICONS[plot.stage] : (cropInfo ? cropInfo.icon : '🌿')) : null,
         multiplier: PLOT_LEVEL_MULTIPLIER[plot.level] || 1.0
       });
@@ -3405,7 +3598,7 @@ app.post('/api/user/plots/:plotIndex/plant', authenticateToken, async (req, res)
       throw err;
     }
     const cropInfo = itemResult.rows[0];
-    res.json({ message: '种植成功', plot_index: plotIndex, crop: { id: cropInfo.id, name: cropInfo.name, icon: cropInfo.icon, rarity: cropInfo.rarity, grow_time: cropInfo.grow_time, base_yield: cropInfo.base_yield } });
+    res.json({ message: '种植成功', plot_index: plotIndex, crop: { id: cropInfo.id, name: cropInfo.name, icon: cropInfo.icon, rarity: cropInfo.rarity, base_yield: cropInfo.base_yield, water_cd: cropInfo.water_cd || 5, grow_time: (cropInfo.water_cd || 5) * 5 } });
   } catch (error) {
     logger.error('Plant error', { error: error.message });
     res.status(500).json({ error: '种植失败' });
@@ -3418,28 +3611,53 @@ app.post('/api/user/plots/:plotIndex/water', authenticateToken, async (req, res)
     const userId = req.user.id;
     const plotIndex = parseInt(req.params.plotIndex);
     if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
-    const plotResult = await client.query('SELECT gp.*, i.grow_time, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
+    const plotResult = await client.query('SELECT gp.*, i.water_cd, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
     if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
     const plot = plotResult.rows[0];
     if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
     if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
-    if (plot.stage >= 4) return res.status(400).json({ error: '植物已成熟，无需浇水' });
-    const growTime = plot.grow_time || 60;
-    const stageTime = growTime / 4;
+    if (plot.is_dead) return res.status(400).json({ error: '植物已死亡，请铲除后重新种植' });
+    
+    // 浇水冷却时间（从物品数据获取，默认5秒，最大240秒）
+    const waterCd = Math.min(240, plot.water_cd || 5);
+    // 干涸死亡时间（固定3分钟）
+    const dryTime = 180;
+    
     const plantedAt = new Date(plot.planted_at).getTime();
     const now = Date.now();
     const elapsed = (now - plantedAt) / 1000;
-    // 每次浇水只能推进一个阶段
-    const nextStage = plot.stage + 1;
-    if (nextStage > 4) return res.status(400).json({ error: '植物已成熟' });
-    const nextStageTime = nextStage * stageTime;
-    if (elapsed < nextStageTime) {
-      const remaining = Math.ceil(nextStageTime - elapsed);
-      return res.status(400).json({ error: `植物还在生长中，还需 ${remaining} 秒` });
+    
+    // 检查植物是否已干涸死亡（超过3分钟未浇水）
+    if (elapsed > dryTime) {
+      await client.query('UPDATE garden_plots SET is_dead = true WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
+      return res.status(400).json({ error: '植物已因缺水而死亡' });
     }
-    const newStage = nextStage;
-    await client.query('UPDATE garden_plots SET stage = $1, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND plot_index = $3', [newStage, userId, plotIndex]);
-    res.json({ message: '浇水成功', plot_index: plotIndex, stage: newStage, stage_icon: newStage < 4 ? STAGE_ICONS[newStage] : (plot.crop_icon || '🌿'), is_mature: newStage >= 4 });
+    
+    // 成熟后仍可浇水，但不推进阶段，只重置计时器
+    if (plot.stage >= 4) {
+      await client.query('UPDATE garden_plots SET planted_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
+      return res.json({ message: '浇水成功', plot_index: plotIndex, stage: plot.stage, stage_icon: plot.crop_icon || '🌿', is_mature: true });
+    }
+    
+    // 检查浇水冷却时间
+    if (elapsed < waterCd) {
+      const remaining = Math.ceil(waterCd - elapsed);
+      return res.status(400).json({ error: `浇水冷却中，还需 ${remaining} 秒` });
+    }
+    
+    // 浇水成功，推进一个阶段并重置计时器
+    const newStage = plot.stage + 1;
+    await client.query('UPDATE garden_plots SET stage = $1, planted_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND plot_index = $3', [newStage, userId, plotIndex]);
+    
+    const isMature = newStage >= 4;
+    res.json({ 
+      message: isMature ? '🎉 植物成熟了！' : '💧 浇水成功', 
+      plot_index: plotIndex, 
+      stage: newStage, 
+      stage_icon: isMature ? (plot.crop_icon || '🌿') : STAGE_ICONS[newStage], 
+      is_mature: isMature,
+      water_cd: waterCd
+    });
   } catch (error) {
     logger.error('Water error', { error: error.message });
     res.status(500).json({ error: '浇水失败' });
@@ -3454,30 +3672,29 @@ app.post('/api/user/plots/:plotIndex/fertilize', authenticateToken, async (req, 
     const { item_id } = req.body;
     if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
     if (!item_id) return res.status(400).json({ error: '请提供肥料 item_id' });
-    const plotResult = await client.query('SELECT gp.*, i.grow_time, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
+    const plotResult = await client.query('SELECT gp.*, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
     if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
     const plot = plotResult.rows[0];
     if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
     if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
+    if (plot.is_dead) return res.status(400).json({ error: '植物已死亡，无法施肥' });
     if (plot.stage >= 4) return res.status(400).json({ error: '植物已成熟，无需施肥' });
+    
     const itemResult = await client.query('SELECT * FROM items WHERE id = $1', [item_id]);
     if (itemResult.rowCount === 0) return res.status(404).json({ error: '物品不存在' });
     if (itemResult.rows[0].item_type !== 'fertilizer') return res.status(400).json({ error: '该物品不是肥料' });
+    
+    const fertilizer = itemResult.rows[0];
+    // 获取肥料跳过的阶段数，默认为1
+    const stageSkip = fertilizer.stage_skip ? Number(fertilizer.stage_skip) : 1;
+    
     const userItemResult = await client.query('SELECT * FROM user_items WHERE user_id = $1 AND item_id = $2', [userId, item_id]);
     if (userItemResult.rowCount === 0 || userItemResult.rows[0].quantity <= 0) return res.status(400).json({ error: '背包中没有该肥料' });
-    const fertilizerName = itemResult.rows[0].name;
-    const isAdvanced = fertilizerName.includes('高级');
-    const boostRate = isAdvanced ? 0.3 : 0.1;
-    const growTime = plot.grow_time || 60;
-    const stageTime = growTime / 4;
-    const plantedAt = new Date(plot.planted_at).getTime();
-    const now = Date.now();
-    const elapsed = (now - plantedAt) / 1000;
-    const remainingTime = growTime - elapsed;
-    const boostTime = remainingTime * boostRate;
-    const newPlantedAt = new Date(plantedAt - boostTime * 1000);
-    const newElapsed = (now - newPlantedAt.getTime()) / 1000;
-    const newStage = Math.min(4, Math.floor(newElapsed / stageTime));
+    
+    // 检查是否会浪费（跳过阶段大于剩余阶段）
+    const remainingStages = 4 - plot.stage;
+    const wastedStages = Math.max(0, stageSkip - remainingStages);
+    
     await client.query('BEGIN');
     try {
       const newQty = userItemResult.rows[0].quantity - 1;
@@ -3486,13 +3703,32 @@ app.post('/api/user/plots/:plotIndex/fertilize', authenticateToken, async (req, 
       } else {
         await client.query('UPDATE user_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND item_id = $3', [newQty, userId, item_id]);
       }
-      await client.query('UPDATE garden_plots SET planted_at = $1, stage = $2, last_watered_at = CURRENT_TIMESTAMP WHERE user_id = $3 AND plot_index = $4', [newPlantedAt, newStage, userId, plotIndex]);
+      
+      // 跳过阶段并重置计时器
+      const newStage = Math.min(4, plot.stage + stageSkip);
+      await client.query('UPDATE garden_plots SET stage = $1, planted_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND plot_index = $3', [newStage, userId, plotIndex]);
+      
       await client.query('COMMIT');
+      
+      const isMature = newStage >= 4;
+      const response = {
+        message: isMature ? '🎉 施肥后植物直接成熟了！' : `🧪 施肥成功！跳过 ${stageSkip} 个阶段`,
+        plot_index: plotIndex,
+        stage: newStage,
+        stage_icon: isMature ? (plot.crop_icon || '🌿') : STAGE_ICONS[Math.min(newStage, 3)],
+        is_mature: isMature
+      };
+      
+      // 如果有浪费，添加警告信息
+      if (wastedStages > 0) {
+        response.warning = `警告：肥料效果有 ${wastedStages} 个阶段被浪费了，植物原本只需 ${remainingStages} 个阶段即可成熟`;
+      }
+      
+      res.json(response);
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
     }
-    res.json({ message: '施肥成功', plot_index: plotIndex, stage: newStage, stage_icon: newStage < 4 ? STAGE_ICONS[newStage] : (plot.crop_icon || '🌿'), is_mature: newStage >= 4, boost: `${Math.round(boostRate * 100)}%` });
   } catch (error) {
     logger.error('Fertilize error', { error: error.message });
     res.status(500).json({ error: '施肥失败' });
@@ -3712,8 +3948,12 @@ app.post('/api/ask', authenticateToken, async (req, res) => {
     const difyData = await difyResponse.json();
     logger.info('Dify query success', { userId: req.user.id, conversation_id: difyData.conversation_id });
 
+    // 过滤掉 <think> 标签内容
+    let answer = difyData.answer || '抱歉，我暂时无法回答这个问题。';
+    answer = answer.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
     res.json({
-      answer: difyData.answer || '抱歉，我暂时无法回答这个问题。',
+      answer,
       conversation_id: difyData.conversation_id || null
     });
   } catch (error) {
