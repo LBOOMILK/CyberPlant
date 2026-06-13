@@ -54,7 +54,7 @@
     <!-- 购买确认弹窗 -->
     <Modal
       :visible="buyModalVisible"
-      title="💰 购买确认"
+      title="购买确认"
       :message="buyModalMessage"
       confirm-text="确认购买"
       cancel-text="取消"

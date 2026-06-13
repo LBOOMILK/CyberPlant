@@ -113,7 +113,7 @@ watch(() => props.initialQuantity, (newVal) => {
 
 watch(() => props.maxQuantity, (newVal) => {
   if (quantity.value > newVal) {
-    quantity.value = Math.max(1, newVal)
+    quantity.value = newVal <= 0 ? 0 : Math.max(1, newVal)
   }
 })
 

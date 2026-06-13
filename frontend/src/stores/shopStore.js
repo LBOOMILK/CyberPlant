@@ -116,7 +116,7 @@ export const useShopStore = defineStore('shop', () => {
     // 更新货币余额
     const userStore = useUserStore()
     if (data.currencies) {
-      userStore.currencies.value = {
+      userStore.currencies = {
         silver_coin: Number(data.currencies.silver_coin) || 0,
         gold_coin: Number(data.currencies.gold_coin) || 0,
         diamond: Number(data.currencies.diamond) || 0
@@ -146,7 +146,7 @@ export const useShopStore = defineStore('shop', () => {
     // 更新货币余额
     const userStore = useUserStore()
     if (data.currencies) {
-      userStore.currencies.value = {
+      userStore.currencies = {
         silver_coin: Number(data.currencies.silver_coin) || 0,
         gold_coin: Number(data.currencies.gold_coin) || 0,
         diamond: Number(data.currencies.diamond) || 0
