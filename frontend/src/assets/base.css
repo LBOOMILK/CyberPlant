@@ -25,8 +25,65 @@ body {
   background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
 }
 
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(76, 175, 80, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(76, 175, 80, 0.6);
+}
+
+/* 禁用移动端 Safari 的原生工具栏按钮 */
+@supports (-webkit-touch-callout: none) {
+  body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+  }
+}
+
+/* iOS Safari 禁用双击缩放 */
+html {
+  touch-action: manipulation;
+}
+
+/* 隐藏 Safari 移动端的地址栏和工具栏占位 */
+@media (max-width: 768px) {
+  html {
+    height: -webkit-fill-available;
+  }
+  
+  body {
+    min-height: -webkit-fill-available;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background: linear-gradient(145deg, #1a2a1f 0%, #0d1f0a 100%);
+  }
+
+  /* 深色模式滚动条 */
+  ::-webkit-scrollbar-track {
+    background: rgba(50, 50, 55, 0.5);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(139, 195, 74, 0.4);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 195, 74, 0.6);
   }
 }

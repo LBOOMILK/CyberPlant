@@ -14,9 +14,9 @@ export const useUserStore = defineStore('user', () => {
 
   // ========== 货币符号配置 ==========
   const currencyConfig = {
-    silver_coin: { name: '银币', icon: '🪙', color: '#C0C0C0' },
-    gold_coin: { name: '金币', icon: '🥇', color: '#FFD700' },
-    diamond: { name: '钻石', icon: '💎', color: '#B9F2FF' }
+    silver_coin: { name: '银币', icon: '/silver_icon.png', color: '#C0C0C0' },
+    gold_coin: { name: '金币', icon: '/gold_icon.png', color: '#FFD700' },
+    diamond: { name: '钻石', icon: '/diamond.png', color: '#B9F2FF' }
   }
 
   // ========== 兑换规则 ==========
@@ -51,8 +51,14 @@ export const useUserStore = defineStore('user', () => {
     }
 
     const userData = await userResponse.json()
-    username.value = userData.name
-    isNewUser.value = userData.is_new_user || false
+    username.value = userData.name || '用户'
+    
+    // 修复：确保 isNewUser 正确设置，默认为 false
+    if (userData.is_new_user !== undefined) {
+      isNewUser.value = Boolean(userData.is_new_user)
+    } else {
+      isNewUser.value = false
+    }
 
     // 更新货币
     if (userData.currencies) {

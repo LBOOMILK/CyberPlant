@@ -15,7 +15,7 @@
               :class="['toc-item', { active: activeSection === idx }]"
               @click="activeSection = idx"
             >
-              <span class="toc-icon">{{ section.icon }}</span>
+              <img :src="section.icon" class="toc-icon" />
               <span class="toc-label">{{ section.title }}</span>
             </button>
           </nav>
@@ -47,12 +47,12 @@ const activeSection = ref(0)
 const sections = [
   {
     id: 'currency',
-    icon: '💰',
+    icon: '/gold_icon.png',
     title: '货币系统',
     content: `
       <p>赛博花园有<strong>三种货币</strong>，价值依次递增：</p>
       <div class="info-card">
-        <p><strong>🪙 银币</strong> — 最基础的货币</p>
+        <p><strong><img src="/silver_icon.png" class="inline-icon" /> 银币</strong> — 最基础的货币</p>
         <ul>
           <li>获取：收获作物、日常任务</li>
           <li>用途：购买种子、解锁地块、喂养宠物</li>
@@ -60,7 +60,7 @@ const sections = [
         </ul>
       </div>
       <div class="info-card">
-        <p><strong>🥇 金币</strong> — 中级货币</p>
+        <p><strong><img src="/gold_icon.png" class="inline-icon" /> 金币</strong> — 中级货币</p>
         <ul>
           <li>获取：高级作物收获、银币兑换</li>
           <li>用途：购买高级种子、升级地块</li>
@@ -68,7 +68,7 @@ const sections = [
         </ul>
       </div>
       <div class="info-card">
-        <p><strong>💎 钻石</strong> — 高级货币</p>
+        <p><strong><img src="/diamond.png" class="inline-icon" /> 钻石</strong> — 高级货币</p>
         <ul>
           <li>获取：稀有作物收获、金币兑换</li>
           <li>用途：购买稀有种子、宠物装饰</li>
@@ -328,8 +328,18 @@ const currentSection = computed(() => sections[activeSection.value])
 }
 
 .toc-icon {
-  font-size: 1.1rem;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
   flex-shrink: 0;
+}
+
+.inline-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  margin-right: 4px;
+  vertical-align: middle;
 }
 
 .toc-label {

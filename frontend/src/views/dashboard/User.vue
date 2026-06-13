@@ -4,11 +4,54 @@
             <div class="avatar">🧑‍🌾</div>
             <h2>{{ userStore.username }}</h2>
 
-            <!-- 货币余额（同一行显示） -->
+            <!-- 货币余额（同一行显示，使用图片资源） -->
             <div class="currency-row">
-                <span class="currency-item">🪙 {{ userStore.currencies.silver_coin }}</span>
-                <span class="currency-item">🥇 {{ userStore.currencies.gold_coin }}</span>
-                <span class="currency-item">💎 {{ userStore.currencies.diamond }}</span>
+                <span class="currency-item">
+                    <img src="/silver_icon.png" alt="银币" class="currency-icon" />
+                    {{ userStore.currencies.silver_coin }}
+                </span>
+                <span class="currency-item">
+                    <img src="/gold_icon.png" alt="金币" class="currency-icon" />
+                    {{ userStore.currencies.gold_coin }}
+                </span>
+                <span class="currency-item">
+                    <img src="/diamond.png" alt="钻石" class="currency-icon" />
+                    {{ userStore.currencies.diamond }}
+                </span>
+            </div>
+
+            <!-- 激活宠物状态卡片 -->
+            <div v-if="activePet" class="pet-status-card">
+                <div class="pet-status-header">
+                    <span class="pet-icon">{{ activePet.icon }}</span>
+                    <div class="pet-info">
+                        <span class="pet-name">{{ activePet.name }}</span>
+                        <span class="pet-level">Lv.{{ activePet.level }}</span>
+                    </div>
+                    <span class="pet-bonus" :class="{ paused: activePet.hunger <= 0 }">
+                        {{ activePet.hunger > 0 ? '+' + activePet.current_bonus + '%' : '暂停' }}
+                    </span>
+                </div>
+                <div class="pet-status-bars">
+                    <div class="bar-item">
+                        <span class="bar-label">饱食度</span>
+                        <div class="bar">
+                            <div class="bar-fill hunger" :style="{ width: activePet.hunger + '%' }" :class="{ low: activePet.hunger < 20 }"></div>
+                        </div>
+                        <span class="bar-value">{{ activePet.hunger }}%</span>
+                    </div>
+                    <div class="bar-item">
+                        <span class="bar-label">成长值</span>
+                        <div class="bar">
+                            <div class="bar-fill growth" :style="{ width: activePet.next_level_threshold ? (activePet.growth_points / activePet.next_level_threshold * 100) + '%' : '100%' }"></div>
+                        </div>
+                        <span class="bar-value">{{ activePet.next_level_threshold ? activePet.growth_points + '/' + activePet.next_level_threshold : 'MAX' }}</span>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="no-pet-hint">
+                <span>🐾 暂无出战宠物</span>
+                <button class="small-btn" @click="router.push('/dashboard/pets')">去激活</button>
             </div>
 
             <div class="stats">
@@ -145,6 +188,7 @@ const cropCount = ref(0)
 const friendCount = ref(0)
 const petCount = ref(0)
 const decorationCount = ref(0)
+const activePet = ref(null)
 
 // 生命周期
 onMounted(async () => {
@@ -185,6 +229,8 @@ async function loadStats() {
         if (petsRes.ok) {
             const data = await petsRes.json()
             petCount.value = (data.pets || []).length
+            // 获取激活宠物
+            activePet.value = (data.pets || []).find(p => p.is_active) || null
         }
         if (decsRes.ok) {
             const data = await decsRes.json()
@@ -353,9 +399,137 @@ function handleLogout() {
 }
 
 .currency-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-weight: bold;
     font-size: 1.1rem;
     color: #2e7d32;
+}
+
+.currency-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+/* 宠物状态卡片 */
+.pet-status-card {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-radius: 16px;
+    padding: 16px;
+    margin: 16px 0;
+}
+
+.pet-status-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pet-status-header .pet-icon {
+    font-size: 2rem;
+}
+
+.pet-status-header .pet-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.pet-status-header .pet-name {
+    font-weight: 600;
+    color: #2c5a2a;
+}
+
+.pet-status-header .pet-level {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.pet-status-header .pet-bonus {
+    font-weight: 600;
+    color: #4caf50;
+    padding: 4px 10px;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 8px;
+}
+
+.pet-status-header .pet-bonus.paused {
+    color: #f44336;
+    background: rgba(244, 67, 54, 0.2);
+}
+
+.pet-status-bars {
+    margin-top: 12px;
+}
+
+.bar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.bar-label {
+    font-size: 0.75rem;
+    color: #666;
+    width: 50px;
+}
+
+.bar {
+    flex: 1;
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.bar-fill.hunger {
+    background: #4caf50;
+}
+
+.bar-fill.hunger.low {
+    background: #f44336;
+}
+
+.bar-fill.growth {
+    background: #2196f3;
+}
+
+.bar-value {
+    font-size: 0.7rem;
+    color: #888;
+    width: 60px;
+    text-align: right;
+}
+
+.no-pet-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    background: #f5f5f5;
+    border-radius: 12px;
+    margin: 16px 0;
+    color: #999;
+}
+
+.small-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 20px;
+    background: #4caf50;
+    color: white;
+    font-size: 0.8rem;
+    cursor: pointer;
 }
 
 .stats {

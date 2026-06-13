@@ -1,17 +1,6 @@
 <template>
     <div class="app">
-        <!-- 顶部信息栏（登录/注册/管理端页面除外） -->
-        <div
-            v-if="!isAuthPage && !isAdminPage && $route.path !== '/dashboard/user'"
-            class="top-bar"
-        >
-            <div class="top-bar-left">
-                <span class="top-username">🌱 {{ userStore.username }}</span>
-            </div>
-            <div class="top-bar-right">
-                <CurrencyBar />
-            </div>
-        </div>
+        <!-- 顶部信息栏已移除，改为悬浮窗显示 -->
 
         <!-- 路由视图 -->
         <main class="main-content" :class="{ 'no-topbar': isAuthPage || isAdminPage }">
@@ -22,52 +11,40 @@
             </router-view>
         </main>
 
-        <!-- 移动端汉堡菜单按钮（登录/注册页面除外，管理端页面除外） -->
-        <button
-            v-if="!isAuthPage && !isAdminPage && isMobile"
-            class="hamburger-btn"
-            :class="{ open: mobileMenuOpen }"
-            @click="mobileMenuOpen = !mobileMenuOpen"
-        >
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
-
         <!-- 移动端底部导航栏 -->
-        <nav v-if="!isAuthPage && !isAdminPage" class="bottom-nav" :class="{ expanded: mobileMenuOpen }">
-            <router-link to="/dashboard/garden" class="nav-link" @click="mobileMenuOpen = false">
+        <nav v-if="!isAuthPage && !isAdminPage" class="bottom-nav">
+            <router-link to="/dashboard/garden" class="nav-link">
                 <span class="nav-emoji">🌱</span>
                 <span class="nav-text">花园</span>
             </router-link>
-            <router-link to="/dashboard/shop" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link to="/dashboard/shop" class="nav-link">
                 <span class="nav-emoji">🛒</span>
                 <span class="nav-text">商店</span>
             </router-link>
-            <router-link to="/dashboard/backpack" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link to="/dashboard/backpack" class="nav-link">
                 <span class="nav-emoji">🎒</span>
                 <span class="nav-text">背包</span>
             </router-link>
-            <router-link to="/dashboard/friends" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link to="/dashboard/friends" class="nav-link">
                 <span class="nav-emoji">👥</span>
                 <span class="nav-text">好友</span>
                 <span v-if="friendStore.pendingRequests.length > 0" class="badge">{{ friendStore.pendingRequests.length }}</span>
             </router-link>
-            <router-link to="/dashboard/pets" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link to="/dashboard/pets" class="nav-link">
                 <span class="nav-emoji">🐾</span>
                 <span class="nav-text">宠物</span>
             </router-link>
-            <router-link to="/dashboard/orders" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link to="/dashboard/orders" class="nav-link">
                 <span class="nav-emoji">📋</span>
                 <span class="nav-text">订单</span>
             </router-link>
-            <router-link to="/dashboard/user" class="nav-link" @click="mobileMenuOpen = false">
+            <router-link to="/dashboard/user" class="nav-link">
                 <span class="nav-emoji">👤</span>
                 <span class="nav-text">个人</span>
             </router-link>
         </nav>
 
-        <!-- 宠物悬浮组件 -->
+        <!-- 宠物悬浮组件（合并用户信息和货币） -->
         <PetFloating />
 
         <!-- 平板/PC 端悬浮胶囊导航栏 -->
@@ -127,17 +104,12 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useFriendStore } from '@/stores/friendStore'
-import CurrencyBar from './CurrencyBar.vue'
 import PetFloating from './PetFloating.vue'
 import WelcomeModal from './WelcomeModal.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
 const friendStore = useFriendStore()
-
-// 响应式判断是否为移动端
-const isMobile = ref(window.innerWidth < 768)
-const mobileMenuOpen = ref(false)
 
 // 新手欢迎
 const showWelcome = ref(false)
@@ -156,11 +128,6 @@ const isAdminPage = computed(() => {
 const isDashboardPage = computed(() => {
     return route.path.startsWith('/dashboard')
 })
-
-const handleResize = () => {
-    isMobile.value = window.innerWidth < 768
-    if (!isMobile.value) mobileMenuOpen.value = false
-}
 
 // 悬浮导航拖动相关状态
 const isDragging = ref(false)
@@ -272,7 +239,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
     min-height: 100vh;
     width: 100%;
     overflow-y: visible;
-    padding-top: 44px; /* 顶部栏高度 */
+    padding-top: 0; /* 移除顶部栏高度 */
 }
 
 .main-content.no-topbar {
@@ -284,82 +251,6 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
 .page-fade-leave-active { transition: opacity 0.15s ease; }
 .page-fade-enter-from { opacity: 0; transform: translateY(8px); }
 .page-fade-leave-to { opacity: 0; }
-
-/* ========== 顶部信息栏 ========== */
-.top-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1001;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 16px;
-    background: rgba(46, 125, 50, 0.9);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
-.top-bar-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.top-username {
-    color: #fff;
-    font-weight: 600;
-    font-size: 1.05rem;
-}
-
-.top-bar-right {
-    display: flex;
-    align-items: center;
-}
-
-/* ========== 汉堡菜单按钮 ========== */
-.hamburger-btn {
-    position: fixed;
-    top: 8px;
-    right: 16px;
-    z-index: 1002;
-    width: 40px;
-    height: 40px;
-    background: rgba(46, 125, 50, 0.85);
-    backdrop-filter: blur(8px);
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 8px;
-    transition: all 0.3s;
-}
-
-.hamburger-btn span {
-    display: block;
-    width: 20px;
-    height: 2px;
-    background: white;
-    border-radius: 1px;
-    transition: all 0.3s;
-}
-
-.hamburger-btn.open span:nth-child(1) {
-    transform: rotate(45deg) translate(4px, 4px);
-}
-
-.hamburger-btn.open span:nth-child(2) {
-    opacity: 0;
-}
-
-.hamburger-btn.open span:nth-child(3) {
-    transform: rotate(-45deg) translate(4px, -4px);
-}
 
 /* ========== 移动端底部导航栏 ========== */
 .bottom-nav {
@@ -593,10 +484,6 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
 
 /* ========== 深色模式适配 ========== */
 @media (prefers-color-scheme: dark) {
-    .top-bar {
-        background: rgba(27, 50, 28, 0.95);
-    }
-
     .bottom-nav {
         background: rgba(30, 30, 35, 0.95);
         border-top-color: rgba(255, 255, 255, 0.08);
@@ -638,10 +525,6 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
         background: #4a4a4f;
         color: #9ccc65;
     }
-
-    .hamburger-btn {
-        background: rgba(27, 50, 28, 0.9);
-    }
 }
 
 /* ========== 响应式断点 ========== */
@@ -677,16 +560,8 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
         display: none;
     }
 
-    .hamburger-btn {
-        display: none;
-    }
-
     .floating-nav {
         display: block;
-    }
-
-    .top-bar {
-        padding: 8px 24px;
     }
 }
 
