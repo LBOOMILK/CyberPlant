@@ -219,11 +219,11 @@ export const usePetStore = defineStore('pet', () => {
   }
 
   // ========== 装备装饰 ==========
-  async function equipDecoration(userPetId, decorationId) {
+  async function equipDecoration(userPetId, slotType, decorationId) {
     const response = await fetch(`${API_URL}/user/pets/${userPetId}/equip`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ decoration_id: decorationId })
+      body: JSON.stringify({ decoration_id: decorationId, slot_type: slotType })
     })
     if (!response.ok) {
       const err = await response.json()

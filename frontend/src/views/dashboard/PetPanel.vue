@@ -1,159 +1,138 @@
 <template>
   <div class="pet-panel">
-    <div class="panel-header">
-      <h2>🐾 宠物系统</h2>
-      <p class="subtitle">培养你的专属宠物，获得种植加成</p>
+    <!-- 上方70%：宠物展示区 -->
+    <div class="pet-display-area">
+      <!-- 未选择宠物时的提示 -->
+      <div v-if="!selectedPet && petStore.pets.length > 0" class="no-selection-hint">
+        <span class="hint-icon">🐾</span>
+        <p>请从下方列表选择一只宠物</p>
+      </div>
+      
+      <!-- 空状态：没有宠物 -->
+      <div v-if="petStore.pets.length === 0" class="empty-display">
+        <span class="empty-icon">🐾</span>
+        <p>还没有宠物</p>
+        <p class="empty-hint">去商店购买一只宠物吧！</p>
+      </div>
+      
+      <!-- 已选择宠物：大号动效展示 -->
+      <div v-if="selectedPet" class="selected-pet-display">
+        <!-- 宠物大图标 -->
+        <div class="pet-big-container">
+          <div class="pet-big-icon">{{ selectedPet.icon }}</div>
+          <!-- 装饰槽位（四个，绕宠物旋转） -->
+          <div class="decoration-slots">
+            <div
+              v-for="(slot, key, index) in petStore.slotConfig"
+              :key="key"
+              class="deco-slot"
+              :style="getSlotPosition(index)"
+              @click="openEquipModal()"
+            >
+              <span v-if="selectedPet.equipped_decorations[key]" class="deco-equipped">
+                {{ getDecIcon(selectedPet.equipped_decorations[key]) }}
+              </span>
+              <span v-else class="deco-empty">⚪</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-
-    <!-- 宠物列表 -->
-    <div class="section" v-if="petStore.pets.length > 0">
-      <h3 class="section-title">我的宠物</h3>
-      <div class="pet-grid">
+    
+    <!-- 宠物控制面板（贴近宠物栏上方） -->
+    <div v-if="selectedPet" class="pet-control-panel">
+      <div class="control-left">
+        <span class="pet-name">{{ selectedPet.name }}</span>
+        <span class="rarity-badge" :style="{ background: petStore.rarityConfig[selectedPet.rarity]?.color }">
+          {{ petStore.rarityConfig[selectedPet.rarity]?.label }}
+        </span>
+        <span v-if="selectedPet.is_active" class="active-badge">出战中</span>
+        <span class="level-badge">Lv.{{ selectedPet.level }}</span>
+        <span class="bonus-display" :class="{ paused: selectedPet.hunger <= 0 }">
+          {{ selectedPet.hunger > 0 ? '+' + selectedPet.current_bonus + '%' : '暂停' }}
+        </span>
+      </div>
+      <div class="control-right">
+        <div class="bars-row">
+          <div class="mini-bar-group">
+            <span class="bar-label">饱食</span>
+            <div class="mini-bar">
+              <div
+                class="mini-bar-fill hunger"
+                :class="{ low: selectedPet.hunger < 20, mid: selectedPet.hunger >= 20 && selectedPet.hunger < 50 }"
+                :style="{ width: selectedPet.hunger + '%' }"
+              ></div>
+            </div>
+            <span class="bar-value">{{ selectedPet.hunger }}%</span>
+          </div>
+          <div class="mini-bar-group">
+            <span class="bar-label">成长</span>
+            <div class="mini-bar">
+              <div
+                class="mini-bar-fill growth"
+                :style="{ width: selectedPet.next_level_threshold ? Math.min(100, (selectedPet.growth_points / selectedPet.next_level_threshold) * 100) + '%' : '100%' }"
+              ></div>
+            </div>
+            <span class="bar-value">{{ selectedPet.next_level_threshold ? Math.floor((selectedPet.growth_points / selectedPet.next_level_threshold) * 100) + '%' : 'MAX' }}</span>
+          </div>
+        </div>
+        <div class="action-btns">
+          <button
+            class="btn btn-activate"
+            :class="{ active: selectedPet.is_active }"
+            @click="handleActivate"
+            :disabled="actionLoading"
+          >{{ selectedPet.is_active ? '⏸️' : '⚡' }}</button>
+          <button
+            class="btn btn-feed"
+            @click="showFeedModal = true"
+            :disabled="actionLoading || selectedPet.is_digesting"
+          >🍖</button>
+          <button
+            v-if="canLevelUp"
+            class="btn btn-upgrade"
+            @click="showUpgradeModal = true"
+            :disabled="actionLoading"
+          >⬆️</button>
+          <button
+            class="btn btn-equip"
+            @click="openEquipModal()"
+            :disabled="actionLoading"
+          >💎</button>
+        </div>
+        <div v-if="selectedPet.is_digesting" class="digesting-badge">🍽️ 消化中</div>
+      </div>
+    </div>
+    
+    <!-- 下方30%：宠物列表（可滑动） -->
+    <div class="pet-list-area">
+      <div class="list-header">
+        <h3>我的宠物</h3>
+        <span class="pet-count">({{ petStore.pets.length }}只)</span>
+      </div>
+      
+      <div class="pet-list-scroll">
         <div
           v-for="pet in petStore.pets"
           :key="pet.user_pet_id"
-          class="pet-card"
+          class="pet-list-item"
           :class="{ active: pet.is_active, selected: selectedPet?.user_pet_id === pet.user_pet_id }"
-          :style="{ borderColor: pet.is_active ? petStore.rarityConfig[pet.rarity]?.color : 'transparent' }"
           @click="selectPet(pet)"
         >
-          <div class="pet-card-header">
-            <span class="pet-icon">{{ pet.icon }}</span>
-            <span class="pet-rarity-badge" :style="{ background: petStore.rarityConfig[pet.rarity]?.color }">
-              {{ petStore.rarityConfig[pet.rarity]?.label }}
-            </span>
-            <span v-if="pet.is_active" class="active-badge">出战中</span>
+          <span class="list-pet-icon">{{ pet.icon }}</span>
+          <div class="list-pet-info">
+            <span class="list-pet-name">{{ pet.name }}</span>
+            <span class="list-pet-level">Lv.{{ pet.level }}</span>
           </div>
-          <div class="pet-card-body">
-            <div class="pet-name">{{ pet.name }}</div>
-            <div class="pet-level">Lv.{{ pet.level }}</div>
-            <!-- 成长进度条 -->
-            <div class="progress-bar-container">
-              <div class="progress-label">成长</div>
-              <div class="progress-bar">
-                <div
-                  class="progress-fill growth"
-                  :style="{
-                    width: pet.next_level_threshold ? Math.min(100, (pet.growth_points / pet.next_level_threshold) * 100) + '%' : '100%',
-                    background: petStore.rarityConfig[pet.rarity]?.color
-                  }"
-                ></div>
-              </div>
-              <div class="progress-text">
-                {{ pet.next_level_threshold ? pet.growth_points + '/' + pet.next_level_threshold : 'MAX' }}
-              </div>
-            </div>
-            <!-- 饱食度条 -->
-            <div class="progress-bar-container">
-              <div class="progress-label">饱食</div>
-              <div class="progress-bar">
-                <div
-                  class="progress-fill hunger"
-                  :class="{ low: pet.hunger < 20, mid: pet.hunger >= 20 && pet.hunger < 50 }"
-                  :style="{ width: pet.hunger + '%' }"
-                ></div>
-              </div>
-              <div class="progress-text">{{ pet.hunger }}/100</div>
-            </div>
-            <!-- 加成 -->
-            <div class="pet-bonus" :class="{ paused: pet.hunger <= 0 }">
-              <span v-if="pet.hunger > 0">加成 +{{ pet.current_bonus }}%</span>
-              <span v-else class="bonus-paused">⏸ 加成已暂停</span>
-            </div>
-          </div>
-          <!-- 消化中提示 -->
-          <div v-if="pet.is_digesting" class="digesting-overlay">
-            <span>🍽️ 消化中...</span>
-          </div>
+          <span class="list-pet-bonus" :class="{ paused: pet.hunger <= 0 }">
+            {{ pet.hunger > 0 ? '+' + pet.current_bonus + '%' : '暂停' }}
+          </span>
+          <span v-if="pet.is_active" class="list-active-tag">出战</span>
         </div>
-      </div>
-    </div>
-
-    <!-- 空状态 -->
-    <div v-else class="empty-state">
-      <span class="empty-icon">🐾</span>
-      <p>还没有宠物</p>
-      <p class="empty-hint">去商店购买一只宠物吧！</p>
-    </div>
-
-    <!-- 宠物详情/操作面板 -->
-    <div v-if="selectedPet" class="pet-detail">
-      <div class="detail-header">
-        <span class="detail-icon">{{ selectedPet.icon }}</span>
-        <div class="detail-info">
-          <h3>{{ selectedPet.name }}</h3>
-          <div class="detail-meta">
-            <span class="rarity-tag" :style="{ background: petStore.rarityConfig[selectedPet.rarity]?.color }">
-              {{ petStore.rarityConfig[selectedPet.rarity]?.label }}
-            </span>
-            <span>Lv.{{ selectedPet.level }}</span>
-            <span v-if="selectedPet.is_active" class="active-tag">出战中</span>
-          </div>
+        
+        <div v-if="petStore.pets.length === 0" class="list-empty">
+          <p>暂无宠物</p>
         </div>
-        <button class="close-btn" @click="selectedPet = null">✕</button>
-      </div>
-
-      <div class="detail-stats">
-        <div class="stat-item">
-          <div class="stat-label">当前加成</div>
-          <div class="stat-value" :class="{ paused: selectedPet.hunger <= 0 }">
-            {{ selectedPet.hunger > 0 ? '+' + selectedPet.current_bonus + '%' : '已暂停' }}
-          </div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">饱食度</div>
-          <div class="stat-value">{{ selectedPet.hunger }}/100</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">成长值</div>
-          <div class="stat-value">
-            {{ selectedPet.next_level_threshold ? selectedPet.growth_points + '/' + selectedPet.next_level_threshold : 'MAX' }}
-          </div>
-        </div>
-      </div>
-
-      <!-- 装备的装饰 -->
-      <div class="equipped-section">
-        <h4>已装备装饰</h4>
-        <div class="equipped-slots">
-          <div
-            v-for="(slot, key) in petStore.slotConfig"
-            :key="key"
-            class="slot-item"
-            :class="{ filled: selectedPet.equipped_decorations[key] }"
-          >
-            <span class="slot-icon">{{ slot.icon }}</span>
-            <span class="slot-label">{{ slot.label }}</span>
-            <span v-if="selectedPet.equipped_decorations[key]" class="slot-dec">
-              {{ getDecName(selectedPet.equipped_decorations[key]) }}
-            </span>
-            <span v-else class="slot-empty">空</span>
-            <button
-              v-if="selectedPet.equipped_decorations[key]"
-              class="slot-btn unequip"
-              @click="handleUnequip(key)"
-            >卸下</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 操作按钮 -->
-      <div class="action-buttons">
-        <button
-          v-if="!selectedPet.is_active"
-          class="btn btn-primary"
-          @click="handleActivate"
-          :disabled="actionLoading"
-        >
-          ⚡ 设为出战
-        </button>
-        <button
-          class="btn btn-feed"
-          @click="showFeedModal = true"
-          :disabled="actionLoading || selectedPet.is_digesting"
-        >
-          🍖 喂食
-        </button>
       </div>
     </div>
 
@@ -198,6 +177,96 @@
       </div>
     </div>
 
+    <!-- 饰品装备弹窗 -->
+    <div v-if="showEquipModal" class="modal-overlay" @click.self="showEquipModal = false">
+      <div class="modal-content equip-modal">
+        <div class="modal-header">
+          <h3>💎 {{ selectedSlot ? '装备饰品 - ' + petStore.slotConfig[selectedSlot]?.label : '饰品管理' }}</h3>
+          <button class="close-btn" @click="showEquipModal = false">✕</button>
+        </div>
+        <div class="equip-body">
+          <!-- 已装备的饰品 -->
+          <div class="equipped-section">
+            <h4>已装备饰品</h4>
+            <div class="equipped-grid">
+              <div
+                v-for="(slot, key) in petStore.slotConfig"
+                :key="key"
+                class="equip-slot"
+                :class="{ selected: selectedSlot === key }"
+                @click="selectSlot(key)"
+              >
+                <span class="slot-icon">{{ slot.icon }}</span>
+                <span class="slot-name">{{ slot.label }}</span>
+                <div v-if="selectedPet?.equipped_decorations[key]" class="slot-equipped">
+                  <span>{{ getDecIcon(selectedPet.equipped_decorations[key]) }}</span>
+                  <button class="unequip-btn" @click.stop="handleUnequip(key)">卸下</button>
+                </div>
+                <span v-else class="slot-empty-text">空</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 背包中的饰品 -->
+          <div class="inventory-section">
+            <h4>我的饰品</h4>
+            <div class="decoration-grid">
+              <div
+                v-for="dec in availableDecorations"
+                :key="dec.item_id"
+                class="decoration-item"
+                :class="{ 
+                  usable: canEquipDecoration(dec),
+                  equipped: isDecorationEquipped(dec)
+                }"
+                @click="isDecorationEquipped(dec) ? handleUnequipByDec(dec) : handleEquip(dec)"
+              >
+                <span class="dec-icon">{{ dec.icon }}</span>
+                <span class="dec-name">{{ dec.name }}</span>
+                <span class="dec-bonus">+{{ dec.bonus }}%</span>
+                <span class="dec-slot">{{ petStore.slotConfig[dec.slot_type]?.label || petStore.slotConfig[dec.bonus_type]?.label }}</span>
+                <span v-if="isDecorationEquipped(dec)" class="equipped-badge">{{ getEquippedPet(dec)?.name }}装备中</span>
+              </div>
+              <div v-if="availableDecorations.length === 0" class="no-decorations">
+                <p>暂无饰品</p>
+                <p class="hint">去商店购买饰品吧！</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 升级确认弹窗 -->
+    <div v-if="showUpgradeModal" class="modal-overlay" @click.self="showUpgradeModal = false">
+      <div class="modal-content upgrade-modal">
+        <div class="upgrade-icon">🎉</div>
+        <h3>宠物升级</h3>
+        <p>成长值已满，确定要升级吗？</p>
+        <div class="upgrade-preview">
+          <div class="preview-row">
+            <span>当前等级</span>
+            <span>Lv.{{ selectedPet?.level }}</span>
+          </div>
+          <div class="preview-arrow">⬆️</div>
+          <div class="preview-row">
+            <span>升级后</span>
+            <span>Lv.{{ (selectedPet?.level || 0) + 1 }}</span>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-cancel" @click="showUpgradeModal = false">取消</button>
+          <button
+            class="btn btn-upgrade"
+            @click="handleUpgrade"
+            :disabled="actionLoading"
+          >
+            确认升级
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 消息提示 -->
     <div v-if="toast.show" class="toast" :class="toast.type">
       {{ toast.message }}
@@ -206,7 +275,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { usePetStore } from '@/stores/petStore'
 import { useShopStore } from '@/stores/shopStore'
 
@@ -215,14 +284,30 @@ const shopStore = useShopStore()
 
 const selectedPet = ref(null)
 const showFeedModal = ref(false)
+const showEquipModal = ref(false)
+const showUpgradeModal = ref(false)
 const selectedFood = ref(null)
+const selectedSlot = ref(null)
 const actionLoading = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
+const hungerDecayTime = ref(0) // 饥饿倒计时（分钟）
+
+// 判断是否可以升级
+const canLevelUp = computed(() => {
+  if (!selectedPet.value || !selectedPet.value.next_level_threshold) return false
+  return selectedPet.value.growth_points >= selectedPet.value.next_level_threshold
+})
 
 // 可用的宠物粮（从背包中筛选）
 const availableFood = computed(() => {
   const petFoods = shopStore.backpack.pet_food || []
   return petFoods.filter(f => f.quantity > 0)
+})
+
+// 可用的饰品（从背包中筛选）
+const availableDecorations = computed(() => {
+  const decs = shopStore.backpack.decoration || []
+  return decs.filter(d => d.quantity > 0)
 })
 
 function showToast(message, type = 'success') {
@@ -232,12 +317,128 @@ function showToast(message, type = 'success') {
 
 function selectPet(pet) {
   selectedPet.value = pet
+  updateHungerDecayTime()
+}
+
+function selectSlot(slot) {
+  selectedSlot.value = slot
+}
+
+function openEquipModal(slot = null) {
+  selectedSlot.value = slot
+  showEquipModal.value = true
+}
+
+// 获取装饰槽位位置（四个槽位绕宠物排列）
+function getSlotPosition(index) {
+  const positions = [
+    { top: '-30px', left: '50%', transform: 'translateX(-50%)' },  // 上
+    { top: '50%', right: '-30px', transform: 'translateY(-50%)' }, // 右
+    { bottom: '-30px', left: '50%', transform: 'translateX(-50%)' }, // 下
+    { top: '50%', left: '-30px', transform: 'translateY(-50%)' }   // 左
+  ]
+  return positions[index] || positions[0]
 }
 
 function getDecName(decId) {
   const dec = petStore.decorations.find(d => d.id === decId)
   return dec ? dec.icon + ' ' + dec.name : '装饰'
 }
+
+function getDecIcon(decId) {
+  const dec = petStore.decorations.find(d => d.id === decId)
+  return dec ? dec.icon : '❓'
+}
+
+// 判断饰品是否可以装备到当前选中的槽位
+function canEquipDecoration(dec) {
+  if (!selectedSlot.value) return true
+  return dec.slot_type === selectedSlot.value
+}
+
+// 判断饰品是否已装备（在任意宠物上）
+function isDecorationEquipped(dec) {
+  for (const pet of petStore.pets) {
+    const equipped = pet.equipped_decorations || {}
+    if (Object.values(equipped).includes(dec.item_id)) {
+      return true
+    }
+  }
+  return false
+}
+
+// 获取装备该饰品的宠物信息
+function getEquippedPet(dec) {
+  for (const pet of petStore.pets) {
+    const equipped = pet.equipped_decorations || {}
+    if (Object.values(equipped).includes(dec.item_id)) {
+      return pet
+    }
+  }
+  return null
+}
+// 格式化时间（分钟转为小时分钟）
+function formatTime(minutes) {
+  if (minutes <= 0) return '0分钟'
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  if (hours > 0) {
+    return `${hours}小时${mins > 0 ? mins + '分钟' : ''}`
+  }
+  return `${mins}分钟`
+}
+
+// 计算饥饿倒计时
+function updateHungerDecayTime() {
+  if (!selectedPet.value || selectedPet.value.hunger <= 0) {
+    hungerDecayTime.value = 0
+    return
+  }
+  // 每小时饱食度减少1点，计算剩余时间
+  const pet = selectedPet.value
+  if (!pet.last_fed_at) {
+    hungerDecayTime.value = pet.hunger * 60 // 按小时计算
+    return
+  }
+  const lastFed = new Date(pet.last_fed_at).getTime()
+  const now = Date.now()
+  const hoursElapsed = (now - lastFed) / (1000 * 60 * 60)
+  const currentHunger = Math.max(0, pet.hunger - Math.floor(hoursElapsed))
+  hungerDecayTime.value = currentHunger * 60 // 剩余小时数转为分钟
+}
+
+// 定时更新倒计时
+let timer = null
+onMounted(async () => {
+  try {
+    await Promise.all([
+      petStore.loadPets(),
+      petStore.loadDecorations(),
+      shopStore.loadBackpack()
+    ])
+    // 默认选中第一个宠物或激活的宠物
+    if (petStore.pets.length > 0) {
+      const activePet = petStore.pets.find(p => p.is_active)
+      selectedPet.value = activePet || petStore.pets[0]
+      updateHungerDecayTime()
+    }
+    // 每分钟更新倒计时
+    timer = setInterval(updateHungerDecayTime, 60000)
+  } catch (e) {
+    console.error('PetPanel init error:', e)
+  }
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
+
+watch(() => petStore.pets, () => {
+  if (selectedPet.value) {
+    selectedPet.value = petStore.pets.find(p => p.user_pet_id === selectedPet.value.user_pet_id)
+    updateHungerDecayTime()
+  }
+})
 
 async function handleActivate() {
   if (!selectedPet.value) return
@@ -262,10 +463,75 @@ async function handleFeed() {
     await shopStore.loadBackpack()
     showFeedModal.value = false
     selectedFood.value = null
+    updateHungerDecayTime()
 
     let msg = `喂食成功！成长+${result.growth_gained}，饱食+${result.hunger_restored}`
     if (result.leveled_up) msg += ` 🎉 升级到 Lv.${result.leveled_up}！`
     showToast(msg)
+  } catch (e) {
+    showToast(e.message, 'error')
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+async function handleUpgrade() {
+  if (!selectedPet.value || !canLevelUp.value) return
+  actionLoading.value = true
+  showUpgradeModal.value = false
+  try {
+    const result = await petStore.upgradePet(selectedPet.value.user_pet_id)
+    selectedPet.value = petStore.pets.find(p => p.user_pet_id === selectedPet.value.user_pet_id)
+    showToast(`🎉 恭喜！宠物升级到 Lv.${result.new_level}！`)
+  } catch (e) {
+    showToast(e.message, 'error')
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+async function handleUnequipByDec(dec) {
+  if (!selectedPet.value) return
+  
+  const equipped = selectedPet.value.equipped_decorations || {}
+  let slotType = null
+  for (const [key, decId] of Object.entries(equipped)) {
+    if (decId === dec.item_id) {
+      slotType = key
+      break
+    }
+  }
+  
+  if (slotType) {
+    try {
+      await petStore.unequipDecoration(selectedPet.value.user_pet_id, slotType)
+      selectedPet.value = petStore.pets.find(p => p.user_pet_id === selectedPet.value.user_pet_id)
+      await shopStore.loadBackpack()
+      showToast(`卸下 ${dec.icon} ${dec.name} 成功！`)
+    } catch (e) {
+      showToast(e.message, 'error')
+    }
+  }
+}
+
+async function handleEquip(dec) {
+  if (!selectedPet.value) return
+  
+  let targetSlot = selectedSlot.value
+  if (!targetSlot) {
+    targetSlot = dec.slot_type || dec.bonus_type
+  }
+  
+  actionLoading.value = true
+  try {
+    const result = await petStore.equipDecoration(selectedPet.value.user_pet_id, targetSlot, dec.item_id)
+    selectedPet.value = petStore.pets.find(p => p.user_pet_id === selectedPet.value.user_pet_id)
+    await shopStore.loadBackpack()
+    if (result.replaced_pet) {
+      showToast(`装备 ${dec.icon} ${dec.name} 成功！已从 ${result.replaced_pet.icon} ${result.replaced_pet.name} 卸下`)
+    } else {
+      showToast(`装备 ${dec.icon} ${dec.name} 成功！`)
+    }
   } catch (e) {
     showToast(e.message, 'error')
   } finally {
@@ -278,108 +544,168 @@ async function handleUnequip(slotType) {
   try {
     await petStore.unequipDecoration(selectedPet.value.user_pet_id, slotType)
     selectedPet.value = petStore.pets.find(p => p.user_pet_id === selectedPet.value.user_pet_id)
+    await shopStore.loadBackpack()
     showToast('装饰已卸下')
   } catch (e) {
     showToast(e.message, 'error')
   }
 }
-
-onMounted(async () => {
-  try {
-    await Promise.all([
-      petStore.loadPets(),
-      petStore.loadDecorations(),
-      shopStore.loadBackpack()
-    ])
-  } catch (e) {
-    console.error('PetPanel init error:', e)
-  }
-})
 </script>
 
 <style scoped>
 .pet-panel {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px;
-  padding-top: 56px;
   min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
+  padding-top: 56px;
 }
 
-.panel-header {
+/* ========== 上方70%：宠物展示区 ========== */
+.pet-display-area {
+  flex: 0 0 70%;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.no-selection-hint {
   text-align: center;
-  margin-bottom: 30px;
-}
-
-.panel-header h2 {
-  font-size: 1.8rem;
-  margin: 0;
-  color: #2c5a2a;
-}
-
-.subtitle {
   color: #888;
-  margin-top: 6px;
+}
+
+.hint-icon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.empty-display {
+  text-align: center;
+  color: #999;
+}
+
+.empty-display .empty-icon {
+  font-size: 5rem;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.empty-hint {
+  color: #bbb;
   font-size: 0.9rem;
 }
 
-.section-title {
-  font-size: 1.1rem;
-  color: #555;
-  margin-bottom: 14px;
-  padding-left: 4px;
+/* 已选择宠物展示 */
+.selected-pet-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  justify-content: center;
 }
 
-/* 宠物卡片网格 */
-.pet-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 30px;
-}
-
-.pet-card {
-  background: white;
-  border-radius: 16px;
-  padding: 16px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.25s ease;
+/* 宠物大图标容器 */
+.pet-big-container {
   position: relative;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  width: 384px;
+  height: 384px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.pet-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+.pet-big-icon {
+  font-size: 240px;
+  z-index: 10;
+  animation: petFloat 3s ease-in-out infinite;
 }
 
-.pet-card.active {
-  border-width: 2px;
+@keyframes petFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-25px); }
 }
 
-.pet-card.selected {
-  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+/* 装饰槽位（旋转） */
+.decoration-slots {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  animation: slotsRotate 20s linear infinite;
+  z-index: 15;
 }
 
-.pet-card-header {
+@keyframes slotsRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.deco-slot {
+  position: absolute;
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 20;
+}
+
+.deco-slot:hover {
+  transform: scale(1.15);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.3);
+}
+
+.deco-equipped {
+  font-size: 48px;
+}
+
+.deco-empty {
+  font-size: 43px;
+  opacity: 0.5;
+}
+
+/* ========== 宠物控制面板（贴近宠物栏上方） ========== */
+.pet-control-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  gap: 12px;
+}
+
+.control-left {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 
-.pet-icon {
-  font-size: 2rem;
+.control-left .pet-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2c5a2a;
 }
 
-.pet-rarity-badge {
+.rarity-badge {
   font-size: 0.65rem;
   color: white;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-weight: 600;
 }
 
@@ -388,316 +714,117 @@ onMounted(async () => {
   background: #4caf50;
   color: white;
   padding: 2px 8px;
-  border-radius: 10px;
-  margin-left: auto;
+  border-radius: 8px;
 }
 
-.pet-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.pet-name {
+.level-badge {
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #333;
-  font-size: 1rem;
+  color: #666;
+  background: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 
-.pet-level {
-  color: #888;
-  font-size: 0.85rem;
+.bonus-display {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #4caf50;
 }
 
-/* 进度条 */
-.progress-bar-container {
+.bonus-display.paused {
+  color: #f44336;
+}
+
+.control-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 16px;
 }
 
-.progress-label {
-  font-size: 0.7rem;
-  color: #999;
-  width: 28px;
-  flex-shrink: 0;
+.bars-row {
+  display: flex;
+  gap: 12px;
 }
 
-.progress-bar {
-  flex: 1;
+.mini-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mini-bar-group .bar-label {
+  font-size: 0.65rem;
+  color: #888;
+  width: 32px;
+}
+
+.mini-bar {
+  width: 60px;
   height: 6px;
   background: #e0e0e0;
   border-radius: 3px;
   overflow: hidden;
 }
 
-.progress-fill {
+.mini-bar-fill {
   height: 100%;
   border-radius: 3px;
   transition: width 0.3s ease;
 }
 
-.progress-fill.hunger {
+.mini-bar-fill.hunger {
   background: #4caf50;
 }
 
-.progress-fill.hunger.mid {
+.mini-bar-fill.hunger.mid {
   background: #ff9800;
 }
 
-.progress-fill.hunger.low {
+.mini-bar-fill.hunger.low {
   background: #f44336;
 }
 
-.progress-text {
+.mini-bar-fill.growth {
+  background: #2196f3;
+}
+
+.mini-bar-group .bar-value {
   font-size: 0.65rem;
-  color: #999;
-  width: 52px;
+  color: #888;
+  width: 35px;
   text-align: right;
-  flex-shrink: 0;
 }
 
-.pet-bonus {
-  font-size: 0.8rem;
-  color: #4caf50;
-  font-weight: 600;
-  margin-top: 4px;
-}
-
-.pet-bonus.paused {
-  color: #f44336;
-}
-
-.bonus-paused {
-  font-weight: 500;
-}
-
-.digesting-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(255, 152, 0, 0.9);
-  color: white;
-  text-align: center;
-  padding: 4px;
-  font-size: 0.75rem;
-}
-
-/* 空状态 */
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  display: block;
-  margin-bottom: 16px;
-}
-
-.empty-hint {
-  color: #bbb;
-  font-size: 0.85rem;
-}
-
-/* 宠物详情 */
-.pet-detail {
-  background: white;
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  margin-top: 20px;
-}
-
-.detail-header {
+.action-btns {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 6px;
 }
 
-.detail-icon {
-  font-size: 3rem;
-}
-
-.detail-info {
-  flex: 1;
-}
-
-.detail-info h3 {
-  margin: 0;
-  font-size: 1.3rem;
-  color: #333;
-}
-
-.detail-meta {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-  align-items: center;
-}
-
-.rarity-tag {
-  font-size: 0.7rem;
-  color: white;
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-weight: 600;
-}
-
-.active-tag {
-  font-size: 0.7rem;
-  background: #4caf50;
-  color: white;
-  padding: 2px 10px;
-  border-radius: 10px;
-}
-
-.close-btn {
-  background: none;
+.action-btns .btn {
+  width: 36px;
+  height: 36px;
+  padding: 6px;
   border: none;
-  font-size: 1.2rem;
-  color: #999;
-  cursor: pointer;
-  padding: 4px 8px;
-}
-
-.close-btn:hover {
-  color: #333;
-}
-
-/* 详情属性 */
-.detail-stats {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.stat-item {
-  flex: 1;
-  background: #f8f9fa;
-  border-radius: 12px;
-  padding: 12px;
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  color: #999;
-  margin-bottom: 4px;
-}
-
-.stat-value {
+  border-radius: 10px;
   font-size: 1.1rem;
-  font-weight: 700;
-  color: #4caf50;
-}
-
-.stat-value.paused {
-  color: #f44336;
-}
-
-/* 装备槽位 */
-.equipped-section {
-  margin-bottom: 20px;
-}
-
-.equipped-section h4 {
-  font-size: 0.95rem;
-  color: #555;
-  margin-bottom: 10px;
-}
-
-.equipped-slots {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-.slot-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: #f8f9fa;
-  border-radius: 10px;
-  font-size: 0.85rem;
-}
-
-.slot-item.filled {
-  background: #e8f5e9;
-}
-
-.slot-icon {
-  font-size: 1.2rem;
-}
-
-.slot-label {
-  color: #999;
-  font-size: 0.75rem;
-}
-
-.slot-dec {
-  flex: 1;
-  text-align: right;
-  font-size: 0.8rem;
-  color: #333;
-}
-
-.slot-empty {
-  flex: 1;
-  text-align: right;
-  color: #ccc;
-  font-size: 0.8rem;
-}
-
-.slot-btn {
-  background: none;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 0.7rem;
-  cursor: pointer;
-  color: #666;
-}
-
-.slot-btn:hover {
-  background: #f44336;
-  color: white;
-  border-color: #f44336;
-}
-
-/* 操作按钮 */
-.action-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.btn {
-  flex: 1;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 12px;
-  font-size: 0.95rem;
-  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.btn:disabled {
+.action-btns .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.btn-primary {
+.btn-activate {
   background: #4caf50;
   color: white;
 }
 
-.btn-primary:hover:not(:disabled) {
+.btn-activate:hover:not(:disabled) {
   background: #43a047;
+  transform: scale(1.05);
 }
 
 .btn-feed {
@@ -707,14 +834,186 @@ onMounted(async () => {
 
 .btn-feed:hover:not(:disabled) {
   background: #f57c00;
+  transform: scale(1.05);
 }
 
-.btn-cancel {
+.btn-upgrade {
+  background: #9c27b0;
+  color: white;
+}
+
+.btn-upgrade:hover:not(:disabled) {
+  background: #7b1fa2;
+  transform: scale(1.05);
+}
+
+.btn-equip {
+  background: #2196f3;
+  color: white;
+}
+
+.btn-equip:hover:not(:disabled) {
+  background: #1976d2;
+  transform: scale(1.05);
+}
+
+/* 弹窗按钮样式 */
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.modal-actions .btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-actions .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-actions .btn-cancel {
   background: #e0e0e0;
   color: #666;
 }
 
-/* 喂食弹窗 */
+.modal-actions .btn-cancel:hover:not(:disabled) {
+  background: #d0d0d0;
+}
+
+.modal-actions .btn-feed {
+  background: #ff9800;
+  color: white;
+}
+
+.modal-actions .btn-feed:hover:not(:disabled) {
+  background: #f57c00;
+}
+
+.control-right .digesting-badge {
+  font-size: 0.7rem;
+  color: #ff9800;
+  padding: 2px 6px;
+  background: #fff3e0;
+  border-radius: 4px;
+}
+
+/* ========== 下方30%：宠物列表 ========== */
+.pet-list-area {
+  flex: 0 0 30%;
+  max-height: 30vh;
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.list-header h3 {
+  font-size: 1rem;
+  color: #2c5a2a;
+  margin: 0;
+}
+
+.pet-count {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.pet-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
+.pet-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.pet-list-item:hover {
+  background: #e8f5e9;
+}
+
+.pet-list-item.selected {
+  border-color: #4caf50;
+  background: #e8f5e9;
+}
+
+.pet-list-item.active {
+  border-color: #4caf50;
+}
+
+.list-pet-icon {
+  font-size: 2rem;
+}
+
+.list-pet-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-pet-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.list-pet-level {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.list-pet-bonus {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4caf50;
+}
+
+.list-pet-bonus.paused {
+  color: #f44336;
+}
+
+.list-active-tag {
+  font-size: 0.65rem;
+  background: #4caf50;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.list-empty {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+}
+
+/* ========== 喂食弹窗 ========== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -853,91 +1152,58 @@ onMounted(async () => {
     color: #e0e0e0;
   }
 
-  .panel-header h2 {
+  /* 宠物控制面板深色适配 */
+  .pet-control-panel {
+    background: rgba(30, 30, 35, 0.95);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .control-left .pet-name {
     color: #81c784;
   }
 
-  .subtitle {
+  .level-badge {
+    background: #333;
     color: #aaa;
   }
 
-  .section-title {
-    color: #bbb;
-  }
-
-  .pet-card {
-    background: #2a2a2f;
-  }
-
-  .pet-card:hover {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-  }
-
-  .pet-name {
-    color: #e0e0e0;
-  }
-
-  .pet-level {
-    color: #aaa;
-  }
-
-  .progress-bar {
+  .mini-bar {
     background: #444;
   }
 
-  .progress-label {
+  .mini-bar-group .bar-label,
+  .mini-bar-group .bar-value {
     color: #aaa;
   }
 
-  .progress-text {
-    color: #aaa;
+  .deco-slot {
+    background: rgba(40, 40, 45, 0.9);
   }
 
-  .pet-detail {
+  .pet-list-area {
+    background: rgba(30, 30, 35, 0.95);
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .list-header h3 {
+    color: #81c784;
+  }
+
+  .pet-list-item {
     background: #2a2a2f;
   }
 
-  .detail-info h3 {
-    color: #e0e0e0;
-  }
-
-  .stat-item {
-    background: #333;
-  }
-
-  .stat-label {
-    color: #aaa;
-  }
-
-  .slot-item {
-    background: #333;
-  }
-
-  .slot-item.filled {
+  .pet-list-item:hover,
+  .pet-list-item.selected {
     background: #2e3b2e;
   }
 
-  .slot-label {
-    color: #aaa;
-  }
-
-  .slot-dec {
+  .list-pet-name {
     color: #e0e0e0;
   }
 
-  .slot-btn {
-    border-color: #555;
+  .list-pet-level {
     color: #aaa;
-  }
-
-  .slot-btn:hover {
-    background: #c62828;
-    border-color: #c62828;
-  }
-
-  .btn-cancel {
-    background: #4a4a4a;
-    color: #e0e0e0;
   }
 
   .modal-content {
@@ -952,53 +1218,441 @@ onMounted(async () => {
     background: #3a3020;
   }
 
-  .food-item:hover {
-    background: #3a3020;
-  }
-
   .food-name {
     color: #e0e0e0;
   }
 
-  .food-effects {
-    color: #aaa;
-  }
-
-  .food-count {
-    color: #aaa;
-  }
-
-  .no-food {
-    color: #888;
-  }
-
-  .no-food .hint {
-    color: #666;
-  }
-
-  .detail-meta .rarity-tag {
-    color: white;
+  .control-right .digesting-badge {
+    background: #3a3020;
   }
 }
 
 /* 响应式 */
 @media (max-width: 600px) {
-  .pet-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  .detail-stats {
-    flex-direction: column;
-  }
-
-  .equipped-slots {
-    grid-template-columns: 1fr;
-  }
-
   .pet-panel {
+    padding-top: 56px;
+  }
+
+  .pet-display-area {
     padding: 12px;
-    padding-bottom: 80px;
+  }
+
+  .pet-big-container {
+    width: 200px;
+    height: 200px;
+  }
+
+  .pet-big-icon {
+    font-size: 120px;
+  }
+
+  .deco-slot {
+    width: 40px;
+    height: 40px;
+  }
+
+  .deco-equipped {
+    font-size: 24px;
+  }
+
+  .deco-empty {
+    font-size: 16px;
+  }
+
+  .pet-info-panel {
+    padding: 16px;
+  }
+
+  .pet-info-header .pet-name {
+    font-size: 1.2rem;
+  }
+
+  .bonus-display {
+    font-size: 1.1rem;
+  }
+
+  .bar-label {
+    width: 40px;
+    font-size: 0.7rem;
+  }
+
+  .bar-value {
+    width: 50px;
+    font-size: 0.7rem;
+  }
+
+  .btn {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
+}
+
+/* ========== 饰品弹窗样式 ========== */
+.equip-modal {
+  max-width: 460px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #2c5a2a;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #999;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.equip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.equipped-section h4,
+.inventory-section h4 {
+  font-size: 0.95rem;
+  color: #555;
+  margin-bottom: 12px;
+}
+
+.equipped-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.equip-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.equip-slot:hover {
+  background: #e8f5e9;
+}
+
+.equip-slot.selected {
+  border-color: #4caf50;
+  background: #e8f5e9;
+}
+
+.slot-icon {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.slot-name {
+  font-size: 0.7rem;
+  color: #888;
+}
+
+.slot-equipped {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.slot-equipped span {
+  font-size: 1.5rem;
+}
+
+.unequip-btn {
+  font-size: 0.65rem;
+  background: #f44336;
+  color: white;
+  border: none;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.slot-empty-text {
+  font-size: 0.7rem;
+  color: #ccc;
+  margin-top: 4px;
+}
+
+.decoration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.decoration-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  opacity: 0.5;
+}
+
+.decoration-item.usable {
+  opacity: 1;
+  border-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.decoration-item.usable:hover {
+  border-color: #4caf50;
+  background: #e8f5e9;
+}
+
+.decoration-item.equipped {
+  opacity: 0.6;
+  background: #e0e0e0;
+  border-color: #9e9e9e;
+}
+
+.decoration-item.equipped:hover {
+  opacity: 0.8;
+  background: #d0d0d0;
+  border-color: #f44336;
+}
+
+.equipped-badge {
+  font-size: 0.65rem;
+  color: #757575;
+  background: #e0e0e0;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+.dec-icon {
+  font-size: 2rem;
+  margin-bottom: 6px;
+}
+
+.dec-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.dec-bonus {
+  font-size: 0.75rem;
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.dec-slot {
+  font-size: 0.65rem;
+  color: #888;
+  margin-top: 2px;
+}
+
+.no-decorations {
+  text-align: center;
+  padding: 30px;
+  color: #999;
+  grid-column: 1 / -1;
+}
+
+.no-decorations .hint {
+  font-size: 0.8rem;
+  color: #ccc;
+}
+
+/* ========== 升级弹窗样式 ========== */
+.upgrade-modal {
+  text-align: center;
+}
+
+.upgrade-icon {
+  font-size: 4rem;
+  margin-bottom: 12px;
+}
+
+.upgrade-modal h3 {
+  font-size: 1.4rem;
+  color: #2c5a2a;
+  margin: 0 0 8px;
+}
+
+.upgrade-modal p {
+  color: #888;
+  margin: 0 0 20px;
+}
+
+.upgrade-preview {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+}
+
+.preview-row span:first-child {
+  color: #888;
+}
+
+.preview-row span:last-child {
+  font-weight: 600;
+  color: #2c5a2a;
+}
+
+.preview-arrow {
+  text-align: center;
+  padding: 8px 0;
+  font-size: 1.2rem;
+}
+
+/* ========== 全局滚动条样式 ========== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* 深色模式滚动条 */
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-track {
+    background: #333;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #555;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #666;
+  }
+
+  .equip-modal {
+    background: #2a2a2f;
+  }
+
+  .modal-header h3 {
+    color: #81c784;
+  }
+
+  .close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .equipped-section h4,
+  .inventory-section h4 {
+    color: #bbb;
+  }
+
+  .equip-slot {
+    background: #333;
+  }
+
+  .equip-slot:hover,
+  .equip-slot.selected {
+    background: #2e3b2e;
+  }
+
+  .slot-name {
+    color: #aaa;
+  }
+
+  .slot-empty-text {
+    color: #555;
+  }
+
+  .decoration-item {
+    background: #333;
+  }
+
+  .decoration-item.usable:hover {
+    background: #2e3b2e;
+  }
+
+  .decoration-item.equipped {
+    background: #444;
+    border-color: #555;
+  }
+
+  .decoration-item.equipped:hover {
+    background: #4a4a4a;
+    border-color: #f44336;
+  }
+
+  .equipped-badge {
+    color: #bbb;
+    background: #555;
+  }
+
+  .dec-name {
+    color: #e0e0e0;
+  }
+
+  .no-decorations {
+    color: #666;
+  }
+
+  .no-decorations .hint {
+    color: #555;
+  }
+
+  .upgrade-modal {
+    background: #2a2a2f;
+  }
+
+  .upgrade-modal h3 {
+    color: #81c784;
+  }
+
+  .upgrade-preview {
+    background: #333;
+  }
+
+  .preview-row span:first-child {
+    color: #aaa;
+  }
+
+  .preview-row span:last-child {
+    color: #81c784;
   }
 }
 </style>
