@@ -190,7 +190,7 @@
                 {{ gift.item?.icon }} {{ gift.item?.name }}
               </span>
               <span v-else-if="gift.gift_type === 'currency'" class="gift-detail">
-                {{ getCurrencyIcon(gift.currency_type) }} {{ gift.amount }} {{ getCurrencyName(gift.currency_type) }}
+                <img :src="getCurrencyIcon(gift.currency_type)" class="small-currency-icon" /> {{ gift.amount }} {{ getCurrencyName(gift.currency_type) }}
               </span>
             </div>
             <button class="accept-btn" @click="acceptGift(gift.id)">接收</button>
@@ -327,8 +327,8 @@ async function acceptAllGifts() {
 }
 
 function getCurrencyIcon(type) {
-  const map = { silver_coin: '🪙', gold_coin: '🥇', diamond: '💎' }
-  return map[type] || '🪙'
+  const map = { silver_coin: '/silver_icon.png', gold_coin: '/gold_icon.png', diamond: '/diamond.png' }
+  return map[type] || '/silver_icon.png'
 }
 
 function getCurrencyName(type) {
@@ -600,6 +600,14 @@ function formatTime(dateStr) {
 .gift-detail {
   font-weight: 600;
   color: #333;
+}
+
+.small-currency-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  margin-right: 4px;
+  vertical-align: middle;
 }
 
 .accept-all-btn {

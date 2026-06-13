@@ -16,7 +16,7 @@
         <button
           :class="['tab-btn', { active: mode === 'currency' }]"
           @click="mode = 'currency'"
-        >💰 货币</button>
+        ><img src="/gold_icon.png" class="btn-icon" /> 货币</button>
       </div>
 
       <div class="modal-body">
@@ -114,9 +114,9 @@ function addToast(message, type = 'info') {
 }
 
 const currencyOptions = [
-  { key: 'silver_coin', name: '银币', icon: '🪙' },
-  { key: 'gold_coin', name: '金币', icon: '🥇' },
-  { key: 'diamond', name: '钻石', icon: '💎' }
+  { key: 'silver_coin', name: '银币', icon: '/silver_icon.png' },
+  { key: 'gold_coin', name: '金币', icon: '/gold_icon.png' },
+  { key: 'diamond', name: '钻石', icon: '/diamond.png' }
 ]
 
 // 背包物品（排除种子以外的物品也可以送）
@@ -186,7 +186,7 @@ async function handleSubmit() {
         currency_type: selectedCurrency.value,
         amount: giftAmount.value
       })
-      addToast(`💰 已送出 ${currency?.icon} ${giftAmount.value} ${currency?.name}，等待对方接收`, 'success')
+      addToast(`已送出 ${giftAmount.value} ${currency?.name}，等待对方接收`, 'success')
     }
   } finally {
     submitting.value = false
@@ -266,6 +266,16 @@ async function handleSubmit() {
   font-weight: 600;
   transition: all 0.2s;
   color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .tab-btn.active {
