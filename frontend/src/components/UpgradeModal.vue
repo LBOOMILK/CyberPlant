@@ -21,6 +21,7 @@
           </div>
           <div class="cost-info">
             <span>升级费用：</span>
+            <img v-if="getUpgradeCostIcon(plot.level + 1)" :src="getUpgradeCostIcon(plot.level + 1)" class="cost-icon" />
             <span class="cost-value">{{ getUpgradeCostLabel(plot.level + 1) }}</span>
           </div>
         </div>
@@ -57,6 +58,11 @@ const { levelColors, levelMultiplier, upgradeCosts } = plotStore
 function getUpgradeCostLabel(nextLevel) {
   const cost = upgradeCosts[nextLevel]
   return cost ? cost.label : '未知'
+}
+
+function getUpgradeCostIcon(nextLevel) {
+  const cost = upgradeCosts[nextLevel]
+  return cost ? cost.icon : ''
 }
 </script>
 
@@ -133,6 +139,12 @@ h3 {
 .cost-value {
   color: #d97706;
   font-weight: bold;
+}
+.cost-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  margin-right: 4px;
 }
 .max-level {
   padding: 24px;

@@ -26,7 +26,8 @@
             'plot-empty': plot.is_unlocked && !plot.seed_id,
             'plot-plant': plot.is_unlocked && plot.seed_id && plot.stage < 4,
             'plot-mature': plot.is_unlocked && plot.seed_id && plot.stage >= 4,
-            'plot-glow': plot.level >= 4
+            'plot-glow-lv4': plot.level === 4,
+            'plot-glow-lv5': plot.level >= 5
           }"
           :style="{ borderColor: plot.is_unlocked ? plotStore.levelColors[plot.level] : '#6B7280' }"
           @click="handlePlotClick(plot)"
@@ -40,7 +41,8 @@
           <div v-if="!plot.is_unlocked" class="plot-body locked-body">
             <div class="lock-icon">🔒</div>
             <div class="unlock-cost" v-if="plotStore.unlockCosts[plot.plot_index]">
-              {{ plotStore.unlockCosts[plot.plot_index].icon }} {{ plotStore.unlockCosts[plot.plot_index].label }}
+              <img :src="plotStore.unlockCosts[plot.plot_index].icon" class="price-icon" />
+              {{ plotStore.unlockCosts[plot.plot_index].label }}
             </div>
             <button class="unlock-btn" @click.stop="handleUnlock(plot.plot_index)">解锁</button>
           </div>
@@ -55,10 +57,19 @@
           <div v-else class="plot-body plant-body">
             <div class="plant-icon">{{ plot.stage_icon }}</div>
             <div class="plant-name">{{ plot.crop?.name || '未知' }}</div>
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: getProgress(plot) + '%' }"></div>
+            <div v-if="plot.is_dead" class="dead-indicator">💀 已死亡</div>
+            <div v-else class="progress-container">
+              <div class="progress-bar">
+                <!-- 干涸进度条（红色背景） -->
+                <div class="dry-progress" :style="{ width: getDryProgress(plot) + '%' }"></div>
+                <!-- 绿色浇水进度条 -->
+                <div class="water-progress" :style="{ width: getProgress(plot) + '%' }"></div>
+              </div>
+              <div class="time-info">
+                <div class="water-time">💧 {{ getStageProgressText(plot) }}</div>
+                <div class="dry-time" :class="{ warning: getDryProgress(plot) > 80 }">⚠️ {{ getDryTimeText(plot) }}</div>
+              </div>
             </div>
-            <div class="stage-text">{{ getStageName(plot.stage) }} {{ plot.stage < 4 ? getStageProgressText(plot) : '' }}</div>
           </div>
 
           <!-- 等级和倍率标签 -->
@@ -156,27 +167,42 @@ function getStageName(stage) {
 
 function getStageProgressText(plot) {
   if (!plot.crop || !plot.planted_at) return ''
-  const growTime = plot.crop.grow_time || 60
-  const stageTime = growTime / 4
+  if (plot.stage >= 4) return '已成熟'
+  const waterCd = plot.crop.water_cd || 5 // 浇水冷却时间
   const elapsed = (Date.now() - new Date(plot.planted_at).getTime()) / 1000
-  const stageElapsed = elapsed - (plot.stage * stageTime)
-  const remaining = Math.max(0, Math.ceil(stageTime - stageElapsed))
-  if (remaining <= 0) return '可浇水'
-  if (remaining < 60) return `${remaining}秒`
-  if (remaining < 3600) return `${Math.floor(remaining / 60)}分`
-  return `${Math.floor(remaining / 3600)}时`
+  const remaining = Math.max(0, Math.ceil(waterCd - elapsed))
+  if (remaining <= 0) return '可以浇水'
+  if (remaining < 60) return `${remaining}秒后可浇水`
+  return `${Math.floor(remaining / 60)}分${remaining % 60}秒后可浇水`
+}
+
+function getDryTimeText(plot) {
+  if (!plot.crop || !plot.planted_at) return ''
+  if (plot.stage >= 4) return '不会干涸'
+  if (plot.is_dead) return '已死亡'
+  const dryTime = 180 // 干涸死亡时间固定3分钟
+  const elapsed = (Date.now() - new Date(plot.planted_at).getTime()) / 1000
+  const remaining = Math.max(0, Math.ceil(dryTime - elapsed))
+  if (remaining <= 0) return '即将死亡！'
+  if (remaining < 60) return `${remaining}秒后干涸`
+  return `${Math.floor(remaining / 60)}分${remaining % 60}秒后干涸`
 }
 
 function getProgress(plot) {
   if (!plot.crop) return 0
   if (plot.stage >= 4) return 100
   if (!plot.planted_at) return 0
-  const growTime = plot.crop.grow_time || 60
-  const stageTime = growTime / 4
+  const waterCd = plot.crop.water_cd || 5 // 浇水冷却时间
   const elapsed = (Date.now() - new Date(plot.planted_at).getTime()) / 1000
-  // 每阶段独立进度
-  const stageElapsed = elapsed - (plot.stage * stageTime)
-  return Math.min(100, Math.max(0, (stageElapsed / stageTime) * 100))
+  return Math.min(100, Math.max(0, (elapsed / waterCd) * 100))
+}
+
+function getDryProgress(plot) {
+  if (!plot.crop || !plot.planted_at) return 0
+  if (plot.stage >= 4) return 0 // 成熟后不再干涸
+  const dryTime = 180 // 干涸死亡时间固定3分钟
+  const elapsed = (Date.now() - new Date(plot.planted_at).getTime()) / 1000
+  return Math.min(100, Math.max(0, (elapsed / dryTime) * 100))
 }
 
 function handlePlotClick(plot) {
@@ -199,13 +225,14 @@ async function openPlantSelect(plotIndex) {
 async function loadUserSeeds() {
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/user/items`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/user/backpack`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (response.ok) {
-      const items = await response.json()
-      userSeeds.value = items.filter(i => i.item_type === 'seed')
-      userFertilizers.value = items.filter(i => i.item_type === 'fertilizer')
+      const data = await response.json()
+      const groups = data.groups || {}
+      userSeeds.value = groups.seed || []
+      userFertilizers.value = groups.fertilizer || []
     } else {
       userSeeds.value = []
       userFertilizers.value = []
@@ -220,7 +247,11 @@ async function loadUserSeeds() {
 async function handleUnlock(plotIndex) {
   try {
     const data = await plotStore.unlockPlot(plotIndex)
-    if (data.currencies) userStore.currencies.value = data.currencies
+    if (data.currencies) {
+      userStore.currencies.silver_coin = Number(data.currencies.silver_coin) || 0
+      userStore.currencies.gold_coin = Number(data.currencies.gold_coin) || 0
+      userStore.currencies.diamond = Number(data.currencies.diamond) || 0
+    }
     addToast('🔓 地块解锁成功！', 'success')
   } catch (error) {
     addToast(error.message, 'error')
@@ -319,7 +350,11 @@ function openUpgradeModal() {
 async function handleUpgrade() {
   try {
     const data = await plotStore.upgradePlot(selectedPlot.value.plot_index)
-    if (data.currencies) userStore.currencies.value = data.currencies
+    if (data.currencies) {
+      userStore.currencies.silver_coin = Number(data.currencies.silver_coin) || 0
+      userStore.currencies.gold_coin = Number(data.currencies.gold_coin) || 0
+      userStore.currencies.diamond = Number(data.currencies.diamond) || 0
+    }
     showUpgradeModal.value = false
     addToast(`⬆️ 升级成功！Lv.${data.level} (${data.multiplier}x)`, 'success')
   } catch (error) {
@@ -367,6 +402,20 @@ onUnmounted(() => {
   text-align: center;
 }
 
+@media (min-width: 900px) {
+  .card {
+    max-width: 900px;
+    padding: 32px 30px 40px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .card {
+    max-width: 1250px;
+    padding: 36px 36px 44px;
+  }
+}
+
 h1 {
   font-size: 1.9rem;
   margin: 0 0 20px 0;
@@ -399,6 +448,21 @@ h1 {
 @media (max-width: 767px) {
   .plots-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (min-width: 900px) {
+  .plots-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .plots-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
   }
 }
 
@@ -414,7 +478,25 @@ h1 {
   aspect-ratio: 1;
   display: flex;
   flex-direction: column;
-  min-height: 140px;
+  min-height: 150px;
+  min-width: 135px;
+  max-width: none;
+}
+
+@media (min-width: 900px) {
+  .plot-card {
+    padding: 20px;
+    min-height: 220px;
+    min-width: 190px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .plot-card {
+    padding: 24px;
+    min-height: 260px;
+    min-width: 230px;
+  }
 }
 
 .plot-card:hover {
@@ -422,17 +504,35 @@ h1 {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-/* 呼吸光效 Lv4+ */
-.plot-glow {
-  animation: plotBreathing 2s ease-in-out infinite;
+/* 呼吸光效 Lv4 - 淡紫色 */
+.plot-glow-lv4 {
+  animation: plotBreathingLv4 2s ease-in-out infinite;
 }
 
-@keyframes plotBreathing {
+@keyframes plotBreathingLv4 {
   0%, 100% {
-    box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+    box-shadow: 0 0 5px rgba(168, 85, 247, 0.4);
   }
   50% {
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 0 0 40px rgba(168, 85, 247, 0.3);
+    box-shadow: 
+      0 0 12px rgba(168, 85, 247, 0.7),
+      0 0 24px rgba(168, 85, 247, 0.4);
+  }
+}
+
+/* 呼吸光效 Lv5+ - 金黄色 */
+.plot-glow-lv5 {
+  animation: plotBreathingLv5 2s ease-in-out infinite;
+}
+
+@keyframes plotBreathingLv5 {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.6);
+  }
+  50% {
+    box-shadow: 
+      0 0 15px rgba(255, 215, 0, 0.9),
+      0 0 30px rgba(255, 200, 0, 0.7);
   }
 }
 
@@ -453,6 +553,12 @@ h1 {
   font-weight: 600;
 }
 
+@media (min-width: 1200px) {
+  .plot-index {
+    font-size: 0.9rem;
+  }
+}
+
 .plot-level {
   font-size: 0.8rem;
   font-weight: bold;
@@ -469,17 +575,63 @@ h1 {
 
 .locked-body .lock-icon {
   font-size: 2.4rem;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+}
+
+@media (min-width: 900px) {
+  .locked-body .lock-icon {
+    font-size: 3rem;
+    margin-bottom: 6px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .locked-body .lock-icon {
+    font-size: 4rem;
+    margin-bottom: 10px;
+  }
 }
 
 .unlock-cost {
   font-size: 0.8rem;
   color: #666;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.price-icon {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+@media (min-width: 900px) {
+  .unlock-cost {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+  .price-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .unlock-cost {
+    font-size: 1rem;
+    margin-bottom: 10px;
+  }
+  .price-icon {
+    width: 24px;
+    height: 24px;
+  }
 }
 
 .unlock-btn {
-  padding: 6px 16px;
+  padding: 8px 16px;
   border: none;
   border-radius: 20px;
   background: linear-gradient(135deg, #22c55e, #16a34a);
@@ -488,6 +640,22 @@ h1 {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 900px) {
+  .unlock-btn {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .unlock-btn {
+    padding: 12px 26px;
+    font-size: 1rem;
+  }
 }
 
 .unlock-btn:hover {
@@ -499,37 +667,152 @@ h1 {
   margin-bottom: 6px;
 }
 
+@media (min-width: 900px) {
+  .empty-body .empty-icon {
+    font-size: 3.6rem;
+    margin-bottom: 8px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .empty-body .empty-icon {
+    font-size: 4.5rem;
+    margin-bottom: 10px;
+  }
+}
+
 .empty-body .empty-text {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #999;
+}
+
+@media (min-width: 900px) {
+  .empty-body .empty-text {
+    font-size: 0.95rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .empty-body .empty-text {
+    font-size: 1.1rem;
+  }
 }
 
 .plant-body .plant-icon {
   font-size: 2.6rem;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+@media (min-width: 900px) {
+  .plant-body .plant-icon {
+    font-size: 3.4rem;
+    margin-bottom: 8px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .plant-body .plant-icon {
+    font-size: 4.5rem;
+    margin-bottom: 10px;
+  }
 }
 
 .plant-body .plant-name {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: #555;
   margin-bottom: 6px;
 }
 
+@media (min-width: 900px) {
+  .plant-body .plant-name {
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .plant-body .plant-name {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+  }
+}
+
+.dead-indicator {
+  color: #f44336;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+@media (min-width: 1200px) {
+  .dead-indicator {
+    font-size: 0.95rem;
+  }
+}
+
+.progress-container {
+  width: 100%;
+  padding: 0 8px;
+}
+
 .progress-bar {
-  width: 80%;
-  height: 6px;
+  position: relative;
+  width: 100%;
+  height: 8px;
   background: #e0e0e0;
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
   margin-bottom: 4px;
 }
 
-.progress-fill {
+@media (min-width: 1200px) {
+  .progress-bar {
+    height: 10px;
+    border-radius: 5px;
+    margin-bottom: 6px;
+  }
+}
+
+.dry-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
   height: 100%;
-  background: linear-gradient(90deg, #22c55e, #16a34a);
-  border-radius: 3px;
+  background: linear-gradient(90deg, #ffcdd2, #ef5350);
+  border-radius: 4px;
   transition: width 0.5s;
+  opacity: 0.6;
+}
+
+.water-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #a5d6a7, #2e7d32);
+  border-radius: 4px;
+  transition: width 0.5s;
+}
+
+.time-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.7rem;
+}
+
+.water-time {
+  color: #2e7d32;
+}
+
+.dry-time {
+  color: #ef5350;
+}
+
+.dry-time.warning {
+  color: #f44336;
+  font-weight: 600;
 }
 
 .stage-text {
@@ -554,6 +837,12 @@ h1 {
   background: rgba(0, 0, 0, 0.12);
 }
 
+@media (min-width: 1200px) {
+  .level-tag {
+    font-size: 0.8rem;
+    padding: 3px 8px;
+  }
+}
 .multiplier-tag {
   background: rgba(0, 0, 0, 0.15);
   color: #555;
@@ -563,6 +852,12 @@ h1 {
   border-radius: 6px;
 }
 
+@media (min-width: 1200px) {
+  .multiplier-tag {
+    font-size: 0.8rem;
+    padding: 3px 8px;
+  }
+}
 footer {
   font-size: 0.75rem;
   color: #7f6b4a;

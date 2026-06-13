@@ -11,19 +11,19 @@ export const usePlotStore = defineStore('plot', () => {
 
   // 解锁费用配置
   const unlockCosts = {
-    2: { type: 'silver_coin', amount: 200, icon: '🪙', label: '200 银币' },
-    3: { type: 'silver_coin', amount: 800, icon: '🪙', label: '800 银币' },
-    4: { type: 'gold_coin', amount: 300, icon: '🥇', label: '300 金币' },
-    5: { type: 'gold_coin', amount: 800, icon: '🥇', label: '800 金币' },
-    6: { type: 'diamond', amount: 100, icon: '💎', label: '100 钻石' }
+    2: { type: 'silver_coin', amount: 200, icon: '/silver_icon.png', label: '200 银币' },
+    3: { type: 'silver_coin', amount: 800, icon: '/silver_icon.png', label: '800 银币' },
+    4: { type: 'gold_coin', amount: 300, icon: '/gold_icon.png', label: '300 金币' },
+    5: { type: 'gold_coin', amount: 800, icon: '/gold_icon.png', label: '800 金币' },
+    6: { type: 'diamond', amount: 100, icon: '/diamond.png', label: '100 钻石' }
   }
 
   // 升级费用配置
   const upgradeCosts = {
-    2: { type: 'silver_coin', amount: 1500, icon: '🪙', label: '1500 银币' },
-    3: { type: 'gold_coin', amount: 500, icon: '🥇', label: '500 金币' },
-    4: { type: 'gold_coin', amount: 1500, icon: '🥇', label: '1500 金币' },
-    5: { type: 'diamond', amount: 500, icon: '💎', label: '500 钻石' }
+    2: { type: 'silver_coin', amount: 1500, icon: '/silver_icon.png', label: '1500 银币' },
+    3: { type: 'gold_coin', amount: 500, icon: '/gold_icon.png', label: '500 金币' },
+    4: { type: 'gold_coin', amount: 1500, icon: '/gold_icon.png', label: '1500 金币' },
+    5: { type: 'diamond', amount: 500, icon: '/diamond.png', label: '500 钻石' }
   }
 
   // 等级倍率
