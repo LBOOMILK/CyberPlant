@@ -75,15 +75,27 @@
             <div class="exchange-body">
               <div class="exchange-row">
                 <label>兑换方向</label>
-                <select v-model="exchangeFrom" class="exchange-select">
-                  <option v-for="opt in exchangeOptions" :key="opt.key" :value="opt.key">
-                    {{ opt.label }}
-                  </option>
-                </select>
+                <div class="custom-select" @click.stop="selectOpen = !selectOpen">
+                  <div class="select-display">
+                    <span>{{ currentOptionLabel }}</span>
+                    <span class="select-arrow" :class="{ open: selectOpen }">▾</span>
+                  </div>
+                  <div v-if="selectOpen" class="select-dropdown">
+                    <div
+                      v-for="opt in exchangeOptions"
+                      :key="opt.key"
+                      class="select-option"
+                      :class="{ active: exchangeFrom === opt.key }"
+                      @click.stop="exchangeFrom = opt.key; selectOpen = false"
+                    >
+                      {{ opt.label }}
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="exchange-arrow">⬇️</div>
               <div class="exchange-row">
-                <label>兑换数量</label>
+                <label>{{ exchangeLabel }}</label>
                 <input
                   v-model.number="exchangeAmount"
                   type="number"
@@ -127,6 +139,7 @@ const hunger = ref(100)
 const showExchange = ref(false)
 const exchangeFrom = ref('silver_coin->gold_coin')
 const exchangeAmount = ref(1)
+const selectOpen = ref(false)
 
 const visible = computed(() => {
   return router.currentRoute.value.path.startsWith('/dashboard')
@@ -186,6 +199,19 @@ const exchangePlaceholder = computed(() => {
     return `输入${names[from]}数量（最少${rule.rate}）`
   }
   return `输入${names[from]}数量以兑换${names[to]}`
+})
+
+// 当前选项显示文本
+const currentOptionLabel = computed(() => {
+  const opt = exchangeOptions.find(o => o.key === exchangeFrom.value)
+  return opt ? opt.label : '选择兑换方向'
+})
+
+// 动态兑换数量标签
+const exchangeLabel = computed(() => {
+  const names = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }
+  const [from, to] = exchangeFrom.value.split('->')
+  return `填入使用${names[from]}的数量以兑换${names[to]}`
 })
 
 const canExchange = computed(() => {
@@ -281,6 +307,7 @@ onMounted(async () => {
     await petStore.loadActivePet()
     updateHunger()
     hungerTimer = setInterval(updateHunger, 60000) // 每分钟更新
+    document.addEventListener('click', closeSelect)
   } catch (e) {
     console.error('PetFloating init error:', e)
   }
@@ -292,7 +319,12 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('touchmove', onDrag)
   document.removeEventListener('touchend', stopDrag)
+  document.removeEventListener('click', closeSelect)
 })
+
+function closeSelect() {
+  selectOpen.value = false
+}
 
 watch(() => petStore.activePet, () => {
   updateHunger()
@@ -621,30 +653,73 @@ watch(() => petStore.activePet, () => {
   padding-left: 4px;
 }
 
-.exchange-select {
+/* 自定义下拉选择框 */
+.custom-select {
+  position: relative;
+  cursor: pointer;
+}
+
+.select-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 14px 16px;
   border: 2px solid #e2e8f0;
   border-radius: 14px;
   font-size: 0.95rem;
   background: white;
   color: #2d3748;
-  outline: none;
   transition: all 0.25s ease;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 16px;
 }
 
-.exchange-select:hover {
+.select-display:hover {
   border-color: #a7f3a0;
 }
 
-.exchange-select:focus {
-  border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+.select-arrow {
+  font-size: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.select-arrow.open {
+  transform: rotate(180deg);
+}
+
+.select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  overflow: hidden;
+  animation: dropdownFade 0.15s ease;
+}
+
+@keyframes dropdownFade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.select-option {
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  color: #2d3748;
+  transition: all 0.15s ease;
+}
+
+.select-option:hover {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+}
+
+.select-option.active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  font-weight: 600;
 }
 
 .exchange-input {
@@ -812,21 +887,33 @@ watch(() => petStore.activePet, () => {
     color: #aaa;
   }
 
-  .exchange-select,
+  .custom-select .select-display,
   .exchange-input {
     background: #2a2a2a;
     border-color: #555;
     color: #e0e0e0;
   }
 
-  .exchange-select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 16px;
+  .custom-select .select-dropdown {
+    background: #2a2a2a;
+    border-color: #555;
   }
 
-  .exchange-select:focus,
+  .custom-select .select-option {
+    color: #e0e0e0;
+  }
+
+  .custom-select .select-option:hover {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81c784;
+  }
+
+  .custom-select .select-option.active {
+    background: rgba(76, 175, 80, 0.25);
+    color: #81c784;
+  }
+
+  .custom-select .select-display:hover,
   .exchange-input:focus {
     border-color: #4caf50;
   }
