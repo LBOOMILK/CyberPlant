@@ -6,59 +6,113 @@
     <div class="admin-content">
       <h1>商店管理</h1>
       
-      <div class="action-bar">
-        <select v-model="filterType" class="filter-select">
-          <option value="all">全部类型</option>
-          <option value="seed">🌱 种子</option>
-          <option value="crop">🌾 作物</option>
-          <option value="fertilizer">🧪 肥料</option>
-          <option value="pet_food">🍖 宠物粮</option>
-        </select>
-        <button class="add-btn" @click="showAddModal = true">添加物品</button>
+      <!-- Tab 切换 -->
+      <div class="tab-bar">
+        <button :class="['tab-btn', { active: currentTab === 'items' }]" @click="currentTab = 'items'">📦 物品</button>
+        <button :class="['tab-btn', { active: currentTab === 'pets' }]" @click="currentTab = 'pets'; loadPets()">🐾 宠物</button>
       </div>
       
-      <div class="items-table">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>图标</th>
-              <th>名称</th>
-              <th>类型</th>
-              <th>稀有度</th>
-              <th>总生长时间/秒</th>
-              <th>基础产量</th>
-              <th>购买价</th>
-              <th>出售价</th>
-              <th>货币</th>
-              <th>商店</th>
-              <th>关联作物</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in filteredItems" :key="item.id">
-              <td>{{ item.id }}</td>
-              <td class="icon-cell">{{ item.icon }}</td>
-              <td>{{ item.name }}</td>
-              <td>{{ itemTypeName(item.item_type) }}</td>
-              <td><span :class="['item-rarity', item.rarity]">{{ item.rarity }}</span></td>
-              <td>{{ item.grow_time || '-' }}</td>
-              <td>{{ item.base_yield || '-' }}</td>
-              <td>{{ item.buy_price }}</td>
-              <td>{{ item.sell_price }}</td>
-              <td>{{ currencyName(item.currency_type) }}</td>
-              <td>{{ item.is_shop ? '✅' : '❌' }}</td>
-              <td>{{ getCropName(item.crop_id) }}</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="edit-btn" @click="openEditModal(item)">编辑</button>
-                  <button class="delete-btn" @click="showDeleteModal(item.id)">删除</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- 物品管理 -->
+      <div v-if="currentTab === 'items'">
+        <div class="action-bar">
+          <select v-model="filterType" class="filter-select">
+            <option value="all">全部类型</option>
+            <option value="seed">🌱 种子</option>
+            <option value="crop">🌾 作物</option>
+            <option value="fertilizer">🧪 肥料</option>
+            <option value="pet_food">🍖 宠物粮</option>
+          </select>
+          <button class="add-btn" @click="showAddModal = true">添加物品</button>
+        </div>
+        
+        <div class="items-table">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>图标</th>
+                <th>名称</th>
+                <th>类型</th>
+                <th>稀有度</th>
+                <th>浇水CD/秒</th>
+                <th>总生长时间/秒</th>
+                <th>基础产量</th>
+                <th>购买价</th>
+                <th>出售价</th>
+                <th>货币</th>
+                <th>商店</th>
+                <th>关联作物</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in filteredItems" :key="item.id">
+                <td>{{ item.id }}</td>
+                <td class="icon-cell">{{ item.icon }}</td>
+                <td>{{ item.name }}</td>
+                <td>{{ itemTypeName(item.item_type) }}</td>
+                <td><span :class="['item-rarity', item.rarity]">{{ item.rarity }}</span></td>
+                <td>{{ item.item_type === 'seed' ? (item.water_cd || 5) : '-' }}</td>
+                <td>{{ item.item_type === 'seed' ? ((item.water_cd || 5) * 5) : '-' }}</td>
+                <td>{{ item.base_yield || '-' }}</td>
+                <td>{{ item.buy_price }}</td>
+                <td>{{ item.sell_price }}</td>
+                <td>{{ currencyName(item.currency_type) }}</td>
+                <td>{{ item.is_shop ? '✅' : '❌' }}</td>
+                <td>{{ getCropName(item.crop_id) }}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="edit-btn" @click="openEditModal(item)">编辑</button>
+                    <button class="delete-btn" @click="showDeleteModal(item.id)">删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- 宠物管理 -->
+      <div v-if="currentTab === 'pets'">
+        <div class="action-bar">
+          <button class="add-btn" @click="showAddPetModal = true">添加宠物</button>
+        </div>
+        
+        <div class="items-table">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>图标</th>
+                <th>名称</th>
+                <th>稀有度</th>
+                <th>基础加成</th>
+                <th>价格</th>
+                <th>货币</th>
+                <th>商店</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="pet in pets" :key="pet.id">
+                <td>{{ pet.id }}</td>
+                <td class="icon-cell">{{ pet.icon }}</td>
+                <td>{{ pet.name }}</td>
+                <td><span :class="['item-rarity', pet.rarity]">{{ pet.rarity }}</span></td>
+                <td>{{ pet.base_bonus }}%</td>
+                <td>{{ pet.price_amount }}</td>
+                <td>{{ currencyName(pet.price_type) }}</td>
+                <td>{{ pet.is_shop ? '✅' : '❌' }}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="edit-btn" @click="openEditPetModal(pet)">编辑</button>
+                    <button class="delete-btn" @click="showDeletePetModal(pet.id)">删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
       
       <!-- 添加物品弹窗 -->
@@ -99,9 +153,9 @@
             </div>
             <div class="form-row" v-if="newItem.item_type === 'seed'">
               <div class="form-group">
-                <label for="grow_time">总生长时间(秒)</label>
-                <input type="number" id="grow_time" v-model.number="newItem.grow_time" min="0" placeholder="60">
-                <small class="field-hint">每阶段 = 总时间 ÷ 4</small>
+                <label for="water_cd">浇水冷却时间(秒)</label>
+                <input type="number" id="water_cd" v-model.number="newItem.water_cd" min="10" max="240" placeholder="5">
+                <small class="field-hint">总生长时间 = 浇水CD × 5（5个阶段）</small>
               </div>
               <div class="form-group">
                 <label for="base_yield">基础产量</label>
@@ -136,10 +190,10 @@
               <div class="form-group">
                 <label for="currency_type">货币类型</label>
                 <select id="currency_type" v-model="newItem.currency_type">
-                  <option value="silver_coin">🪙 银币</option>
-                  <option value="gold_coin">🥇 金币</option>
-                  <option value="diamond">💎 钻石</option>
-                </select>
+                <option value="silver_coin">银币</option>
+                <option value="gold_coin">金币</option>
+                <option value="diamond">钻石</option>
+              </select>
               </div>
               <div class="form-group">
                 <label for="is_shop">商店出售</label>
@@ -195,9 +249,9 @@
             </div>
             <div class="form-row" v-if="currentItem.item_type === 'seed'">
               <div class="form-group">
-                <label for="edit-grow_time">总生长时间(秒)</label>
-                <input type="number" id="edit-grow_time" v-model.number="currentItem.grow_time" min="0">
-                <small class="field-hint">每阶段 = 总时间 ÷ 4</small>
+                <label for="edit-water_cd">浇水冷却时间(秒)</label>
+                <input type="number" id="edit-water_cd" v-model.number="currentItem.water_cd" min="10" max="240">
+                <small class="field-hint">总生长时间 = 浇水CD × 5（5个阶段）</small>
               </div>
               <div class="form-group">
                 <label for="edit-base_yield">基础产量</label>
@@ -264,6 +318,143 @@
           </div>
         </div>
       </div>
+      
+      <!-- 添加宠物弹窗 -->
+      <div v-if="showAddPetModal" class="modal-overlay" @mousedown.self="showAddPetModal = false">
+        <div class="modal-content wide-modal">
+          <h3>添加宠物</h3>
+          <form @submit.prevent="handleAddPet">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="pet-name">宠物名</label>
+                <input type="text" id="pet-name" v-model="newPet.name" required placeholder="请输入宠物名">
+              </div>
+              <div class="form-group">
+                <label for="pet-icon">图标 (Emoji)</label>
+                <input type="text" id="pet-icon" v-model="newPet.icon" placeholder="🐱">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="pet-rarity">稀有度</label>
+                <select id="pet-rarity" v-model="newPet.rarity" required>
+                  <option value="C">C - 普通</option>
+                  <option value="B">B - 稀有</option>
+                  <option value="A">A - 史诗</option>
+                  <option value="S">S - 传说</option>
+                  <option value="SSS">SSS - 神话</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="pet-base_bonus">基础加成 (%)</label>
+                <input type="number" id="pet-base_bonus" v-model.number="newPet.base_bonus" min="0" step="0.5" placeholder="5">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="pet-price_amount">价格</label>
+                <input type="number" id="pet-price_amount" v-model.number="newPet.price_amount" min="0" placeholder="100">
+              </div>
+              <div class="form-group">
+                <label for="pet-price_type">货币类型</label>
+                <select id="pet-price_type" v-model="newPet.price_type">
+                  <option value="silver_coin">🪙 银币</option>
+                  <option value="gold_coin">🥇 金币</option>
+                  <option value="diamond">💎 钻石</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="pet-is_shop">商店出售</label>
+                <select id="pet-is_shop" v-model="newPet.is_shop">
+                  <option :value="true">是</option>
+                  <option :value="false">否</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="cancel-btn" @click="showAddPetModal = false">取消</button>
+              <button type="submit" class="confirm-btn">确认添加</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <!-- 编辑宠物弹窗 -->
+      <div v-if="showEditPetModal" class="modal-overlay" @mousedown.self="showEditPetModal = false">
+        <div class="modal-content wide-modal">
+          <h3>编辑宠物</h3>
+          <form @submit.prevent="handleEditPet">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-pet-name">宠物名</label>
+                <input type="text" id="edit-pet-name" v-model="currentPet.name" required>
+              </div>
+              <div class="form-group">
+                <label for="edit-pet-icon">图标 (Emoji)</label>
+                <input type="text" id="edit-pet-icon" v-model="currentPet.icon">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-pet-rarity">稀有度</label>
+                <select id="edit-pet-rarity" v-model="currentPet.rarity" required>
+                  <option value="C">C - 普通</option>
+                  <option value="B">B - 稀有</option>
+                  <option value="A">A - 史诗</option>
+                  <option value="S">S - 传说</option>
+                  <option value="SSS">SSS - 神话</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-pet-base_bonus">基础加成 (%)</label>
+                <input type="number" id="edit-pet-base_bonus" v-model.number="currentPet.base_bonus" min="0" step="0.5">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-pet-price_amount">价格</label>
+                <input type="number" id="edit-pet-price_amount" v-model.number="currentPet.price_amount" min="0">
+              </div>
+              <div class="form-group">
+                <label for="edit-pet-price_type">货币类型</label>
+                <select id="edit-pet-price_type" v-model="currentPet.price_type">
+                  <option value="silver_coin">🪙 银币</option>
+                  <option value="gold_coin">🥇 金币</option>
+                  <option value="diamond">💎 钻石</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-pet-is_shop">商店出售</label>
+                <select id="edit-pet-is_shop" v-model="currentPet.is_shop">
+                  <option :value="true">是</option>
+                  <option :value="false">否</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="cancel-btn" @click="showEditPetModal = false">取消</button>
+              <button type="submit" class="confirm-btn">确认更新</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <!-- 删除宠物确认弹窗 -->
+      <div v-if="showDeletePetModalVisible" class="modal-overlay" @mousedown.self="cancelDeletePet">
+        <div class="modal-content">
+          <h3>⚠️ 删除宠物</h3>
+          <p>确定要删除这个宠物吗？</p>
+          <p class="warning-text">删除后无法恢复，已拥有该宠物的用户数据将受影响。</p>
+          <div class="modal-actions">
+            <button class="cancel-btn" @click="cancelDeletePet">取消</button>
+            <button class="confirm-btn" @click="confirmDeletePet">确定删除</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -275,6 +466,8 @@ import AdminSidebar from '@/components/AdminSidebar.vue'
 
 const items = ref([])
 const cropItems = ref([])
+const pets = ref([])
+const currentTab = ref('items')
 const filterType = ref('all')
 const showAddModal = ref(false)
 const showEditModal = ref(false)
@@ -282,6 +475,13 @@ const showDeleteModalVisible = ref(false)
 const currentItem = ref(null)
 const deletingItemId = ref(null)
 const toastRef = ref(null)
+
+// 宠物相关状态
+const showAddPetModal = ref(false)
+const showEditPetModal = ref(false)
+const showDeletePetModalVisible = ref(false)
+const currentPet = ref(null)
+const deletingPetId = ref(null)
 
 const filteredItems = computed(() => {
   if (filterType.value === 'all') return items.value
@@ -299,7 +499,18 @@ const newItem = ref({
   sell_price: 0,
   currency_type: 'silver_coin',
   is_shop: true,
+  water_cd: 5,
   crop_id: null
+})
+
+const newPet = ref({
+  name: '',
+  icon: '',
+  rarity: 'C',
+  base_bonus: 5,
+  price_amount: 100,
+  price_type: 'silver_coin',
+  is_shop: true
 })
 
 function itemTypeName(type) {
@@ -308,7 +519,7 @@ function itemTypeName(type) {
 }
 
 function currencyName(type) {
-  const map = { silver_coin: '🪙 银币', gold_coin: '🥇 金币', diamond: '💎 钻石' }
+  const map = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }
   return map[type] || type
 }
 
@@ -352,7 +563,7 @@ async function handleAddItem() {
     })
     if (response.ok) {
       showAddModal.value = false
-      newItem.value = { name: '', icon: '', rarity: 'C', item_type: 'seed', grow_time: 0, base_yield: 1, buy_price: 0, sell_price: 0, currency_type: 'silver_coin', is_shop: true, crop_id: null }
+      newItem.value = { name: '', icon: '', rarity: 'C', item_type: 'seed', grow_time: 0, base_yield: 1, buy_price: 0, sell_price: 0, currency_type: 'silver_coin', is_shop: true, water_cd: 5, crop_id: null }
       await loadItems()
       if (toastRef.value) toastRef.value.addToast('添加物品成功', 'success')
     } else {
@@ -436,6 +647,122 @@ async function confirmDeleteItem() {
   }
 }
 
+// ========== 宠物管理函数 ==========
+
+// 加载宠物数据
+async function loadPets() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/pets/all`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (!response.ok) throw new Error('获取宠物列表失败')
+    pets.value = await response.json()
+  } catch (error) {
+    console.error('Failed to load pets:', error)
+    pets.value = []
+    if (toastRef.value) toastRef.value.addToast(error.message || '加载宠物数据失败', 'error')
+  }
+}
+
+// 添加宠物
+async function handleAddPet() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/pets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(newPet.value)
+    })
+    if (response.ok) {
+      showAddPetModal.value = false
+      newPet.value = { name: '', icon: '', rarity: 'C', base_bonus: 5, price_amount: 100, price_type: 'silver_coin', is_shop: true }
+      await loadPets()
+      if (toastRef.value) toastRef.value.addToast('添加宠物成功', 'success')
+    } else {
+      const errorData = await response.json()
+      if (toastRef.value) toastRef.value.addToast(errorData.error || '添加宠物失败', 'error')
+    }
+  } catch (error) {
+    console.error('Error adding pet:', error)
+    if (toastRef.value) toastRef.value.addToast('网络错误，请稍后再试', 'error')
+  }
+}
+
+// 打开编辑宠物弹窗
+function openEditPetModal(pet) {
+  currentPet.value = { ...pet }
+  showEditPetModal.value = true
+}
+
+// 编辑宠物
+async function handleEditPet() {
+  if (!currentPet.value) return
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/pets/${currentPet.value.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(currentPet.value)
+    })
+    if (response.ok) {
+      const updatedPet = await response.json()
+      const index = pets.value.findIndex(p => p.id === updatedPet.id)
+      if (index !== -1) pets.value[index] = updatedPet
+      showEditPetModal.value = false
+      currentPet.value = null
+      if (toastRef.value) toastRef.value.addToast('更新宠物成功', 'success')
+    } else {
+      const errorData = await response.json()
+      if (toastRef.value) toastRef.value.addToast(errorData.error || '更新宠物失败', 'error')
+    }
+  } catch (error) {
+    console.error('Error updating pet:', error)
+    if (toastRef.value) toastRef.value.addToast('网络错误，请稍后再试', 'error')
+  }
+}
+
+// 删除宠物相关
+function showDeletePetModal(petId) {
+  deletingPetId.value = petId
+  showDeletePetModalVisible.value = true
+}
+
+function cancelDeletePet() {
+  showDeletePetModalVisible.value = false
+  deletingPetId.value = null
+}
+
+async function confirmDeletePet() {
+  if (!deletingPetId.value) return
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/pets/${deletingPetId.value}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (response.ok) {
+      pets.value = pets.value.filter(p => p.id !== deletingPetId.value)
+      if (toastRef.value) toastRef.value.addToast('删除宠物成功', 'success')
+    } else {
+      const errorData = await response.json()
+      if (toastRef.value) toastRef.value.addToast(errorData.error || '删除宠物失败', 'error')
+    }
+  } catch (error) {
+    console.error('Error deleting pet:', error)
+    if (toastRef.value) toastRef.value.addToast('网络错误，请稍后再试', 'error')
+  } finally {
+    showDeletePetModalVisible.value = false
+    deletingPetId.value = null
+  }
+}
+
 onMounted(() => {
   loadItems()
 })
@@ -455,8 +782,35 @@ onMounted(() => {
 }
 
 .admin-content h1 {
-  margin: 0 0 32px 0;
+  margin: 0 0 24px 0;
   color: #1d6ed7;
+}
+
+/* Tab 样式 */
+.tab-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.tab-btn {
+  padding: 10px 24px;
+  border: 2px solid #1d6ed7;
+  border-radius: 24px;
+  background: white;
+  color: #1d6ed7;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  background: #e3f2fd;
+}
+
+.tab-btn.active {
+  background: #1d6ed7;
+  color: white;
 }
 
 .action-bar {

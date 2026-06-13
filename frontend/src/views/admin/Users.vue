@@ -17,9 +17,9 @@
               <th>ID</th>
               <th>用户名</th>
               <th>邮箱</th>
-              <th>🪙 银币</th>
-              <th>🥇 金币</th>
-              <th>💎 钻石</th>
+              <th>银币</th>
+              <th>金币</th>
+              <th>钻石</th>
               <th>注册时间</th>
               <th>操作</th>
             </tr>
@@ -95,15 +95,15 @@
               <label>货币余额</label>
               <div class="currency-edit">
                 <div class="currency-row">
-                  <span class="currency-label">🪙 银币</span>
+                  <span class="currency-label">银币</span>
                   <input type="number" v-model.number="editCurrencies.silver_coin" min="0" max="999999999" />
                 </div>
                 <div class="currency-row">
-                  <span class="currency-label">🥇 金币</span>
+                  <span class="currency-label">金币</span>
                   <input type="number" v-model.number="editCurrencies.gold_coin" min="0" max="999999999" />
                 </div>
                 <div class="currency-row">
-                  <span class="currency-label">💎 钻石</span>
+                  <span class="currency-label">钻石</span>
                   <input type="number" v-model.number="editCurrencies.diamond" min="0" max="999999999" />
                 </div>
               </div>

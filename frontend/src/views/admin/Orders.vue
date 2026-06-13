@@ -112,7 +112,7 @@ function orderTypeText(type) {
 
 // 获取货币类型中文
 function currencyName(type) {
-  const map = { silver_coin: '🪙 银币', gold_coin: '🥇 金币', diamond: '💎 钻石' }
+  const map = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }
   return map[type] || type || '-'
 }
 
