@@ -60,9 +60,9 @@ const computedOrders = computed(() => {
 
 // 货币配置
 const currencyConfig = {
-  silver_coin: { name: '银币', icon: '🪙', img: '/silver_icon.png' },
-  gold_coin: { name: '金币', icon: '🥇', img: '/gold_icon.png' },
-  diamond: { name: '钻石', icon: '💎', img: '/diamond.png' }
+  silver_coin: { name: '银币', icon: '/silver_icon.png', img: '/silver_icon.png' },
+  gold_coin: { name: '金币', icon: '/gold_icon.png', img: '/gold_icon.png' },
+  diamond: { name: '钻石', icon: '/diamond.png', img: '/diamond.png' }
 }
 
 function getCurrencyDisplay(type) {

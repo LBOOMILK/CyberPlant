@@ -65,7 +65,7 @@
     <!-- 出售确认弹窗 -->
     <Modal
       :visible="sellModalVisible"
-      title="💰 出售确认"
+      title="出售确认"
       :message="sellModalMessage"
       confirm-text="确认出售"
       cancel-text="取消"
@@ -179,7 +179,7 @@ async function handleSellConfirm(quantity) {
   try {
     await shopStore.sell(sellItem.value.item_id, quantity)
     const totalRevenue = sellItem.value.sell_price * quantity
-    addToast(`💰 出售成功！获得 ${totalRevenue} ${shopStore.currencyNames[sellItem.value.currency_type] || ''}`, 'success')
+    addToast(`出售成功！获得 ${totalRevenue} ${shopStore.currencyNames[sellItem.value.currency_type] || ''}`, 'success')
   } catch (error) {
     addToast(`💔 ${error.message || '出售失败'}`, 'error')
   } finally {
