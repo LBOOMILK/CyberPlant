@@ -278,7 +278,7 @@ const LEAF_CONFIG = {
   loopDelayMax: 200,       // 循环生成最大间隔(ms)，销毁一片后最慢0.2秒补充
 
   // ----- 销毁时机 & 透明度衰减 -----
-  destroyAtPercent: 0.88,  // 动画进度多少时销毁（0.88=下落88%路程时remove元素）
+  destroyAtPercent: 0.98,  // 动画进度多少时销毁（0.98=下落98%路程时remove元素）
   opacityHoldPercent: 0.82,// 透明度保持到动画进度的多少（0.82=前82%路程保持峰值透明度，之后快速衰减）
   opacityPeak: 0.75,       // 峰值透明度（0.75=叶子最亮时75%不透明）
 
@@ -730,7 +730,7 @@ async function handleRegister() {
 @keyframes leafFall {
   0% { transform: translateY(0) translateX(0) rotate(0deg) scale(var(--start-scale, 1)); opacity: 0; }
   3% { opacity: var(--peak-opacity, 0.75); }
-  var(--hold-percent, 85%) { opacity: var(--peak-opacity, 0.75); }
+  95% { opacity: var(--peak-opacity, 0.75); }
   100% { transform: translateY(100vh) translateX(var(--drift)) rotate(var(--spin)) scale(var(--end-scale, 1)); opacity: 0; }
 }
 
