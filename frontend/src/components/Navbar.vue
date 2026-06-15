@@ -114,9 +114,9 @@ const friendStore = useFriendStore()
 // 新手欢迎
 const showWelcome = ref(false)
 
-// 判断是否为登录/注册页面
+// 判断是否为登录页面
 const isAuthPage = computed(() => {
-    return route.path === '/' || route.path === '/login' || route.path === '/register'
+    return route.path === '/' || route.path === '/login'
 })
 
 // 判断是否为管理端页面

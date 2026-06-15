@@ -3,31 +3,13 @@ import { createRouter, createWebHistory } from 'vue-router'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { 
-      path: '/', 
-      name: 'login-select', 
-      component: () => import('../views/auth/LoginSelect.vue'),
+    {
+      path: '/',
+      name: 'home',
+      component: () => import('../views/auth/AuthPage.vue'),
       meta: { requiresAuth: false }
     },
-    { 
-      path: '/login', 
-      name: 'login', 
-      component: () => import('../views/auth/UserLogin.vue'),
-      meta: { requiresAuth: false }
-    },
-    { 
-      path: '/register', 
-      name: 'register', 
-      component: () => import('../views/auth/Register.vue'),
-      meta: { requiresAuth: false }
-    },
-    { 
-      path: '/admin/login', 
-      name: 'admin-login', 
-      component: () => import('../views/auth/AdminLogin.vue'),
-      meta: { requiresAuth: false }
-    },
-    
+
     {
       path: '/dashboard',
       name: 'dashboard',
