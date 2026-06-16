@@ -1342,7 +1342,7 @@ app.post('/api/user/shop/purchase', authenticateToken, async (req, res) => {
          ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + $3, updated_at = CURRENT_TIMESTAMP`,
         [userId, item_id, quantity]
       );
-      await createOrder(userId, 'SHOP_PURCHASE', currencyType, totalCost);
+      await createOrder(userId, 'SHOP_PURCHASE', currencyType, -totalCost);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -1385,7 +1385,7 @@ app.post('/api/user/pets/purchase', authenticateToken, async (req, res) => {
         `INSERT INTO user_pets (user_id, pet_id, level, growth_points, hunger, is_active) VALUES ($1, $2, 1, 0, 20, false) RETURNING *`,
         [userId, pet_id]
       );
-      await createOrder(userId, 'PET_PURCHASE', pet.price_type, Number(pet.price_amount));
+      await createOrder(userId, 'PET_PURCHASE', pet.price_type, -Number(pet.price_amount));
       await client.query('COMMIT');
       const cur = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [userId]);
       res.status(201).json({
@@ -1460,7 +1460,7 @@ app.post('/api/user/decorations/purchase', authenticateToken, async (req, res) =
     try {
       await deductCurrency(userId, dec.price_type, totalCost);
       await client.query('INSERT INTO user_decorations (user_id, decoration_id, quantity) VALUES ($1, $2, 1)', [userId, decoration_id]);
-      await createOrder(userId, 'DECORATION_PURCHASE', dec.price_type, totalCost);
+      await createOrder(userId, 'DECORATION_PURCHASE', dec.price_type, -totalCost);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -1559,7 +1559,7 @@ app.post('/api/user/plots/:plotIndex/unlock', authenticateToken, async (req, res
     try {
       await deductCurrency(userId, cost.type, cost.amount);
       await client.query('UPDATE garden_plots SET is_unlocked = true WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
-      await createOrder(userId, 'PLOT_UNLOCK', cost.type, cost.amount);
+      await createOrder(userId, 'PLOT_UNLOCK', cost.type, -cost.amount);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -1591,7 +1591,7 @@ app.post('/api/user/plots/:plotIndex/upgrade', authenticateToken, async (req, re
     try {
       await deductCurrency(userId, cost.type, cost.amount);
       await client.query('UPDATE garden_plots SET level = $1 WHERE user_id = $2 AND plot_index = $3', [nextLevel, userId, plotIndex]);
-      await createOrder(userId, 'PLOT_UPGRADE', cost.type, cost.amount);
+      await createOrder(userId, 'PLOT_UPGRADE', cost.type, -cost.amount);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -1781,13 +1781,15 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
       return res.status(400).json({ error: '背包已满，请先清理后再收获', overflow: true });
     }
 
-    // 1.7 SSS 掉落
+    // 1.7 SSS 掉落（仅S/SSS级作物可触发）
     let sssDrop = null;
-    const sssDropBase = await getConfig('sss_drop_base') || 0.33;
-    const sssDropCap = await getConfig('sss_drop_cap') || 1.0;
-    const totalMultiplier = levelMultiplier + petBonus / 100;
-    const dropRate = Math.min(sssDropBase * totalMultiplier, sssDropCap);
-    if (Math.random() < dropRate) {
+    const canDropSSS = ['S', 'SSS'].includes(harvestItemRarity);
+    if (canDropSSS) {
+      const sssDropBase = await getConfig('sss_drop_base') || 0.33;
+      const sssDropCap = await getConfig('sss_drop_cap') || 1.0;
+      const totalMultiplier = levelMultiplier + petBonus / 100;
+      const dropRate = Math.min(sssDropBase * totalMultiplier, sssDropCap);
+      if (Math.random() < dropRate) {
       const sssSeeds = await client.query("SELECT id, name, icon FROM items WHERE item_type = 'seed' AND rarity = 'SSS'");
       if (sssSeeds.rowCount > 0) {
         const droppedSeed = sssSeeds.rows[Math.floor(Math.random() * sssSeeds.rowCount)];
@@ -1797,6 +1799,7 @@ app.post('/api/user/plots/:plotIndex/harvest', authenticateToken, async (req, re
           [userId, droppedSeed.id]
         );
         sssDrop = { id: droppedSeed.id, name: droppedSeed.name, icon: droppedSeed.icon };
+      }
       }
     }
 
