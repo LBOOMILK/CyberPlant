@@ -36,6 +36,7 @@
         <li class="menu-item">
           <router-link to="/admin/classic/orders" class="menu-link" @click="closeMobileMenu">订单管理</router-link>
         </li>
+        <li class="menu-item hub-switch" @click="$router.push('/admin')">⚡ 枢纽视图</li>
         <li class="logout-item" @click="showLogoutModal = true">退出登录</li>
       </ul>
     </div>
@@ -235,8 +236,25 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.hub-switch {
+  margin-top: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  color: #00ff88;
+  background: rgba(0,255,136,0.08);
+  border: 1px solid rgba(0,255,136,0.2);
+  font-weight: 600;
+}
+.hub-switch:hover {
+  background: rgba(0,255,136,0.15);
+  border-color: rgba(0,255,136,0.4);
+}
+
 .logout-item {
-  margin-top: 40px;
+  margin-top: 12px;
   padding: 12px 16px;
   border-radius: 8px;
   cursor: pointer;
