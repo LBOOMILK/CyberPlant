@@ -45,6 +45,7 @@ const router = createRouter({
         { path: 'orders', name: 'admin-orders', component: () => import('../views/admin/Orders.vue') },
         { path: 'config', name: 'admin-config', component: () => import('../views/admin/ConfigPanel.vue') },
         { path: 'effects', name: 'admin-effects', component: () => import('../views/admin/EffectsManager.vue') },
+        { path: 'pets', name: 'admin-pets', component: () => import('../views/admin/PetsPanel.vue') },
       ]
     },
     

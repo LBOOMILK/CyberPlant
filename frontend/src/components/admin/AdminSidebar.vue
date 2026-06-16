@@ -14,11 +14,17 @@
       
       <ul class="menu-container">
         <li class="menu-item">
-          <router-link to="/admin/classic/dashboard" class="menu-link" @click="closeMobileMenu">仪表盘</router-link>
+          <router-link to="/admin/classic/dashboard" class="menu-link" @click="closeMobileMenu">📊 仪表盘</router-link>
+        </li>
+        <li class="menu-item">
+          <router-link to="/admin/classic/plants" class="menu-link" @click="closeMobileMenu">📦 物品管理</router-link>
+        </li>
+        <li class="menu-item">
+          <router-link to="/admin/classic/pets" class="menu-link" @click="closeMobileMenu">🐾 宠物管理</router-link>
         </li>
         <li class="menu-item">
           <div class="menu-title" @click="toggleUserMenu">
-            <span>用户管理</span>
+            <span>👥 用户管理</span>
             <span class="menu-arrow" :class="{ open: userMenuOpen }">&#9660;</span>
           </div>
           <ul v-if="userMenuOpen" class="sub-menu">
@@ -31,12 +37,15 @@
           </ul>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/classic/plants" class="menu-link" @click="closeMobileMenu">商店管理</router-link>
+          <router-link to="/admin/classic/orders" class="menu-link" @click="closeMobileMenu">📋 订单管理</router-link>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/classic/orders" class="menu-link" @click="closeMobileMenu">订单管理</router-link>
+          <router-link to="/admin/classic/config" class="menu-link" @click="closeMobileMenu">⚙️ 全局配置</router-link>
         </li>
-        <li class="menu-item hub-switch" @click="$router.push('/admin')">⚡ 枢纽视图</li>
+        <li class="menu-item">
+          <router-link to="/admin/classic/effects" class="menu-link" @click="closeMobileMenu">✨ 特效管理</router-link>
+        </li>
+        <li class="menu-item hub-switch" @click="$router.push('/admin')">⚡ 切换枢纽视图</li>
         <li class="logout-item" @click="showLogoutModal = true">退出登录</li>
       </ul>
     </div>

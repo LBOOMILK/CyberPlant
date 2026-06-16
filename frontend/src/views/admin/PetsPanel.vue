@@ -1,5 +1,7 @@
 <template>
-  <div class="pets-panel">
+  <div :class="{'admin-page': isStandalone}">
+    <AdminSidebar v-if="isStandalone" />
+    <div :class="{'admin-content': isStandalone}" class="pets-panel">
     <div v-if="loading" class="panel-loading">加载中...</div>
     <div v-else>
       <!-- 宠物选择 -->
@@ -62,11 +64,17 @@
     </div>
     <Toast ref="toastRef" />
   </div>
+</div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import Toast from '@/components/common/Toast.vue'
+import AdminSidebar from '@/components/admin/AdminSidebar.vue'
+
+const route = useRoute()
+const isStandalone = computed(() => route.name === 'admin-pets')
 
 const loading = ref(true)
 const pets = ref([])

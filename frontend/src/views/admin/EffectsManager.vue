@@ -1,42 +1,44 @@
 <template>
-  <div class="effects-panel">
-    <div class="upload-area">
-      <h4>📤 上传特效文件</h4>
-      <p class="upload-hint">支持 .js 文件，需导出 { name, init } 对象</p>
-      <div class="upload-row">
-        <input
-          type="file"
-          ref="fileInput"
-          accept=".js"
-          @change="handleFileSelect"
-          class="file-input"
-        />
-        <button class="upload-btn" @click="uploadFile" :disabled="!selectedFile || uploading">
-          {{ uploading ? '上传中...' : '上传' }}
-        </button>
+  <div :class="{'admin-page': isStandalone}">
+    <AdminSidebar v-if="isStandalone" />
+    <div :class="{'admin-content': isStandalone}" class="effects-panel">
+      <div class="upload-area">
+        <h4>📤 上传特效文件</h4>
+        <p class="upload-hint">支持 .js 文件，需导出 {{ '{' }} name, init {{ '}' }} 对象</p>
+        <div class="upload-row">
+          <input type="file" ref="fileInput" accept=".js" @change="handleFileSelect" class="file-input" />
+          <button class="upload-btn" @click="uploadFile" :disabled="!selectedFile || uploading">
+            {{ uploading ? '上传中...' : '上传' }}
+          </button>
+        </div>
+        <div v-if="uploadError" class="upload-error">{{ uploadError }}</div>
       </div>
-      <div v-if="uploadError" class="upload-error">{{ uploadError }}</div>
-    </div>
 
-    <div class="effects-list">
-      <h4>📋 已上传特效</h4>
-      <div v-if="loadingEffects" class="panel-loading">加载中...</div>
-      <div v-else-if="effects.length === 0" class="empty-msg">暂无特效文件</div>
-      <div v-else class="effects-grid">
-        <div v-for="eff in effects" :key="eff.filename" class="effect-card">
-          <span class="effect-icon">{{ eff.icon || '✨' }}</span>
-          <span class="effect-name">{{ eff.name }}</span>
-          <span class="effect-file">{{ eff.filename }}</span>
+      <div class="effects-list">
+        <h4>📋 已上传特效</h4>
+        <div v-if="loadingEffects" class="panel-loading">加载中...</div>
+        <div v-else-if="effects.length === 0" class="empty-msg">暂无特效文件</div>
+        <div v-else class="effects-grid">
+          <div v-for="eff in effects" :key="eff.filename" class="effect-card">
+            <span class="effect-icon">{{ eff.icon || '✨' }}</span>
+            <span class="effect-name">{{ eff.name }}</span>
+            <span class="effect-file">{{ eff.filename }}</span>
+          </div>
         </div>
       </div>
+      <Toast ref="toastRef" />
     </div>
-    <Toast ref="toastRef" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import Toast from '@/components/common/Toast.vue'
+import AdminSidebar from '@/components/admin/AdminSidebar.vue'
+
+const route = useRoute()
+const isStandalone = computed(() => route.name === 'admin-effects')
 
 const fileInput = ref(null)
 const selectedFile = ref(null)

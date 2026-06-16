@@ -1,5 +1,7 @@
 <template>
-  <div class="config-panel">
+  <div :class="{'admin-page': isStandalone}">
+    <AdminSidebar v-if="isStandalone" />
+    <div :class="{'admin-content': isStandalone}" class="config-panel">
     <div v-if="loading" class="panel-loading">加载中...</div>
     <div v-else>
       <div v-for="(group, cat) in configGroups" :key="cat" class="config-group">
@@ -36,11 +38,17 @@
     </div>
     <Toast ref="toastRef" />
   </div>
+</div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import Toast from '@/components/common/Toast.vue'
+import AdminSidebar from '@/components/admin/AdminSidebar.vue'
+
+const route = useRoute()
+const isStandalone = computed(() => route.name === 'admin-config')
 
 const loading = ref(true)
 const configItems = ref([])
