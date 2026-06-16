@@ -27,6 +27,7 @@
       >
         <div class="item-icon">{{ item.icon }}</div>
         <div class="item-name">{{ item.name }}</div>
+        <div v-if="item.pet_name" class="pet-exclusive">适配 {{ item.icon }}{{ item.pet_name }}</div>
         <div class="item-rarity" :class="`rarity-${item.rarity}`">{{ item.rarity }}</div>
         <div class="item-price">
           <img
@@ -126,7 +127,11 @@ async function switchTab(tab) {
 function openBuyModal(item) {
   console.log('openBuyModal called', item)
   buyItem.value = item
-  buyModalMessage.value = `购买 ${item.icon} ${item.name}？`
+  let msg = `购买 ${item.icon} ${item.name}？`
+  if (item.pet_name) {
+    msg += `\n⚠️ 这是专属饰品，只能装备在 ${item.pet_name} 上`
+  }
+  buyModalMessage.value = msg
 
   // 计算最大可购买数量
   const balance = userStore.currencies[item.currency_type] || 0

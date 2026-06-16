@@ -1292,11 +1292,11 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
     }
 
     if (tab === 'decorations') {
-      const result = await client.query('SELECT id, name, icon, slot_type, quality, bonus, price_type, price_amount, pet_id FROM decorations ORDER BY quality DESC, id');
+      const result = await client.query('SELECT d.id, d.name, d.icon, d.slot_type, d.quality, d.bonus, d.price_type, d.price_amount, d.pet_id, p.name as pet_name FROM decorations d LEFT JOIN pets p ON d.pet_id = p.id ORDER BY d.quality DESC, d.id');
       return res.json(result.rows.map(r => ({
         id: r.id, name: r.name, icon: r.icon, rarity: r.quality, item_type: 'decoration',
         buy_price: Number(r.price_amount), sell_price: 0, currency_type: r.price_type, base_yield: Number(r.bonus),
-        slot_type: r.slot_type, pet_id: r.pet_id,
+        slot_type: r.slot_type, pet_id: r.pet_id, pet_name: r.pet_name,
         purchasable: true, sold_out: ownedDecIds.includes(r.id) ? '已拥有' : false
       })));
     }

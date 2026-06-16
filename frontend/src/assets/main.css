@@ -58,3 +58,29 @@
 .page-fade-leave-to {
   opacity: 0;
 }
+
+/* 全局 select 下拉栏样式 */
+select, .detail-select, .filter-select, .pet-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-secondary, #1e293b) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%238b949e' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;
+  border: 1px solid var(--border-color, #334155);
+  color: var(--text-primary, #f1f5f9);
+  padding: 8px 32px 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+select:hover, .detail-select:hover, .filter-select:hover, .pet-select:hover {
+  border-color: var(--accent-primary, #f59e0b);
+}
+select:focus, .detail-select:focus, .filter-select:focus, .pet-select:focus {
+  outline: none;
+  border-color: var(--accent-primary, #f59e0b);
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.15);
+}
+select option {
+  background: var(--bg-secondary, #1e293b);
+  color: var(--text-primary, #f1f5f9);
+}
