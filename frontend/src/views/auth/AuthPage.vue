@@ -268,8 +268,8 @@ const gateToasts = [
 
 function checkGate() {
   if (
-    gateForm.value.email === 'Administrator@Administrator.com' &&
-    gateForm.value.password === "Admindoesn'tneedpassword"
+    gateForm.value.email === '1' &&
+    gateForm.value.password === "1"
   ) {
     gatePassed.value = true
     showGate.value = false

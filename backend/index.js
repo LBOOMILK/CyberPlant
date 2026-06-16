@@ -413,7 +413,7 @@ async function initDatabase() {
         icon VARCHAR(50),
         pixel_art TEXT,
         rarity VARCHAR(50) NOT NULL,
-        base_bonus NUMERIC(5,2) DEFAULT 0,
+        base_bonus NUMERIC(8,2) DEFAULT 0,
         price_type VARCHAR(20) DEFAULT 'silver_coin',
         price_amount BIGINT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -448,7 +448,7 @@ async function initDatabase() {
         icon VARCHAR(50),
         slot_type VARCHAR(50) NOT NULL,
         quality VARCHAR(50) DEFAULT 'normal',
-        bonus NUMERIC(5,2) DEFAULT 0,
+        bonus NUMERIC(8,2) DEFAULT 0,
         price_type VARCHAR(20) DEFAULT 'silver_coin',
         price_amount BIGINT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
