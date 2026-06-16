@@ -65,6 +65,7 @@
       :unitPrice="buyItem?.buy_price || 0"
       :initialQuantity="1"
       :maxQuantity="maxBuyQty"
+      :currencyName="shopStore.currencyNames[buyItem?.currency_type] || '积分'"
       @confirm="handleBuyConfirm"
       @cancel="buyModalVisible = false"
     />

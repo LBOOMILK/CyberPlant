@@ -29,7 +29,7 @@
             <button @click="increaseQuantity" class="quantity-btn" :disabled="quantity >= maxQuantity">+</button>
           </div>
           <div v-if="totalPrice > 0" class="total-price">
-            总价：<span class="price-value">{{ totalPrice }}</span> 积分
+            总价：<span class="price-value">{{ totalPrice }}</span> {{ currencyName }}
           </div>
         </div>
       </div>
@@ -96,6 +96,10 @@ const props = defineProps({
   warningMessage: {
     type: String,
     default: ''
+  },
+  currencyName: {
+    type: String,
+    default: '积分'
   }
 })
 
