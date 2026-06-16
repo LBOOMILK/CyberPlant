@@ -83,8 +83,8 @@
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useShopStore } from '@/stores/shopStore'
 import { useUserStore } from '@/stores/userStore'
-import Modal from '@/components/Modal.vue'
-import Toast from '@/components/Toast.vue'
+import Modal from '@/components/common/Modal.vue'
+import Toast from '@/components/common/Toast.vue'
 
 const shopStore = useShopStore()
 const userStore = useUserStore()

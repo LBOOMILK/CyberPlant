@@ -32,12 +32,24 @@
           <div class="reward-title">🎉 礼包领取成功！</div>
           <div class="reward-list">
             <div class="reward-item">
-              <span class="reward-icon">🌱</span>
-              <span>C级种子 ×5</span>
+              <img src="/silver_icon.png" class="reward-currency-icon" />
+              <span>银币 ×300</span>
             </div>
             <div class="reward-item">
-              <img src="/silver_icon.png" class="reward-currency-icon" />
-              <span>银币 ×100</span>
+              <span class="reward-icon">🥬</span>
+              <span>白菜种子 ×2</span>
+            </div>
+            <div class="reward-item">
+              <span class="reward-icon">🥔</span>
+              <span>土豆种子 ×2</span>
+            </div>
+            <div class="reward-item">
+              <span class="reward-icon">🥒</span>
+              <span>黄瓜种子 ×2</span>
+            </div>
+            <div class="reward-item">
+              <span class="reward-icon">🥕</span>
+              <span>胡萝卜种子 ×2</span>
             </div>
           </div>
           <button class="start-btn" @click="handleClose">开始种植 🌿</button>
@@ -253,8 +265,9 @@ function handleClose() {
 
 .reward-list {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 24px;
+  gap: 12px;
   margin-bottom: 20px;
 }
 

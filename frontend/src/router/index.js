@@ -29,7 +29,13 @@ const router = createRouter({
     {
       path: '/admin',
       name: 'admin',
-      redirect: '/admin/dashboard',
+      component: () => import('../views/admin/HubView.vue'),
+      meta: { requiresAuth: true, requiresRole: 'admin' },
+    },
+    {
+      path: '/admin/classic',
+      name: 'admin-classic',
+      redirect: '/admin/classic/dashboard',
       meta: { requiresAuth: true, requiresRole: 'admin' },
       children: [
         { path: 'dashboard', name: 'admin-dashboard', component: () => import('../views/admin/Dashboard.vue') },
@@ -37,6 +43,8 @@ const router = createRouter({
         { path: 'admins', name: 'admin-admins', component: () => import('../views/admin/Admins.vue') },
         { path: 'plants', name: 'admin-plants', component: () => import('../views/admin/Plants.vue') },
         { path: 'orders', name: 'admin-orders', component: () => import('../views/admin/Orders.vue') },
+        { path: 'config', name: 'admin-config', component: () => import('../views/admin/ConfigPanel.vue') },
+        { path: 'effects', name: 'admin-effects', component: () => import('../views/admin/EffectsManager.vue') },
       ]
     },
     

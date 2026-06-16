@@ -74,7 +74,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import AdminSidebar from '@/components/AdminSidebar.vue'
+import AdminSidebar from '@/components/admin/AdminSidebar.vue'
 
 const router = useRouter()
 const orders = ref([])

@@ -77,6 +77,40 @@
     <div class="hint">选择身份进入花园</div>
 
     <!-- ============================================
+         管理员考验门（在真正登录表单之前）
+         ============================================ -->
+    <div v-if="showGate" class="gate-overlay">
+      <div class="gate-card">
+        <h2>🔐 管理员验证</h2>
+        <div class="gate-sub">请输入管理员凭证</div>
+        <form @submit.prevent="checkGate">
+          <div class="form-group">
+            <label>邮箱</label>
+            <input
+              type="text"
+              v-model="gateForm.email"
+              autocomplete="off"
+              required
+              placeholder="请输入管理员邮箱"
+            />
+          </div>
+          <div class="form-group">
+            <label>密码</label>
+            <input
+              type="text"
+              v-model="gateForm.password"
+              autocomplete="off"
+              required
+              placeholder="请输入管理员密码"
+            />
+          </div>
+          <button type="submit" class="login-btn gate-btn">验 证</button>
+        </form>
+        <button class="back-btn" @click="showGate = false">← 返回选择身份</button>
+      </div>
+    </div>
+
+    <!-- ============================================
          用户登录表单（从下方滑入）
          ============================================ -->
     <div class="login-overlay" id="loginUser">
@@ -201,7 +235,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import Toast from '@/components/Toast.vue'
+import Toast from '@/components/common/Toast.vue'
 
 const router = useRouter()
 const toastRef = ref(null)
@@ -219,6 +253,32 @@ const adminForm = ref({
   password: ''
 })
 const adminShowPassword = ref(false)
+
+// 管理员考验门
+const showGate = ref(false)
+const gateForm = ref({ email: '', password: '' })
+const gatePassed = ref(false)
+const gateToasts = [
+  '不是真正的管理员就别点这里了😅',
+  '别试图当管理员了普通用户😓',
+  '其实根本没有管理员登录--你信吗？😄',
+  '你确定你是管理员？我怎么没见过你🤔',
+  '管理员密码是123456哦（才不是）😏'
+]
+
+function checkGate() {
+  if (
+    gateForm.value.email === 'Administrator@Administrator.com' &&
+    gateForm.value.password === "Admindoesn'tneedpassword"
+  ) {
+    gatePassed.value = true
+    showGate.value = false
+    loginAdmin.value.classList.add('active')
+  } else {
+    const msg = gateToasts[Math.floor(Math.random() * gateToasts.length)]
+    if (toastRef.value) toastRef.value.addToast(msg, 'error')
+  }
+}
 
 // 注册表单
 const registerForm = ref({
@@ -414,7 +474,11 @@ onMounted(() => {
     panelUser.value.style.animation = 'panelSlideOutLeft 0.6s cubic-bezier(0.55,0,1,0.45) forwards'
     panelAdmin.value.style.animation = 'panelSlideOutRight 0.6s cubic-bezier(0.55,0,1,0.45) forwards'
     tagRight.value.classList.add('tag-animate')
-    setTimeout(() => { loginAdmin.value.classList.add('active') }, 600)
+    if (gatePassed.value) {
+      setTimeout(() => { loginAdmin.value.classList.add('active') }, 600)
+    } else {
+      setTimeout(() => { showGate.value = true }, 600)
+    }
   })
 
   // 注册按钮点击事件
@@ -428,7 +492,10 @@ onMounted(() => {
 
   // 返回按钮事件
   document.getElementById('backUser').addEventListener('click', () => goBack(loginUser.value, true, false))
-  document.getElementById('backAdmin').addEventListener('click', () => goBack(loginAdmin.value, false, false))
+  document.getElementById('backAdmin').addEventListener('click', () => {
+    showGate.value = false
+    goBack(loginAdmin.value, false, false)
+  })
   document.getElementById('backRegister').addEventListener('click', () => goBack(loginRegister.value, false, true))
 })
 
@@ -1155,6 +1222,53 @@ async function handleRegister() {
   .form-group input { padding: 9px 12px; font-size: 0.8rem; }
   .login-btn { padding: 10px; font-size: 0.85rem; }
   .back-btn { padding: 8px; font-size: 0.75rem; }
+}
+
+/* ============================================
+   管理员考验门样式
+   ============================================ */
+.gate-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 60; display: flex; align-items: center; justify-content: center;
+}
+.gate-card {
+  background: rgba(10, 5, 5, 0.95);
+  border: 2px solid rgba(255, 60, 60, 0.4);
+  border-radius: 20px;
+  padding: 40px 36px;
+  width: 380px; max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(255,60,60,0.1);
+  animation: gateSlideIn 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+@keyframes gateSlideIn {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.gate-card h2 {
+  text-align: center; font-size: 1.5rem; font-weight: 800;
+  color: #ff6b6b; margin-bottom: 6px;
+}
+.gate-sub {
+  text-align: center; font-size: 0.75rem; color: rgba(255,120,120,0.5);
+  margin-bottom: 28px; letter-spacing: 2px;
+}
+.gate-card label { color: #ff9999; }
+.gate-card input {
+  width: 100%; padding: 12px 16px; border-radius: 10px;
+  border: 1px solid rgba(255,60,60,0.2); background: rgba(60,10,10,0.4);
+  color: #e0e0e0; font-size: 0.9rem; outline: none;
+  transition: all 0.3s ease;
+}
+.gate-card input:focus {
+  border-color: rgba(255,60,60,0.5); box-shadow: 0 0 15px rgba(255,60,60,0.15);
+}
+.gate-btn {
+  background: rgba(255,60,60,0.2) !important; color: #ff9999 !important;
+  border: 1px solid rgba(255,60,60,0.3) !important;
+}
+.gate-btn:hover {
+  background: rgba(255,60,60,0.35) !important;
+  box-shadow: 0 4px 20px rgba(255,60,60,0.2) !important;
 }
 
 /* 超窄屏幕：小屏手机 */

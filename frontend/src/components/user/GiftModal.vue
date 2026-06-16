@@ -80,6 +80,18 @@
         </button>
       </div>
     </div>
+
+    <!-- 送礼确认弹窗 -->
+    <ConfirmModal
+      :visible="showConfirm"
+      title="确认送礼"
+      :message="confirmMessage"
+      icon="🎁"
+      confirm-text="送出"
+      cancel-text="再想想"
+      @confirm="confirmSendGift"
+      @cancel="showConfirm = false"
+    />
   </div>
 </template>
 
@@ -87,7 +99,8 @@
 import { ref, computed, watch } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { useShopStore } from '@/stores/shopStore'
-import Toast from '@/components/Toast.vue'
+import Toast from '@/components/common/Toast.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const props = defineProps({
   visible: Boolean,
@@ -106,6 +119,8 @@ const selectedItemId = ref(null)
 const selectedCurrency = ref('silver_coin')
 const giftAmount = ref(0)
 const submitting = ref(false)
+const showConfirm = ref(false)
+const pendingGiftData = ref(null)
 
 function addToast(message, type = 'info') {
   if (toastRef.value) {
@@ -168,28 +183,43 @@ watch(() => props.visible, async (val) => {
   }
 })
 
+// 确认弹窗文案
+const confirmMessage = computed(() => {
+  if (mode.value === 'item') {
+    const item = backpackItems.value.find(i => i.item_id === selectedItemId.value)
+    return `确认送给 ${props.friendName} ${item?.icon || ''} ${item?.name || '物品'} 吗？`
+  }
+  const currency = currencyOptions.find(c => c.key === selectedCurrency.value)
+  return `确认送给 ${props.friendName} ${giftAmount.value} ${currency?.name || ''} 吗？`
+})
+
 async function handleSubmit() {
   if (!canSubmit.value) return
+  // 准备数据，弹确认框
+  if (mode.value === 'item') {
+    pendingGiftData.value = {
+      gift_type: 'item',
+      item_id: selectedItemId.value
+    }
+  } else {
+    pendingGiftData.value = {
+      gift_type: 'currency',
+      currency_type: selectedCurrency.value,
+      amount: giftAmount.value
+    }
+  }
+  showConfirm.value = true
+}
+
+async function confirmSendGift() {
+  if (!pendingGiftData.value) return
+  showConfirm.value = false
   submitting.value = true
   try {
-    if (mode.value === 'item') {
-      const item = backpackItems.value.find(i => i.item_id === selectedItemId.value)
-      emit('gift-sent', {
-        gift_type: 'item',
-        item_id: selectedItemId.value
-      })
-      addToast(`🎁 已送出 ${item?.icon || '物品'}，等待对方接收`, 'success')
-    } else {
-      const currency = currencyOptions.find(c => c.key === selectedCurrency.value)
-      emit('gift-sent', {
-        gift_type: 'currency',
-        currency_type: selectedCurrency.value,
-        amount: giftAmount.value
-      })
-      addToast(`已送出 ${giftAmount.value} ${currency?.name}，等待对方接收`, 'success')
-    }
+    emit('gift-sent', pendingGiftData.value)
   } finally {
     submitting.value = false
+    pendingGiftData.value = null
   }
 }
 </script>

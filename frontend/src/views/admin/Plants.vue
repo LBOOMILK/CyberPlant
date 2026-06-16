@@ -461,8 +461,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import Toast from '@/components/Toast.vue'
-import AdminSidebar from '@/components/AdminSidebar.vue'
+import Toast from '@/components/common/Toast.vue'
+import AdminSidebar from '@/components/admin/AdminSidebar.vue'
 
 const items = ref([])
 const cropItems = ref([])

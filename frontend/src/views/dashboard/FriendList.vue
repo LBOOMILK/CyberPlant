@@ -206,9 +206,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useFriendStore } from '@/stores/friendStore'
 import { useUserStore } from '@/stores/userStore'
-import Modal from '@/components/Modal.vue'
-import GiftModal from '@/components/GiftModal.vue'
-import Toast from '@/components/Toast.vue'
+import Modal from '@/components/common/Modal.vue'
+import GiftModal from '@/components/user/GiftModal.vue'
+import Toast from '@/components/common/Toast.vue'
 
 const friendStore = useFriendStore()
 const userStore = useUserStore()
@@ -433,6 +433,22 @@ function openGiftModal(friend) {
   showGiftModal.value = true
 }
 
+// 友好化送礼错误信息
+function formatGiftError(msg) {
+  if (!msg) return '送礼失败'
+  if (msg.includes('cooldown') || msg.includes('冷却')) {
+    const match = msg.match(/(\d+)/)
+    return match ? `⏳ 冷却中，请 ${match[1]} 小时后再试` : '⏳ 冷却中，请稍后再试'
+  }
+  if (msg.includes('limit') || msg.includes('上限') || msg.includes('限额')) {
+    return '🚫 今日接收已达上限'
+  }
+  if (msg.includes('余额') || msg.includes('insufficient') || msg.includes('balance')) {
+    return '💔 余额不足'
+  }
+  return msg
+}
+
 async function handleGift(giftData) {
   if (!giftTarget.value) return
   try {
@@ -441,7 +457,7 @@ async function handleGift(giftData) {
     giftTarget.value = null
     addToast('🎁 礼物已送出，等待对方接收', 'success')
   } catch (e) {
-    addToast(e.message, 'error')
+    addToast(formatGiftError(e.message), 'error')
   }
 }
 

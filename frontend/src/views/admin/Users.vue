@@ -192,8 +192,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import Toast from '@/components/Toast.vue'
-import AdminSidebar from '@/components/AdminSidebar.vue'
+import Toast from '@/components/common/Toast.vue'
+import AdminSidebar from '@/components/admin/AdminSidebar.vue'
 
 const router = useRouter()
 const users = ref([])

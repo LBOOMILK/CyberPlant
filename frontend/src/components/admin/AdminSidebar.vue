@@ -14,7 +14,7 @@
       
       <ul class="menu-container">
         <li class="menu-item">
-          <router-link to="/admin/classic/dashboard" class="menu-link" @click="closeMobileMenu">仪表盘</router-link>
+          <router-link to="/admin/dashboard" class="menu-link" @click="closeMobileMenu">仪表盘</router-link>
         </li>
         <li class="menu-item">
           <div class="menu-title" @click="toggleUserMenu">
@@ -23,36 +23,19 @@
           </div>
           <ul v-if="userMenuOpen" class="sub-menu">
             <li class="menu-item">
-              <router-link to="/admin/classic/users" class="menu-link" @click="closeMobileMenu">普通用户</router-link>
+              <router-link to="/admin/users" class="menu-link" @click="closeMobileMenu">普通用户</router-link>
             </li>
             <li class="menu-item">
-              <router-link to="/admin/classic/admins" class="menu-link" @click="closeMobileMenu">管理员</router-link>
+              <router-link to="/admin/admins" class="menu-link" @click="closeMobileMenu">管理员</router-link>
             </li>
           </ul>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/classic/plants" class="menu-link" @click="closeMobileMenu">商店管理</router-link>
+          <router-link to="/admin/plants" class="menu-link" @click="closeMobileMenu">商店管理</router-link>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/classic/orders" class="menu-link" @click="closeMobileMenu">订单管理</router-link>
+          <router-link to="/admin/orders" class="menu-link" @click="closeMobileMenu">订单管理</router-link>
         </li>
-        <li class="menu-item">
-          <router-link to="/admin/classic/config" class="menu-link" @click="closeMobileMenu">全局配置</router-link>
-        </li>
-        <li class="menu-item">
-          <router-link to="/admin/classic/effects" class="menu-link" @click="closeMobileMenu">特效管理</router-link>
-        </li>
-
-        <!-- 主题切换区域 -->
-        <li class="theme-section">
-          <button class="theme-btn" @click="switchToHub">
-            ⚡ 枢纽视图
-          </button>
-          <button class="scheme-btn" @click="toggleColorScheme">
-            {{ colorScheme === 'dark' ? '☀️ 浅色' : '🌙 深色' }}
-          </button>
-        </li>
-
         <li class="logout-item" @click="showLogoutModal = true">退出登录</li>
       </ul>
     </div>
@@ -73,18 +56,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useThemeStore } from '@/stores/themeStore'
 
 const router = useRouter()
-const themeStore = useThemeStore()
 const userMenuOpen = ref(sessionStorage.getItem('userMenuOpen') === 'true')
 const showLogoutModal = ref(false)
 const mobileMenuOpen = ref(false)
 const isMobile = ref(false)
-
-const colorScheme = computed(() => themeStore.colorScheme)
 
 watch(userMenuOpen, (newValue) => {
   sessionStorage.setItem('userMenuOpen', newValue)
@@ -102,15 +81,6 @@ function closeMobileMenu() {
   if (isMobile.value) {
     mobileMenuOpen.value = false
   }
-}
-
-function switchToHub() {
-  themeStore.setAdminTheme('hub')
-  router.push('/admin')
-}
-
-function toggleColorScheme() {
-  themeStore.setColorScheme(colorScheme.value === 'dark' ? 'light' : 'dark')
 }
 
 function handleLogout() {
@@ -132,7 +102,6 @@ onMounted(() => {
   }
   checkMobile()
   window.addEventListener('resize', checkMobile)
-  themeStore.init()
 })
 
 onUnmounted(() => {
@@ -155,8 +124,8 @@ onUnmounted(() => {
   height: 48px;
   border: none;
   border-radius: 12px;
-  background: #3d2914;
-  color: #fbbf24;
+  background: #1e40af;
+  color: white;
   font-size: 1.5rem;
   cursor: pointer;
   display: none;
@@ -167,7 +136,7 @@ onUnmounted(() => {
 
 .admin-sidebar {
   width: 200px;
-  background: #3d2914;
+  background: #1e40af;
   color: white;
   padding: 20px;
   min-height: 100vh;
@@ -188,7 +157,7 @@ onUnmounted(() => {
   display: none;
   background: none;
   border: none;
-  color: #fbbf24;
+  color: white;
   font-size: 1.5rem;
   cursor: pointer;
   padding: 4px 8px;
@@ -198,7 +167,6 @@ onUnmounted(() => {
   margin: 0 0 32px 0;
   font-size: 1.5rem;
   text-align: center;
-  color: #fbbf24;
 }
 
 .menu-container {
@@ -216,20 +184,13 @@ onUnmounted(() => {
 .menu-link {
   display: block;
   padding: 12px 16px;
-  color: #fcd34d;
+  color: white;
   text-decoration: none;
   transition: background-color 0.2s ease;
 }
 
 .menu-link:hover {
-  background: rgba(245, 158, 11, 0.15);
-}
-
-.menu-link.router-link-exact-active {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  font-weight: 600;
-  border-left: 3px solid #f59e0b;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .menu-title {
@@ -238,12 +199,11 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 12px 16px;
   cursor: pointer;
-  color: #fcd34d;
   transition: background-color 0.2s ease;
 }
 
 .menu-title:hover {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .menu-arrow {
@@ -259,7 +219,7 @@ onUnmounted(() => {
   list-style: none;
   padding: 0;
   margin: 4px 0 0 0;
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -272,44 +232,7 @@ onUnmounted(() => {
 .sub-menu .menu-link {
   padding: 10px 16px 10px 24px;
   font-size: 0.9rem;
-  color: rgba(252, 211, 77, 0.85);
-}
-
-/* Theme section */
-.theme-section {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.theme-btn, .scheme-btn {
-  width: 100%;
-  padding: 8px 14px;
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 8px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-}
-
-.theme-btn {
-  background: rgba(245, 158, 11, 0.1);
-  color: #fbbf24;
-}
-
-.theme-btn:hover {
-  background: rgba(245, 158, 11, 0.2);
-}
-
-.scheme-btn {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fcd34d;
-}
-
-.scheme-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .logout-item {
@@ -353,7 +276,7 @@ onUnmounted(() => {
 }
 
 .modal-content {
-  background: var(--bg-secondary, #161b22);
+  background: white;
   border-radius: 12px;
   padding: 24px;
   width: 90%;
@@ -364,12 +287,12 @@ onUnmounted(() => {
 
 .modal-content h3 {
   margin: 0 0 16px 0;
-  color: #fbbf24;
+  color: #1d6ed7;
 }
 
 .modal-content p {
   margin: 0 0 24px 0;
-  color: var(--text-secondary, #8b949e);
+  color: #555;
 }
 
 .modal-actions {
@@ -406,47 +329,35 @@ onUnmounted(() => {
   background: #d32f2f;
 }
 
-/* Light theme sidebar */
-[data-theme="light"] .admin-sidebar {
-  background: #fef3c7;
-}
-[data-theme="light"] .admin-sidebar h2 {
-  color: #92400e;
-}
-[data-theme="light"] .menu-link {
-  color: #78350f;
-}
-[data-theme="light"] .menu-link:hover {
-  background: rgba(245, 158, 11, 0.15);
-}
-[data-theme="light"] .menu-link.router-link-exact-active {
-  background: rgba(245, 158, 11, 0.25);
-  color: #92400e;
-}
-[data-theme="light"] .menu-title {
-  color: #78350f;
-}
-[data-theme="light"] .sub-menu {
-  background: rgba(0, 0, 0, 0.05);
-}
-[data-theme="light"] .sub-menu .menu-link {
-  color: #92400e;
-}
-[data-theme="light"] .theme-btn {
-  color: #92400e;
-  border-color: rgba(146, 64, 14, 0.3);
-}
-[data-theme="light"] .scheme-btn {
-  color: #78350f;
-  border-color: rgba(146, 64, 14, 0.2);
-}
-[data-theme="light"] .mobile-menu-toggle {
-  background: #fef3c7;
-  color: #92400e;
-}
-
 @media (prefers-color-scheme: dark) {
-  /* Default dark is already handled by the base styles */
+  .admin-sidebar {
+    background: #1e3a5f;
+  }
+  
+  .sub-menu {
+    background: rgba(0, 0, 0, 0.2);
+  }
+  
+  .modal-content {
+    background: #333;
+  }
+  
+  .modal-content h3 {
+    color: #1d6ed7;
+
+  }
+  
+  .modal-content p {
+    color: #ddd;
+  }
+  
+  .modal-btn.cancel {
+    background: #555;
+  }
+  
+  .modal-btn.cancel:hover {
+    background: #444;
+  }
 }
 
 @media (max-width: 767px) {

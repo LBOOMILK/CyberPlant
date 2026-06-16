@@ -104,8 +104,8 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useFriendStore } from '@/stores/friendStore'
-import PetFloating from './PetFloating.vue'
-import WelcomeModal from './WelcomeModal.vue'
+import PetFloating from './user/PetFloating.vue'
+import WelcomeModal from './user/WelcomeModal.vue'
 
 const route = useRoute()
 const userStore = useUserStore()

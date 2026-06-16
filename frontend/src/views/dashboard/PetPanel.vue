@@ -47,8 +47,9 @@
           {{ petStore.rarityConfig[selectedPet.rarity]?.label }}
         </span>
         <span v-if="selectedPet.is_active" class="active-badge">出战中</span>
+        <span v-if="isTestPet" class="test-pet-badge">🧪 测试宠物</span>
         <span class="level-badge">Lv.{{ selectedPet.level }}</span>
-        <span class="bonus-display" :class="{ paused: selectedPet.hunger <= 0 }">
+        <span class="bonus-display" :class="{ paused: selectedPet.hunger <= 0, 'test-bonus': isTestPet }">
           {{ selectedPet.hunger > 0 ? '+' + selectedPet.current_bonus + '%' : '暂停' }}
         </span>
       </div>
@@ -86,13 +87,15 @@
           <button
             class="btn btn-feed"
             @click="showFeedModal = true"
-            :disabled="actionLoading || selectedPet.is_digesting"
+            :disabled="actionLoading || selectedPet.is_digesting || isTestPet"
+            :title="isTestPet ? '测试宠物不可喂食' : ''"
           >🍖</button>
           <button
             v-if="canLevelUp"
             class="btn btn-upgrade"
             @click="showUpgradeModal = true"
-            :disabled="actionLoading"
+            :disabled="actionLoading || isTestPet"
+            :title="isTestPet ? '测试宠物不可升级' : ''"
           >⬆️</button>
           <button
             class="btn btn-equip"
@@ -121,7 +124,7 @@
         >
           <span class="list-pet-icon">{{ pet.icon }}</span>
           <div class="list-pet-info">
-            <span class="list-pet-name">{{ pet.name }}</span>
+            <span class="list-pet-name">{{ pet.name }}<span v-if="pet.is_test" class="test-tag">测试</span></span>
             <span class="list-pet-level">Lv.{{ pet.level }}</span>
           </div>
           <span class="list-pet-bonus" :class="{ paused: pet.hunger <= 0 }">
@@ -216,8 +219,9 @@
                 :key="dec.item_id"
                 class="decoration-item"
                 :class="{ 
-                  usable: canEquipDecoration(dec),
-                  equipped: isDecorationEquipped(dec)
+                  usable: canEquipDecoration(dec) && (!isTestPet || canEquipTestPet(dec)),
+                  equipped: isDecorationEquipped(dec),
+                  'test-restricted': isTestPet && !canEquipTestPet(dec)
                 }"
                 @click="isDecorationEquipped(dec) ? handleUnequipByDec(dec) : handleEquip(dec)"
               >
@@ -297,6 +301,18 @@ const canLevelUp = computed(() => {
   if (!selectedPet.value || !selectedPet.value.next_level_threshold) return false
   return selectedPet.value.growth_points >= selectedPet.value.next_level_threshold
 })
+
+// 判断是否为测试宠物
+const isTestPet = computed(() => {
+  return selectedPet.value?.is_test === true
+})
+
+// 测试宠物只能装备专属竹子
+function canEquipTestPet(dec) {
+  if (!isTestPet.value) return true
+  // 只允许装备竹子（专属饰品）
+  return dec.name?.includes('竹子') || dec.is_test_exclusive === true
+}
 
 // 可用的宠物粮（从背包中筛选）
 const availableFood = computed(() => {
@@ -516,6 +532,12 @@ async function handleUnequipByDec(dec) {
 
 async function handleEquip(dec) {
   if (!selectedPet.value) return
+  
+  // 测试宠物只能装备专属竹子
+  if (isTestPet.value && !canEquipTestPet(dec)) {
+    showToast('测试宠物只能装备专属饰品 🎋', 'error')
+    return
+  }
   
   let targetSlot = selectedSlot.value
   if (!targetSlot) {
@@ -739,6 +761,46 @@ async function handleUnequip(slotType) {
 
 .bonus-display.paused {
   color: #f44336;
+}
+
+.bonus-display.test-bonus {
+  color: #ff9800;
+  font-size: 1rem;
+  text-shadow: 0 0 8px rgba(255, 152, 0, 0.4);
+}
+
+.test-pet-badge {
+  font-size: 0.65rem;
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.test-tag {
+  font-size: 0.6rem;
+  background: #ff9800;
+  color: white;
+  padding: 1px 6px;
+  border-radius: 6px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.decoration-item.test-restricted {
+  opacity: 0.3;
+  cursor: not-allowed;
+  border-color: #ff9800;
+  background: rgba(255, 152, 0, 0.05);
+}
+
+.decoration-item.test-restricted::after {
+  content: '🔒';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.8rem;
 }
 
 .control-right {
@@ -1418,6 +1480,7 @@ async function handleUnequip(slotType) {
   cursor: pointer;
   border: 2px solid transparent;
   opacity: 0.5;
+  position: relative;
 }
 
 .decoration-item.usable {
@@ -1621,6 +1684,24 @@ async function handleUnequip(slotType) {
   .decoration-item.equipped:hover {
     background: #4a4a4a;
     border-color: #f44336;
+  }
+
+  .decoration-item.test-restricted {
+    background: rgba(255, 152, 0, 0.08);
+    border-color: #555;
+  }
+
+  .test-pet-badge {
+    background: linear-gradient(135deg, #ff9800, #e65100);
+  }
+
+  .bonus-display.test-bonus {
+    color: #ffb74d;
+    text-shadow: 0 0 8px rgba(255, 183, 77, 0.4);
+  }
+
+  .test-tag {
+    background: #e65100;
   }
 
   .equipped-badge {

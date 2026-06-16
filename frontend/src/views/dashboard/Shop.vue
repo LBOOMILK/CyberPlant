@@ -17,10 +17,10 @@
     <!-- 加载中 -->
     <div v-if="shopStore.loading" class="loading-msg">加载中...</div>
 
-    <!-- 商品网格 -->
-    <div v-else-if="shopStore.shopItems.length > 0" class="items-grid">
+    <!-- 商品网格（过滤掉测试宠物） -->
+    <div v-else-if="visibleShopItems.length > 0" class="items-grid">
       <div
-        v-for="item in shopStore.shopItems"
+        v-for="item in visibleShopItems"
         :key="item.id"
         class="item-card"
         :class="[`rarity-border-${item.rarity}`]"
@@ -69,11 +69,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useShopStore } from '@/stores/shopStore'
 import { useUserStore } from '@/stores/userStore'
-import Modal from '@/components/Modal.vue'
-import Toast from '@/components/Toast.vue'
+import Modal from '@/components/common/Modal.vue'
+import Toast from '@/components/common/Toast.vue'
 
 const shopStore = useShopStore()
 const userStore = useUserStore()
@@ -90,6 +90,16 @@ function addToast(message, type = 'info') {
     toastRef.value.addToast(message, type)
   }
 }
+
+// 过滤掉测试宠物（不可购买且标记为测试的宠物不在商店显示）
+const visibleShopItems = computed(() => {
+  return shopStore.shopItems.filter(item => {
+    if (item.item_type === 'pet' && item.is_test && item.purchasable === false) {
+      return false
+    }
+    return true
+  })
+})
 
 // 获取背包中某物品的拥有数量（按 item_type 精确匹配）
 function getOwnedQty(itemId, itemType) {

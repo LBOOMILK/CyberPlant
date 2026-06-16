@@ -133,12 +133,12 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { usePlotStore } from '@/stores/plotStore'
 import { useUserStore } from '@/stores/userStore'
 import { useShopStore } from '@/stores/shopStore'
-import Toast from '@/components/Toast.vue'
-import PlantSelectModal from '@/components/PlantSelectModal.vue'
-import PlotModal from '@/components/PlotModal.vue'
-import UpgradeModal from '@/components/UpgradeModal.vue'
-import AIChatModal from '@/components/AIChatModal.vue'
-import HandbookModal from '@/components/HandbookModal.vue'
+import Toast from '@/components/common/Toast.vue'
+import PlantSelectModal from '@/components/user/PlantSelectModal.vue'
+import PlotModal from '@/components/user/PlotModal.vue'
+import UpgradeModal from '@/components/user/UpgradeModal.vue'
+import AIChatModal from '@/components/user/AIChatModal.vue'
+import HandbookModal from '@/components/user/HandbookModal.vue'
 
 const plotStore = usePlotStore()
 const userStore = useUserStore()

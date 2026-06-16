@@ -161,8 +161,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
-import Modal from '@/components/Modal.vue'
-import Toast from '@/components/Toast.vue'
+import Modal from '@/components/common/Modal.vue'
+import Toast from '@/components/common/Toast.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
