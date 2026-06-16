@@ -52,6 +52,9 @@
         <span class="bonus-display" :class="{ paused: selectedPet.hunger <= 0, 'test-bonus': isTestPet }">
           {{ selectedPet.hunger > 0 ? '+' + selectedPet.current_bonus + '%' : '暂停' }}
         </span>
+        <span v-if="selectedPet.base_bonus" class="base-bonus-tag">
+          基础{{ selectedPet.base_bonus }}%/级
+        </span>
       </div>
       <div class="control-right">
         <div class="bars-row">
@@ -64,7 +67,7 @@
                 :style="{ width: selectedPet.hunger + '%' }"
               ></div>
             </div>
-            <span class="bar-value">{{ selectedPet.hunger }}%</span>
+            <span class="bar-value">{{ selectedPet.hunger }}/{{ selectedPet.max_hunger || 100 }}</span>
           </div>
           <div class="mini-bar-group">
             <span class="bar-label">成长</span>
@@ -95,7 +98,7 @@
             class="btn btn-upgrade"
             @click="showUpgradeModal = true"
             :disabled="actionLoading || isTestPet"
-            :title="isTestPet ? '测试宠物不可升级' : ''"
+            :title="isTestPet ? '测试宠物不可升级' : `需要 ${selectedPet.next_level_threshold} 成长值`"
           >⬆️</button>
           <button
             class="btn btn-equip"
@@ -271,6 +274,18 @@
       </div>
     </div>
 
+    <!-- 喂食溢出确认弹窗 -->
+    <ConfirmModal
+      :visible="showOverflowConfirm"
+      title="饱食度溢出"
+      :message="overflowData?.message || '饱食度将溢出，确认继续？'"
+      icon="🍖"
+      confirm-text="确认喂食"
+      cancel-text="取消"
+      @confirm="confirmFeedOverflow"
+      @cancel="showOverflowConfirm = false; pendingFoodId = null; overflowData = null"
+    />
+
     <!-- 消息提示 -->
     <div v-if="toast.show" class="toast" :class="toast.type">
       {{ toast.message }}
@@ -282,6 +297,7 @@
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { usePetStore } from '@/stores/petStore'
 import { useShopStore } from '@/stores/shopStore'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const petStore = usePetStore()
 const shopStore = useShopStore()
@@ -290,6 +306,9 @@ const selectedPet = ref(null)
 const showFeedModal = ref(false)
 const showEquipModal = ref(false)
 const showUpgradeModal = ref(false)
+const showOverflowConfirm = ref(false)
+const overflowData = ref(null)
+const pendingFoodId = ref(null)
 const selectedFood = ref(null)
 const selectedSlot = ref(null)
 const actionLoading = ref(false)
@@ -481,6 +500,36 @@ async function handleFeed() {
     selectedFood.value = null
     updateHungerDecayTime()
 
+    let msg = `喂食成功！成长+${result.growth_gained}，饱食+${result.hunger_restored}`
+    if (result.leveled_up) msg += ` 🎉 升级到 Lv.${result.leveled_up}！`
+    showToast(msg)
+  } catch (e) {
+    if (e.overflow) {
+      // 溢出确认
+      overflowData.value = e.overflowData
+      pendingFoodId.value = selectedFood.value.item_id
+      showOverflowConfirm.value = true
+      showFeedModal.value = false
+    } else {
+      showToast(e.message, 'error')
+    }
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+async function confirmFeedOverflow() {
+  if (!selectedPet.value || !pendingFoodId.value) return
+  showOverflowConfirm.value = false
+  actionLoading.value = true
+  try {
+    const result = await petStore.feedPet(selectedPet.value.user_pet_id, pendingFoodId.value, true)
+    selectedPet.value = petStore.pets.find(p => p.user_pet_id === selectedPet.value.user_pet_id)
+    await shopStore.loadBackpack()
+    selectedFood.value = null
+    pendingFoodId.value = null
+    overflowData.value = null
+    updateHungerDecayTime()
     let msg = `喂食成功！成长+${result.growth_gained}，饱食+${result.hunger_restored}`
     if (result.leveled_up) msg += ` 🎉 升级到 Lv.${result.leveled_up}！`
     showToast(msg)
@@ -761,6 +810,14 @@ async function handleUnequip(slotType) {
 
 .bonus-display.paused {
   color: #f44336;
+}
+
+.base-bonus-tag {
+  font-size: 0.6rem;
+  color: #888;
+  background: #f0f0f0;
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
 .bonus-display.test-bonus {

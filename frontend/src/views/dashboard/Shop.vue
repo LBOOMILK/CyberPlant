@@ -23,7 +23,7 @@
         v-for="item in visibleShopItems"
         :key="item.id"
         class="item-card"
-        :class="[`rarity-border-${item.rarity}`]"
+        :class="[`rarity-border-${item.rarity}`, { 'sold-out': item.sold_out }]"
       >
         <div class="item-icon">{{ item.icon }}</div>
         <div class="item-name">{{ item.name }}</div>
@@ -36,10 +36,13 @@
           />
           <span>{{ item.buy_price }}</span>
         </div>
-        <div v-if="getOwnedQty(item.id, item.item_type) > 0" class="owned-badge">
+        <div v-if="item.sold_out" class="sold-out-badge">
+          {{ item.sold_out === '已拥有' ? '已拥有' : '售罄' }}
+        </div>
+        <div v-else-if="getOwnedQty(item.id, item.item_type) > 0" class="owned-badge">
           已拥有 {{ getOwnedQty(item.id, item.item_type) }}
         </div>
-        <button class="buy-btn" @click="openBuyModal(item)" :disabled="item.item_type === 'decoration' && getOwnedQty(item.id, item.item_type) >= 1">购买</button>
+        <button class="buy-btn" @click="openBuyModal(item)" :disabled="!!item.sold_out || (item.item_type === 'decoration' && getOwnedQty(item.id, item.item_type) >= 1)">购买</button>
       </div>
     </div>
 
@@ -309,6 +312,26 @@ onMounted(async () => {
 .buy-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+/* 售罄样式 */
+.sold-out {
+  opacity: 0.5;
+  filter: grayscale(100%);
+  pointer-events: none;
+}
+
+.sold-out-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #f44336;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  z-index: 2;
 }
 
 .loading-msg,

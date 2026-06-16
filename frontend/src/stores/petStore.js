@@ -146,15 +146,20 @@ export const usePetStore = defineStore('pet', () => {
   }
 
   // ========== 喂食 ==========
-  async function feedPet(userPetId, foodItemId) {
+  async function feedPet(userPetId, foodItemId, confirmOverflow = false) {
+    const body = { food_item_id: foodItemId }
+    if (confirmOverflow) body.confirm_overflow = true
     const response = await fetch(`${API_URL}/user/pets/${userPetId}/feed`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ food_item_id: foodItemId })
+      body: JSON.stringify(body)
     })
     if (!response.ok) {
       const err = await response.json()
-      throw new Error(err.error || '喂食失败')
+      const error = new Error(err.error || '喂食失败')
+      error.overflow = err.overflow || false
+      error.overflowData = err
+      throw error
     }
     const data = await response.json()
     await loadPets()

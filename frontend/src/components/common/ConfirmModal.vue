@@ -7,7 +7,7 @@
         <p class="confirm-message">{{ message }}</p>
         <div v-if="warning" class="confirm-warning">⚠️ {{ warning }}</div>
         <div class="confirm-actions">
-          <button class="confirm-cancel" @click="handleCancel">{{ cancelText }}</button>
+          <button v-if="cancelText" class="confirm-cancel" @click="handleCancel">{{ cancelText }}</button>
           <button class="confirm-ok" :class="{ danger }" @click="handleConfirm">{{ confirmText }}</button>
         </div>
       </div>

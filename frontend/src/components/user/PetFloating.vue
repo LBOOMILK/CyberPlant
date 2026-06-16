@@ -30,7 +30,10 @@
     
     <!-- 宠物信息区域（仅当有激活宠物时显示） -->
     <div v-if="petStore.hasActivePet" class="pet-section">
-      <div class="pet-float-icon">{{ petStore.activePet?.icon || '🐾' }}</div>
+      <div class="pet-float-icon-wrapper">
+        <div ref="effectContainer" class="effect-container"></div>
+        <div class="pet-float-icon">{{ petStore.activePet?.icon || '🐾' }}</div>
+      </div>
       <div class="pet-float-info">
         <div class="pet-float-name">{{ petStore.activePet?.name || '宠物' }}</div>
         <div class="pet-float-level">Lv.{{ petStore.activePet?.level }}</div>
@@ -123,10 +126,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePetStore } from '@/stores/petStore'
 import { useUserStore } from '@/stores/userStore'
+import { loadEffect } from '@/effects'
 
 const petStore = usePetStore()
 const userStore = useUserStore()
@@ -136,6 +140,43 @@ const isDragging = ref(false)
 const position = ref({ x: 20, y: 20 })
 const dragOffset = ref({ x: 0, y: 0 })
 const hunger = ref(100)
+const effectContainer = ref(null)
+let currentEffectInstance = null
+
+// 宠物名到特效名的映射
+const petEffectMap = {
+  '泡泡鱼': 'bubble-fish',
+  '小豆猫': 'cat-paw',
+  '星光兔': 'star-rabbit',
+  '雷霆鹰': 'thunder-eagle',
+  '水晶龙': 'crystal-dragon',
+  'LBOOKTest': 'lbooktest'
+}
+
+function getEffectName(pet) {
+  if (!pet) return null
+  return pet.effect_file || petEffectMap[pet.name] || null
+}
+
+function loadPetEffect() {
+  // 销毁旧特效
+  if (currentEffectInstance) {
+    currentEffectInstance.destroy()
+    currentEffectInstance = null
+  }
+  if (!effectContainer.value || !petStore.activePet) return
+  // 清空容器
+  effectContainer.value.innerHTML = ''
+  const effectName = getEffectName(petStore.activePet)
+  if (!effectName) return
+  const effect = loadEffect(effectName)
+  if (effect) {
+    currentEffectInstance = effect.init(effectContainer.value, {
+      level: petStore.activePet.level,
+      bonus: petStore.activePet.current_bonus
+    })
+  }
+}
 const showExchange = ref(false)
 const exchangeFrom = ref('silver_coin->gold_coin')
 const exchangeAmount = ref(1)
@@ -308,6 +349,8 @@ onMounted(async () => {
     updateHunger()
     hungerTimer = setInterval(updateHunger, 60000) // 每分钟更新
     document.addEventListener('click', closeSelect)
+    await nextTick()
+    loadPetEffect()
   } catch (e) {
     console.error('PetFloating init error:', e)
   }
@@ -315,6 +358,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (hungerTimer) clearInterval(hungerTimer)
+  if (currentEffectInstance) {
+    currentEffectInstance.destroy()
+    currentEffectInstance = null
+  }
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('touchmove', onDrag)
@@ -326,8 +373,10 @@ function closeSelect() {
   selectOpen.value = false
 }
 
-watch(() => petStore.activePet, () => {
+watch(() => petStore.activePet, async () => {
   updateHunger()
+  await nextTick()
+  loadPetEffect()
 })
 </script>
 
@@ -456,6 +505,25 @@ watch(() => petStore.activePet, () => {
 .go-pet-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.pet-float-icon-wrapper {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.effect-container {
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
+  pointer-events: none;
+  overflow: visible;
 }
 
 .pet-float-icon {
@@ -980,5 +1048,45 @@ watch(() => petStore.activePet, () => {
     width: 20px;
     height: 40px;
   }
+}
+</style>
+
+<!-- 全局特效关键帧（非 scoped，供动态创建的特效元素使用） -->
+<style>
+@keyframes bubbleUp {
+  0% { transform: translateY(0) scale(1); opacity: 0.8; }
+  50% { transform: translateY(-30px) scale(1.3); opacity: 0.3; }
+  100% { transform: translateY(-60px) scale(0.8); opacity: 0; }
+}
+
+@keyframes pawFade {
+  0% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  25% { opacity: 0.9; transform: scale(1.0) rotate(-8deg); }
+  50% { opacity: 0.7; transform: scale(1.15) rotate(5deg); }
+  75% { opacity: 0.3; transform: scale(0.9) rotate(12deg); }
+  100% { opacity: 0; transform: scale(0.4) rotate(20deg); }
+}
+
+@keyframes sparkleDrift {
+  0% { transform: translate(0,0) scale(0); opacity: 0; }
+  20% { transform: translate(var(--sx), var(--sy)) scale(1); opacity: 1; }
+  100% { transform: translate(calc(var(--sx)*3), calc(var(--sy)*3)) scale(0); opacity: 0; }
+}
+
+@keyframes boltFlash {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(-15deg); }
+  30% { opacity: 1; transform: scale(1.3) rotate(8deg); }
+  60% { opacity: 0.6; transform: scale(0.7) rotate(-5deg); }
+}
+
+@keyframes pixelBlink {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; box-shadow: 0 0 6px #00ff88; }
+}
+
+@keyframes ringPulse {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { opacity: 0.6; }
+  100% { transform: scale(1.8); opacity: 0; }
 }
 </style>

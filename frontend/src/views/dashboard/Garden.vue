@@ -125,6 +125,55 @@
 
     <!-- 手册弹窗 -->
     <HandbookModal :visible="showHandbook" @close="showHandbook = false" />
+
+    <!-- 铲除确认弹窗 -->
+    <ConfirmModal
+      :visible="showRemoveConfirm"
+      title="铲除作物"
+      :message="`确定铲除 ${selectedPlot?.crop?.name || '作物'}？已投入的种子和肥料不会返还`"
+      icon="🗑️"
+      confirm-text="确认铲除"
+      cancel-text="取消"
+      :danger="true"
+      @confirm="doRemove"
+      @cancel="showRemoveConfirm = false"
+    />
+
+    <!-- 肥料确认弹窗 -->
+    <ConfirmModal
+      :visible="showFertilizeConfirm"
+      title="使用肥料"
+      :message="`确认对 ${selectedPlot?.crop?.name || '作物'} 使用 ${pendingFertilizer?.name || '肥料'}？每株仅可使用一次`"
+      icon="🧪"
+      confirm-text="确认使用"
+      cancel-text="取消"
+      @confirm="doFertilize"
+      @cancel="showFertilizeConfirm = false; pendingFertilizer = null"
+    />
+
+    <!-- 解锁地块确认弹窗 -->
+    <ConfirmModal
+      :visible="showUnlockConfirm"
+      title="解锁地块"
+      :message="`花费 ${plotStore.unlockCosts[pendingUnlockIndex]?.label || ''} 解锁地块 #${pendingUnlockIndex}？`"
+      icon="🔓"
+      confirm-text="确认解锁"
+      cancel-text="取消"
+      @confirm="doUnlock"
+      @cancel="showUnlockConfirm = false; pendingUnlockIndex = null"
+    />
+
+    <!-- 背包满提示 -->
+    <ConfirmModal
+      :visible="showBackpackFull"
+      title="背包已满"
+      message="背包已满，请先清理后再收获"
+      icon="📦"
+      confirm-text="确定"
+      cancel-text=""
+      @confirm="showBackpackFull = false"
+      @cancel="showBackpackFull = false"
+    />
   </div>
 </template>
 
@@ -139,6 +188,7 @@ import PlotModal from '@/components/user/PlotModal.vue'
 import UpgradeModal from '@/components/user/UpgradeModal.vue'
 import AIChatModal from '@/components/user/AIChatModal.vue'
 import HandbookModal from '@/components/user/HandbookModal.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const plotStore = usePlotStore()
 const userStore = useUserStore()
@@ -151,6 +201,12 @@ const showUpgradeModal = ref(false)
 const showFertilizeSelect = ref(false)
 const showAIChat = ref(false)
 const showHandbook = ref(false)
+const showRemoveConfirm = ref(false)
+const showFertilizeConfirm = ref(false)
+const showUnlockConfirm = ref(false)
+const showBackpackFull = ref(false)
+const pendingFertilizer = ref(null)
+const pendingUnlockIndex = ref(null)
 const selectedPlot = ref(null)
 const selectedPlotIndex = ref(null)
 const userSeeds = ref([])
@@ -245,6 +301,14 @@ async function loadUserSeeds() {
 }
 
 async function handleUnlock(plotIndex) {
+  pendingUnlockIndex.value = plotIndex
+  showUnlockConfirm.value = true
+}
+
+async function doUnlock() {
+  const plotIndex = pendingUnlockIndex.value
+  showUnlockConfirm.value = false
+  pendingUnlockIndex.value = null
   try {
     const data = await plotStore.unlockPlot(plotIndex)
     if (data.currencies) {
@@ -298,6 +362,15 @@ function openFertilizeSelect() {
 
 async function handleFertilize(fertilizer) {
   showFertilizeSelect.value = false
+  pendingFertilizer.value = fertilizer
+  showFertilizeConfirm.value = true
+}
+
+async function doFertilize() {
+  const fertilizer = pendingFertilizer.value
+  showFertilizeConfirm.value = false
+  pendingFertilizer.value = null
+  if (!fertilizer || !selectedPlot.value) return
   try {
     const data = await plotStore.fertilize(selectedPlot.value.plot_index, fertilizer.item_id)
     await userStore.loadCurrencies()
@@ -322,11 +395,20 @@ async function handleHarvest() {
     const itemInfo = data.item_reward ? `${data.item_reward.icon}${data.item_reward.name}×${data.item_reward.quantity}` : ''
     addToast(`🏆 收获成功！获得 ${itemInfo} + ${data.currency_reward} ${currencyName}`, 'success')
   } catch (error) {
-    addToast(error.message, 'error')
+    if (error.message && error.message.includes('背包已满')) {
+      showBackpackFull.value = true
+    } else {
+      addToast(error.message, 'error')
+    }
   }
 }
 
 async function handleRemove() {
+  showRemoveConfirm.value = true
+}
+
+async function doRemove() {
+  showRemoveConfirm.value = false
   try {
     await plotStore.remove(selectedPlot.value.plot_index)
     showPlotModal.value = false
