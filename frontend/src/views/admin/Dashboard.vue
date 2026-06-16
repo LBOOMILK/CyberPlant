@@ -3,41 +3,76 @@
     <Toast ref="toastRef" />
     <AdminSidebar />
 
-
-    <!-- 退出登录弹窗 -->
-    <Modal :visible="showLogoutModal" title="🚪 退出登录" message="确定要退出登录吗？" confirm-text="确定退出" cancel-text="取消"
-      @confirm="handleLogout" @cancel="showLogoutModal = false" />
-
     <div class="admin-content">
       <h1>仪表盘</h1>
 
+      <!-- 统计卡片 -->
       <div class="stats-grid">
         <div class="stat-card">
-          <h3>总用户数</h3>
-          <p class="stat-value">{{ stats.totalUsers }}</p>
-        </div>
-        <div class="stat-card" @click="nextStat">
-          <h3>{{ statLabels[statTypes[currentStatIndex]] }}</h3>
-          <p class="stat-value">{{ stats[statTypes[currentStatIndex]] }}</p>
-          <p class="stat-hint">点击切换</p>
+          <span class="stat-icon">👥</span>
+          <span class="stat-value">{{ stats.totalUsers }}</span>
+          <span class="stat-label">总用户数</span>
         </div>
         <div class="stat-card">
-          <h3>总订单数</h3>
-          <p class="stat-value">{{ stats.totalOrders }}</p>
+          <span class="stat-icon">📦</span>
+          <span class="stat-value">{{ stats.totalItems }}</span>
+          <span class="stat-label">总物品数</span>
         </div>
         <div class="stat-card">
-          <h3>今日活跃用户</h3>
-          <p class="stat-value">{{ stats.todayActiveUsers }}</p>
+          <span class="stat-icon">🪙</span>
+          <span class="stat-value">{{ stats.totalSilverCoin }}</span>
+          <span class="stat-label">总银币</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">🥇</span>
+          <span class="stat-value">{{ stats.totalGoldCoin }}</span>
+          <span class="stat-label">总金币</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">💎</span>
+          <span class="stat-value">{{ stats.totalDiamond }}</span>
+          <span class="stat-label">总钻石</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📋</span>
+          <span class="stat-value">{{ stats.totalOrders }}</span>
+          <span class="stat-label">总订单数</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">🔥</span>
+          <span class="stat-value">{{ stats.todayActiveUsers }}</span>
+          <span class="stat-label">今日活跃</span>
         </div>
       </div>
 
-      <div class="recent-activity">
-        <h2>最近活动</h2>
-        <div class="activity-list">
-          <div v-for="(activity, index) in recentActivity" :key="index" class="activity-item">
-            <span class="activity-time">{{ activity.time }}</span>
-            <span class="activity-content">{{ activity.content }}</span>
-          </div>
+      <!-- 快捷操作 -->
+      <div class="quick-actions">
+        <h2>快捷操作</h2>
+        <div class="action-grid">
+          <button class="action-btn" @click="$router.push('/admin/classic/plants')">
+            <span class="action-icon">🌱</span>
+            <span>商店管理</span>
+          </button>
+          <button class="action-btn" @click="$router.push('/admin/classic/users')">
+            <span class="action-icon">👥</span>
+            <span>用户管理</span>
+          </button>
+          <button class="action-btn" @click="$router.push('/admin/classic/orders')">
+            <span class="action-icon">📋</span>
+            <span>订单管理</span>
+          </button>
+          <button class="action-btn" @click="$router.push('/admin/classic/config')">
+            <span class="action-icon">⚙️</span>
+            <span>全局配置</span>
+          </button>
+          <button class="action-btn" @click="$router.push('/admin/classic/effects')">
+            <span class="action-icon">✨</span>
+            <span>特效管理</span>
+          </button>
+          <button class="action-btn" @click="$router.push('/admin')">
+            <span class="action-icon">⚡</span>
+            <span>枢纽视图</span>
+          </button>
         </div>
       </div>
     </div>
@@ -46,14 +81,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import Toast from '@/components/common/Toast.vue'
-import Modal from '@/components/common/Modal.vue'
 import AdminSidebar from '@/components/admin/AdminSidebar.vue'
 
-const router = useRouter()
 const toastRef = ref(null)
-const showLogoutModal = ref(false)
+const loading = ref(true)
 const stats = ref({
   totalUsers: 0,
   totalItems: 0,
@@ -63,108 +95,34 @@ const stats = ref({
   totalOrders: 0,
   todayActiveUsers: 0
 })
-const currentStatIndex = ref(0)
-const statTypes = ['totalItems', 'totalSilverCoin', 'totalGoldCoin', 'totalDiamond']
-const statLabels = {
-  totalItems: '总物品数',
-  totalSilverCoin: '总银币',
-  totalGoldCoin: '总金币',
-  totalDiamond: '总钻石'
-}
-const recentActivity = ref([])
 
-function handleLogout() {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('user_role')
-  localStorage.removeItem('user_email')
-  localStorage.removeItem('user_name')
-  localStorage.removeItem('user_key')
-  if (toastRef.value) {
-    toastRef.value.addToast('已成功退出登录', 'success')
-  }
-  setTimeout(() => {
-    router.push('/admin/login')
-  }, 1000)
-}
-
-function nextStat() {
-  currentStatIndex.value = (currentStatIndex.value + 1) % statTypes.length
-}
-
-async function fetchDashboardData() {
+async function loadStats() {
   try {
     const token = localStorage.getItem('auth_token')
-
-    // 获取用户数量
-    const usersResponse = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+    const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/stats`, {
+      headers: { Authorization: `Bearer ${token}` }
     })
-    const usersData = await usersResponse.json()
-    stats.value.totalUsers = usersData.length
-
-    // 获取物品数量
-    const itemsResponse = await fetch(`${import.meta.env.VITE_API_URL}/items/all`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    const itemsData = await itemsResponse.json()
-    stats.value.totalItems = itemsData.length
-
-    // 计算总货币（从用户数据中获取，排除管理员）
-    const nonAdminUsers = usersData.filter(user => user.role !== 'admin')
-    stats.value.totalSilverCoin = nonAdminUsers.reduce((total, user) => total + (user.currencies?.silver_coin || 0), 0)
-    stats.value.totalGoldCoin = nonAdminUsers.reduce((total, user) => total + (user.currencies?.gold_coin || 0), 0)
-    stats.value.totalDiamond = nonAdminUsers.reduce((total, user) => total + (user.currencies?.diamond || 0), 0)
-
-    // 获取订单数量
-    const ordersResponse = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    const ordersData = await ordersResponse.json()
-    if (ordersData && ordersData.pagination) {
-      stats.value.totalOrders = ordersData.pagination.total
-    } else {
-      stats.value.totalOrders = 0
+    if (r.ok) {
+      const data = await r.json()
+      stats.value = { ...stats.value, ...data }
     }
-
-    // 获取今日活跃用户数
-    const activeUsersResponse = await fetch(`${import.meta.env.VITE_API_URL}/admin/active-users`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    const activeUsersData = await activeUsersResponse.json()
-    stats.value.todayActiveUsers = activeUsersData.count || 0
-
-    // 模拟最近活动数据
-    recentActivity.value = [
-      { time: new Date().toLocaleString(), content: '系统初始化完成' },
-      { time: new Date().toLocaleString(), content: '数据库连接成功' },
-      { time: new Date().toLocaleString(), content: '管理端页面加载完成' }
-    ]
-  } catch (error) {
-    console.error('获取仪表盘数据失败:', error)
-    if (toastRef.value) {
-      toastRef.value.addToast('获取数据失败', 'error')
-    }
+  } catch (e) {
+    console.error('Failed to load stats:', e)
+    toastRef.value?.addToast('获取统计数据失败', 'error')
+  } finally {
+    loading.value = false
   }
 }
 
-onMounted(() => {
-  fetchDashboardData()
-})
+onMounted(loadStats)
 </script>
 
 <style scoped>
 .admin-page {
   display: flex;
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-primary, #0f172a);
+  color: var(--text-primary, #f1f5f9);
 }
 
 .admin-content {
@@ -172,218 +130,81 @@ onMounted(() => {
   padding: 24px 32px;
   overflow-y: auto;
   min-height: 100vh;
-  margin-top: 0;
 }
 
 .admin-content h1 {
-  margin: 0 0 32px 0;
+  margin: 0 0 24px 0;
   color: #f59e0b;
-  font-size: 1.8rem;
+  font-size: 1.6rem;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
   margin-bottom: 32px;
 }
 
 .stat-card {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.stat-card h3 {
-  margin: 0 0 10px 0;
-  color: #666;
-  font-size: 0.95rem;
-}
-
-.stat-value {
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: #f59e0b;
-  margin: 0;
-}
-
-.stat-hint {
-  font-size: 0.75rem;
-  color: #999;
-  margin: 6px 0 0 0;
-  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px;
+  background: rgba(245,158,11,0.05);
+  border: 1px solid rgba(245,158,11,0.15);
+  border-radius: 10px;
+  transition: all 0.2s;
 }
 
 .stat-card:hover {
-  cursor: pointer;
+  background: rgba(245,158,11,0.1);
+  border-color: rgba(245,158,11,0.3);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
-.recent-activity h2 {
-  margin: 0 0 20px 0;
+.stat-icon { font-size: 24px; }
+.stat-value { font-size: 20px; font-weight: 700; color: #f59e0b; }
+.stat-label { font-size: 11px; color: var(--text-muted, #8b949e); }
+
+.quick-actions h2 {
+  margin: 0 0 16px 0;
   color: #f59e0b;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
 }
 
-.activity-list {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
 }
 
-.activity-item {
+.action-btn {
   display: flex;
-  justify-content: space-between;
-  padding: 14px 0;
-  border-bottom: 1px solid #f0f0f0;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bg-secondary, #1e293b);
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 10px;
+  color: var(--text-primary, #f1f5f9);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
 }
 
-.activity-item:last-child {
-  border-bottom: none;
+.action-btn:hover {
+  background: rgba(245,158,11,0.1);
+  border-color: rgba(245,158,11,0.3);
+  transform: translateY(-2px);
 }
 
-.activity-time {
-  color: #999;
-  font-size: 0.85rem;
-}
-
-.activity-content {
-  color: #333;
-  font-size: 0.9rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  .admin-page {
-    background: #1a1a1a;
-  }
-
-  .admin-content h1,
-  .admin-content h2 {
-    color: #fbbf24;
-  }
-
-  .stat-card {
-    background: #2a2a2a;
-  }
-
-  .stat-card h3 {
-    color: #aaa;
-  }
-
-  .stat-value {
-    color: #fbbf24;
-  }
-
-  .stat-hint {
-    color: #777;
-  }
-
-  .stat-card:hover {
-    background: #333;
-  }
-
-  .activity-list {
-    background: #2a2a2a;
-  }
-
-  .activity-item {
-    border-bottom: 1px solid #3a3a3a;
-  }
-
-  .activity-time {
-    color: #777;
-  }
-
-  .activity-content {
-    color: #e0e0e0;
-  }
-}
+.action-icon { font-size: 24px; }
 
 @media (max-width: 767px) {
-  .admin-page {
-    flex-direction: column;
-  }
-
-  .admin-content {
-    padding: 20px 16px;
-    padding-top: 20px;
-  }
-
-  .admin-content h1 {
-    font-size: 1.4rem;
-    margin-bottom: 24px;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-    margin-bottom: 24px;
-  }
-
-  .stat-card {
-    padding: 16px 12px;
-  }
-
-  .stat-card h3 {
-    font-size: 0.85rem;
-    margin-bottom: 8px;
-  }
-
-  .stat-value {
-    font-size: 1.4rem;
-  }
-
-  .stat-hint {
-    font-size: 0.7rem;
-  }
-
-  .recent-activity h2 {
-    font-size: 1.1rem;
-    margin-bottom: 16px;
-  }
-
-  .activity-list {
-    padding: 16px;
-  }
-
-  .activity-item {
-    padding: 12px 0;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .activity-time {
-    font-size: 0.75rem;
-  }
-
-  .activity-content {
-    font-size: 0.85rem;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  .admin-content {
-    padding: 24px;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-
-  .stat-card {
-    padding: 18px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .stats-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
+  .admin-content { padding: 16px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .action-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
 }
 </style>
