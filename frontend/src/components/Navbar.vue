@@ -136,6 +136,10 @@ const dragStartPosition = ref({ x: 0, y: 0 })
 const navPosition = ref({ x: 20, y: 100 })
 const navDragOffset = ref({ x: 0, y: 0 })
 
+const handleResize = () => {
+  // 响应式处理
+}
+
 const navStyle = computed(() => ({
     left: `${navPosition.value.x}px`,
     top: `${navPosition.value.y}px`
