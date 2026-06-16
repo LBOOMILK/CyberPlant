@@ -604,7 +604,7 @@ onMounted(() => {
 
 .admin-content h1 {
   margin: 0 0 32px 0;
-  color: #1d6ed7;
+  color: #f59e0b;
 }
 
 .action-bar {
@@ -654,7 +654,7 @@ onMounted(() => {
 
 .modal-content h3 {
   margin: 0 0 24px 0;
-  color: #1d6ed7;
+  color: #f59e0b;
   text-align: center;
 }
 
@@ -805,12 +805,12 @@ onMounted(() => {
 }
 
 .edit-btn {
-  background: #2196f3;
+  background: #f97316;
   color: white;
 }
 
 .edit-btn:hover {
-  background: #1976d2;
+  background: #ea580c;
 }
 
 .delete-btn {
@@ -833,7 +833,7 @@ onMounted(() => {
   }
   
   .admin-content h1 {
-    color: #1d6ed7;
+    color: #fbbf24;
   }
   
   .search-bar input {
@@ -866,7 +866,7 @@ onMounted(() => {
   }
   
   .modal-content h3 {
-    color: #1d6ed7;
+    color: #fbbf24;
   }
   
   .form-group label {
@@ -882,7 +882,7 @@ onMounted(() => {
   
   .form-group input:focus,
   .form-group select:focus {
-    border-color: #1d6ed7;
+    border-color: #f59e0b;
   }
   
   .hint {

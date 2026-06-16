@@ -267,7 +267,7 @@ onUnmounted(() => {
 
 .admin-content h1 {
   margin: 0 0 32px 0;
-  color: #1d6ed7;
+  color: #f59e0b;
 }
 
 .action-bar {
@@ -333,12 +333,12 @@ onUnmounted(() => {
 }
 
 .edit-btn {
-  background: #2196f3;
+  background: #f97316;
   color: white;
 }
 
 .edit-btn:hover {
-  background: #1976d2;
+  background: #ea580c;
 }
 
 .delete-btn {
@@ -437,7 +437,7 @@ onUnmounted(() => {
 
 .modal-content h3 {
   margin: 0 0 16px 0;
-  color: #1d6ed7;
+  color: #f59e0b;
 }
 
 .modal-content p {
@@ -494,7 +494,7 @@ onUnmounted(() => {
   
 
   .admin-content h1 {
-    color: #1d6ed7;
+    color: #fbbf24;
   }
   
   .search-bar input {
@@ -528,7 +528,7 @@ onUnmounted(() => {
   
   .loading-spinner {
     border-color: #333;
-    border-top-color: #1d6ed7;
+    border-top-color: #f59e0b;
   }
   
   .empty-msg {
@@ -541,7 +541,7 @@ onUnmounted(() => {
   }
   
   .amount-positive {
-    color: #1d6ed7;
+    color: #4caf50;
   }
   
   .amount-negative {
@@ -554,7 +554,7 @@ onUnmounted(() => {
   }
   
   .modal-content h3 {
-    color: #1d6ed7;
+    color: #fbbf24;
   }
   
   .modal-content p {

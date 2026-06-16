@@ -783,7 +783,7 @@ onMounted(() => {
 
 .admin-content h1 {
   margin: 0 0 24px 0;
-  color: #1d6ed7;
+  color: #f59e0b;
 }
 
 /* Tab 样式 */
@@ -795,21 +795,21 @@ onMounted(() => {
 
 .tab-btn {
   padding: 10px 24px;
-  border: 2px solid #1d6ed7;
+  border: 2px solid #f59e0b;
   border-radius: 24px;
   background: white;
-  color: #1d6ed7;
+  color: #f59e0b;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .tab-btn:hover {
-  background: #e3f2fd;
+  background: #fef3c7;
 }
 
 .tab-btn.active {
-  background: #1d6ed7;
+  background: #f59e0b;
   color: white;
 }
 
@@ -880,7 +880,7 @@ onMounted(() => {
 
 .modal-content h3 {
   margin: 0 0 24px 0;
-  color: #1d6ed7;
+  color: #f59e0b;
   text-align: center;
 }
 
@@ -1023,12 +1023,12 @@ onMounted(() => {
 }
 
 .edit-btn {
-  background: #2196f3;
+  background: #f97316;
   color: white;
 }
 
 .edit-btn:hover {
-  background: #1976d2;
+  background: #ea580c;
 }
 
 .delete-btn {
@@ -1060,7 +1060,7 @@ onMounted(() => {
   }
 
   .admin-content h1 {
-    color: #1d6ed7;
+    color: #fbbf24;
   }
 
   .items-table {
@@ -1087,7 +1087,7 @@ onMounted(() => {
   }
 
   .modal-content h3 {
-    color: #1d6ed7;
+    color: #fbbf24;
   }
 
   .form-group label {
@@ -1103,7 +1103,7 @@ onMounted(() => {
 
   .form-group input:focus,
   .form-group select:focus {
-    border-color: #1d6ed7;
+    border-color: #f59e0b;
   }
 
   .cancel-btn {
