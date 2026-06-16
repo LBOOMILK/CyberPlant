@@ -57,10 +57,11 @@
                 <option value="fertilizer">🧪 肥料</option>
                 <option value="pet_food">🍖 宠物粮</option>
               </select>
+              <button class="add-btn" @click="showAddItem = true">+ 添加物品</button>
             </div>
             <table class="detail-table">
               <thead>
-                <tr><th>ID</th><th>图标</th><th>名称</th><th>类型</th><th>稀有度</th><th>买价</th><th>卖价</th></tr>
+                <tr><th>ID</th><th>图标</th><th>名称</th><th>类型</th><th>稀有度</th><th>买价</th><th>卖价</th><th>可购买</th><th>操作</th></tr>
               </thead>
               <tbody>
                 <tr v-for="item in filteredItems" :key="item.id">
@@ -71,17 +72,81 @@
                   <td><span :class="['rarity-tag', item.rarity]">{{ item.rarity }}</span></td>
                   <td>{{ item.buy_price }}</td>
                   <td>{{ item.sell_price }}</td>
+                  <td>{{ item.purchasable !== false ? '✅' : '❌' }}</td>
+                  <td>
+                    <button class="action-btn-sm" @click="editItem(item)">编辑</button>
+                    <button class="action-btn-sm danger" @click="deleteItem(item.id)">删除</button>
+                  </td>
                 </tr>
               </tbody>
             </table>
-            <p class="detail-hint">完整编辑请切换到 <a href="#" @click.prevent="switchToClassic">经典面板</a></p>
+
+            <!-- 编辑物品弹窗 -->
+            <div v-if="showEditItem" class="modal-overlay" @mousedown.self="showEditItem = false">
+              <div class="modal-card">
+                <h3>编辑物品</h3>
+                <div class="form-grid">
+                  <label>名称 <input v-model="editItemForm.name" /></label>
+                  <label>图标 <input v-model="editItemForm.icon" /></label>
+                  <label>买价 <input v-model.number="editItemForm.buy_price" type="number" /></label>
+                  <label>卖价 <input v-model.number="editItemForm.sell_price" type="number" /></label>
+                  <label>货币
+                    <select v-model="editItemForm.currency_type">
+                      <option value="silver_coin">银币</option>
+                      <option value="gold_coin">金币</option>
+                      <option value="diamond">钻石</option>
+                    </select>
+                  </label>
+                  <label>可购买 <input type="checkbox" v-model="editItemForm.purchasable" /></label>
+                </div>
+                <div class="modal-actions">
+                  <button @click="showEditItem = false">取消</button>
+                  <button class="primary" @click="saveItem">保存</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 添加物品弹窗 -->
+            <div v-if="showAddItem" class="modal-overlay" @mousedown.self="showAddItem = false">
+              <div class="modal-card">
+                <h3>添加物品</h3>
+                <div class="form-grid">
+                  <label>名称 <input v-model="newItemForm.name" /></label>
+                  <label>图标 <input v-model="newItemForm.icon" /></label>
+                  <label>类型
+                    <select v-model="newItemForm.item_type">
+                      <option value="seed">种子</option>
+                      <option value="crop">作物</option>
+                      <option value="fertilizer">肥料</option>
+                      <option value="pet_food">宠物粮</option>
+                    </select>
+                  </label>
+                  <label>稀有度
+                    <select v-model="newItemForm.rarity">
+                      <option value="C">C</option>
+                      <option value="B">B</option>
+                      <option value="A">A</option>
+                      <option value="S">S</option>
+                      <option value="SSS">SSS</option>
+                    </select>
+                  </label>
+                  <label>买价 <input v-model.number="newItemForm.buy_price" type="number" /></label>
+                  <label>卖价 <input v-model.number="newItemForm.sell_price" type="number" /></label>
+                  <label>基础产出 <input v-model.number="newItemForm.base_yield" type="number" /></label>
+                </div>
+                <div class="modal-actions">
+                  <button @click="showAddItem = false">取消</button>
+                  <button class="primary" @click="addItem">添加</button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 用户管理 -->
           <div v-if="activeModule === 'users'">
             <table class="detail-table">
               <thead>
-                <tr><th>ID</th><th>用户名</th><th>邮箱</th><th>银币</th><th>金币</th><th>钻石</th></tr>
+                <tr><th>ID</th><th>用户名</th><th>邮箱</th><th>银币</th><th>金币</th><th>钻石</th><th>操作</th></tr>
               </thead>
               <tbody>
                 <tr v-for="u in hubUsers" :key="u.id">
@@ -91,17 +156,35 @@
                   <td>{{ u.currencies?.silver_coin || 0 }}</td>
                   <td>{{ u.currencies?.gold_coin || 0 }}</td>
                   <td>{{ u.currencies?.diamond || 0 }}</td>
+                  <td>
+                    <button class="action-btn-sm" @click="editUser(u)">编辑</button>
+                    <button class="action-btn-sm danger" @click="deleteUser(u.id)">删除</button>
+                  </td>
                 </tr>
               </tbody>
             </table>
-            <p class="detail-hint">完整编辑请切换到 <a href="#" @click.prevent="switchToClassic">经典面板</a></p>
+
+            <!-- 编辑用户弹窗 -->
+            <div v-if="showEditUser" class="modal-overlay" @mousedown.self="showEditUser = false">
+              <div class="modal-card">
+                <h3>编辑用户</h3>
+                <div class="form-grid">
+                  <label>用户名 <input v-model="editUserForm.name" /></label>
+                  <label>邮箱 <input v-model="editUserForm.email" /></label>
+                </div>
+                <div class="modal-actions">
+                  <button @click="showEditUser = false">取消</button>
+                  <button class="primary" @click="saveUser">保存</button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 订单管理 -->
           <div v-if="activeModule === 'orders'">
             <table class="detail-table">
               <thead>
-                <tr><th>ID</th><th>用户ID</th><th>类型</th><th>货币</th><th>金额</th><th>时间</th></tr>
+                <tr><th>ID</th><th>用户ID</th><th>类型</th><th>货币</th><th>金额</th><th>时间</th><th>操作</th></tr>
               </thead>
               <tbody>
                 <tr v-for="o in hubOrders" :key="o.id">
@@ -111,10 +194,12 @@
                   <td>{{ o.currency_type }}</td>
                   <td :class="o.amount > 0 ? 'amount-pos' : 'amount-neg'">{{ o.amount > 0 ? '+' : '' }}{{ o.amount }}</td>
                   <td>{{ formatTime(o.created_at) }}</td>
+                  <td>
+                    <button class="action-btn-sm danger" @click="deleteOrder(o.id)">删除</button>
+                  </td>
                 </tr>
               </tbody>
             </table>
-            <p class="detail-hint">完整编辑请切换到 <a href="#" @click.prevent="switchToClassic">经典面板</a></p>
           </div>
 
           <!-- 宠物管理（含曲线编辑器） -->
@@ -151,6 +236,14 @@ const colorScheme = computed(() => themeStore.colorScheme)
 
 const activeModule = ref(null)
 const itemFilter = ref('all')
+
+// CRUD 状态
+const showAddItem = ref(false)
+const showEditItem = ref(false)
+const showEditUser = ref(false)
+const editItemForm = ref({})
+const editUserForm = ref({})
+const newItemForm = ref({ name: '', icon: '', item_type: 'seed', rarity: 'C', buy_price: 0, sell_price: 0, base_yield: 0, currency_type: 'silver_coin' })
 
 // Hub data
 const hubItems = ref([])
@@ -219,6 +312,86 @@ function switchToClassic() {
 
 function toggleColorScheme() {
   themeStore.setColorScheme(colorScheme.value === 'dark' ? 'light' : 'dark')
+}
+
+// ========== 物品 CRUD ==========
+function editItem(item) {
+  editItemForm.value = { ...item }
+  showEditItem.value = true
+}
+
+async function saveItem() {
+  const token = localStorage.getItem('auth_token')
+  const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/items/${editItemForm.value.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(editItemForm.value)
+  })
+  if (r.ok) {
+    const idx = hubItems.value.findIndex(i => i.id === editItemForm.value.id)
+    if (idx !== -1) hubItems.value[idx] = { ...editItemForm.value }
+    showEditItem.value = false
+  }
+}
+
+async function addItem() {
+  const token = localStorage.getItem('auth_token')
+  const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(newItemForm.value)
+  })
+  if (r.ok) {
+    const data = await r.json()
+    hubItems.value.push(data)
+    showAddItem.value = false
+    newItemForm.value = { name: '', icon: '', item_type: 'seed', rarity: 'C', buy_price: 0, sell_price: 0, base_yield: 0, currency_type: 'silver_coin' }
+  }
+}
+
+async function deleteItem(id) {
+  if (!confirm('确定删除此物品？')) return
+  const token = localStorage.getItem('auth_token')
+  await fetch(`${import.meta.env.VITE_API_URL}/admin/items/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+  hubItems.value = hubItems.value.filter(i => i.id !== id)
+}
+
+// ========== 用户 CRUD ==========
+function editUser(user) {
+  editUserForm.value = { id: user.id, name: user.name, email: user.email }
+  showEditUser.value = true
+}
+
+async function saveUser() {
+  const token = localStorage.getItem('auth_token')
+  const r = await fetch(`${import.meta.env.VITE_API_URL}/users/${editUserForm.value.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(editUserForm.value)
+  })
+  if (r.ok) {
+    const idx = hubUsers.value.findIndex(u => u.id === editUserForm.value.id)
+    if (idx !== -1) {
+      hubUsers.value[idx].name = editUserForm.value.name
+      hubUsers.value[idx].email = editUserForm.value.email
+    }
+    showEditUser.value = false
+  }
+}
+
+async function deleteUser(id) {
+  if (!confirm('确定删除此用户？')) return
+  const token = localStorage.getItem('auth_token')
+  await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+  hubUsers.value = hubUsers.value.filter(u => u.id !== id)
+}
+
+// ========== 订单删除 ==========
+async function deleteOrder(id) {
+  if (!confirm('确定删除此订单？')) return
+  const token = localStorage.getItem('auth_token')
+  await fetch(`${import.meta.env.VITE_API_URL}/admin/orders/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+  hubOrders.value = hubOrders.value.filter(o => o.id !== id)
 }
 
 onMounted(() => {
@@ -515,5 +688,91 @@ onMounted(() => {
     padding: 16px;
     max-height: 85vh;
   }
+}
+
+.add-btn {
+  background: rgba(0,255,136,0.1);
+  border: 1px solid rgba(0,255,136,0.3);
+  color: #00ff88;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.add-btn:hover { background: rgba(0,255,136,0.2); }
+
+.action-btn-sm {
+  padding: 3px 8px;
+  border: 1px solid rgba(0,255,136,0.3);
+  border-radius: 4px;
+  background: rgba(0,255,136,0.08);
+  color: #00ff88;
+  font-size: 11px;
+  cursor: pointer;
+  margin-right: 4px;
+}
+.action-btn-sm:hover { background: rgba(0,255,136,0.15); }
+.action-btn-sm.danger {
+  background: rgba(220,38,38,0.1);
+  border-color: rgba(220,38,38,0.3);
+  color: #f87171;
+}
+.action-btn-sm.danger:hover { background: rgba(220,38,38,0.2); }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 100; display: flex; align-items: center; justify-content: center;
+}
+.modal-card {
+  background: var(--bg-secondary, #161b22);
+  border: 1px solid var(--border-color, #30363d);
+  border-radius: 12px; padding: 24px; width: 90%; max-width: 500px;
+}
+.modal-card h3 { color: #00ff88; margin: 0 0 16px 0; font-size: 15px; }
+.form-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;
+}
+.form-grid label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; color: var(--text-secondary, #8b949e);
+}
+.form-grid input, .form-grid select {
+  padding: 6px 10px; background: var(--bg-primary, #0d1117);
+  border: 1px solid var(--border-color, #30363d); border-radius: 6px;
+  color: var(--text-primary, #c9d1d9); font-size: 13px;
+}
+.form-grid input[type="checkbox"] { width: auto; }
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.modal-actions button {
+  padding: 6px 16px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; border: 1px solid var(--border-color, #30363d);
+  background: var(--bg-tertiary, #21262d); color: var(--text-primary, #c9d1d9);
+}
+.modal-actions button.primary {
+  background: rgba(0,255,136,0.15); border-color: #00ff88; color: #00ff88;
+}
+.modal-actions button:hover { opacity: 0.8; }
+
+.detail-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.detail-table th {
+  text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color, #30363d);
+  color: var(--text-muted, #8b949e); font-size: 11px;
+}
+.detail-table td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.detail-table tr:hover { background: rgba(255,255,255,0.02); }
+.amount-pos { color: #00ff88; }
+.amount-neg { color: #f87171; }
+
+.detail-toolbar {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+}
+.detail-select {
+  padding: 6px 10px; background: var(--bg-primary, #0d1117);
+  border: 1px solid var(--border-color, #30363d); border-radius: 6px;
+  color: var(--text-primary, #c9d1d9); font-size: 12px;
 }
 </style>
