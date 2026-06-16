@@ -1054,7 +1054,7 @@ app.post('/api/user/currencies/exchange', authenticateToken, async (req, res) =>
 
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const usersResult = await client.query('SELECT id, name, email, role, is_new_user, created_at, last_login_at FROM users');
+    const usersResult = await client.query('SELECT id, name, email, role, is_new_user, created_at, last_login_at FROM users ORDER BY id::int');
     const users = [];
     for (const user of usersResult.rows) {
       const currenciesResult = await client.query('SELECT silver_coin, gold_coin, diamond FROM currencies WHERE user_id = $1', [user.id]);
@@ -2683,9 +2683,7 @@ app.put('/api/admin/users/:id/items', authenticateToken, requireAdmin, async (re
 app.get('/api/admin/config', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const result = await client.query('SELECT key, value, description, updated_at FROM global_config ORDER BY key');
-    const config = {};
-    for (const row of result.rows) config[row.key] = { value: row.value, description: row.description, updated_at: row.updated_at };
-    res.json(config);
+    res.json(result.rows);
   } catch (error) {
     logger.error('Get config error:', { error: error.message });
     res.status(500).json({ error: '获取配置失败' });
@@ -2694,15 +2692,22 @@ app.get('/api/admin/config', authenticateToken, requireAdmin, async (req, res) =
 
 app.put('/api/admin/config', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const updates = req.body;
-    if (!updates || typeof updates !== 'object') return res.status(400).json({ error: '请提供配置键值对' });
-    await client.query('BEGIN');
-    try {
-      for (const [key, value] of Object.entries(updates)) {
-        await client.query('INSERT INTO global_config (key, value, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP', [key, JSON.stringify(value)]);
-      }
-      await client.query('COMMIT');
-    } catch (err) { await client.query('ROLLBACK'); throw err; }
+    const { key, value: newValue } = req.body;
+    if (key && newValue !== undefined) {
+      // 单项更新 { key, value }
+      await client.query('INSERT INTO global_config (key, value, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP', [key, JSON.stringify(newValue)]);
+    } else {
+      // 批量更新 { key1: val1, key2: val2 }
+      const updates = req.body;
+      if (!updates || typeof updates !== 'object') return res.status(400).json({ error: '请提供配置键值对' });
+      await client.query('BEGIN');
+      try {
+        for (const [k, v] of Object.entries(updates)) {
+          await client.query('INSERT INTO global_config (key, value, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP', [k, JSON.stringify(v)]);
+        }
+        await client.query('COMMIT');
+      } catch (err) { await client.query('ROLLBACK'); throw err; }
+    }
     _configCache = null;
     res.json({ message: '配置更新成功' });
   } catch (error) {
@@ -2748,9 +2753,18 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
     const totalOrders = await client.query('SELECT COUNT(*) as count FROM orders');
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const activeToday = await client.query(`SELECT COUNT(*) as count FROM users WHERE last_login_at >= $1 AND role = 'user'`, [today]);
-    const totalPets = await client.query('SELECT COUNT(*) as count FROM user_pets');
     const totalItems = await client.query('SELECT COUNT(*) as count FROM items');
-    res.json({ total_users: parseInt(totalUsers.rows[0].count), total_orders: parseInt(totalOrders.rows[0].count), active_today: parseInt(activeToday.rows[0].count), total_pets: parseInt(totalPets.rows[0].count), total_items: parseInt(totalItems.rows[0].count) });
+    const totalPets = await client.query('SELECT COUNT(*) as count FROM user_pets');
+    const currencies = await client.query('SELECT COALESCE(SUM(silver_coin),0) as silver, COALESCE(SUM(gold_coin),0) as gold, COALESCE(SUM(diamond),0) as diamond FROM currencies');
+    res.json({
+      totalUsers: parseInt(totalUsers.rows[0].count),
+      totalItems: parseInt(totalItems.rows[0].count),
+      totalSilverCoin: parseInt(currencies.rows[0].silver),
+      totalGoldCoin: parseInt(currencies.rows[0].gold),
+      totalDiamond: parseInt(currencies.rows[0].diamond),
+      totalOrders: parseInt(totalOrders.rows[0].count),
+      todayActiveUsers: parseInt(activeToday.rows[0].count)
+    });
   } catch (error) {
     logger.error('Get stats error:', { error: error.message });
     res.status(500).json({ error: '获取统计数据失败' });
