@@ -1274,13 +1274,21 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
     const ownedDecResult = await client.query('SELECT decoration_id FROM user_decorations WHERE user_id = $1 AND quantity > 0', [userId]);
     const ownedDecIds = ownedDecResult.rows.map(r => r.decoration_id);
 
+    const ownedPetResult = await client.query('SELECT pet_id FROM user_pets WHERE user_id = $1', [userId]);
+    const ownedPetIds = ownedPetResult.rows.map(r => r.pet_id);
+
     if (tab === 'pets') {
-      const result = await client.query('SELECT id, name, icon, rarity, base_bonus, price_type, price_amount, is_test FROM pets ORDER BY rarity, id');
-      return res.json(result.rows.map(r => ({
-        id: r.id, name: r.name, icon: r.icon, rarity: r.rarity, item_type: 'pet',
-        buy_price: Number(r.price_amount), sell_price: 0, currency_type: r.price_type, base_yield: Number(r.base_bonus),
-        purchasable: true, sold_out: false
-      })));
+      const result = await client.query('SELECT id, name, icon, rarity, base_bonus, price_type, price_amount, is_test, purchasable FROM pets ORDER BY is_test, rarity, id');
+      return res.json(result.rows.filter(r => !r.is_test).map(r => {
+        const isPurchasable = r.purchasable !== false;
+        const isOwned = ownedPetIds.includes(r.id);
+        return {
+          id: r.id, name: r.name, icon: r.icon, rarity: r.rarity, item_type: 'pet',
+          buy_price: Number(r.price_amount), sell_price: 0, currency_type: r.price_type, base_yield: Number(r.base_bonus),
+          is_test: r.is_test, purchasable: isPurchasable,
+          sold_out: !isPurchasable ? '售罄' : (isOwned ? '已拥有' : false)
+        };
+      }));
     }
 
     if (tab === 'decorations') {

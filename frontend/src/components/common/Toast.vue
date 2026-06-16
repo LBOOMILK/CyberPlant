@@ -71,7 +71,7 @@ defineExpose({
   position: fixed;
   top: 70px;
   right: 20px;
-  z-index: 9999;
+  z-index: 10002;
   display: flex;
   flex-direction: column;
   gap: 12px;
