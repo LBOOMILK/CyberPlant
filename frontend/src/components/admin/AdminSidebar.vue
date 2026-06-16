@@ -14,7 +14,7 @@
       
       <ul class="menu-container">
         <li class="menu-item">
-          <router-link to="/admin/dashboard" class="menu-link" @click="closeMobileMenu">仪表盘</router-link>
+          <router-link to="/admin/classic/dashboard" class="menu-link" @click="closeMobileMenu">仪表盘</router-link>
         </li>
         <li class="menu-item">
           <div class="menu-title" @click="toggleUserMenu">
@@ -23,18 +23,18 @@
           </div>
           <ul v-if="userMenuOpen" class="sub-menu">
             <li class="menu-item">
-              <router-link to="/admin/users" class="menu-link" @click="closeMobileMenu">普通用户</router-link>
+              <router-link to="/admin/classic/users" class="menu-link" @click="closeMobileMenu">普通用户</router-link>
             </li>
             <li class="menu-item">
-              <router-link to="/admin/admins" class="menu-link" @click="closeMobileMenu">管理员</router-link>
+              <router-link to="/admin/classic/admins" class="menu-link" @click="closeMobileMenu">管理员</router-link>
             </li>
           </ul>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/plants" class="menu-link" @click="closeMobileMenu">商店管理</router-link>
+          <router-link to="/admin/classic/plants" class="menu-link" @click="closeMobileMenu">商店管理</router-link>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/orders" class="menu-link" @click="closeMobileMenu">订单管理</router-link>
+          <router-link to="/admin/classic/orders" class="menu-link" @click="closeMobileMenu">订单管理</router-link>
         </li>
         <li class="logout-item" @click="showLogoutModal = true">退出登录</li>
       </ul>
