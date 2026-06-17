@@ -73,6 +73,7 @@
       :unitPrice="sellItem?.sell_price || 0"
       :initialQuantity="1"
       :maxQuantity="sellItem?.quantity || 1"
+      :currencyName="shopStore.currencyNames[sellItem?.currency_type] || '银币'"
       @confirm="handleSellConfirm"
       @cancel="sellModalVisible = false"
     />

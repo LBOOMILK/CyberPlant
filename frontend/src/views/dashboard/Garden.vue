@@ -391,9 +391,11 @@ async function handleHarvest() {
     await userStore.loadCurrencies()
     await shopStore.loadBackpack()
     showPlotModal.value = false
-    const currencyName = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }[data.currency_type] || '货币'
     const itemInfo = data.item_reward ? `${data.item_reward.icon}${data.item_reward.name}×${data.item_reward.quantity}` : ''
-    addToast(`🏆 收获成功！获得 ${itemInfo} + ${data.currency_reward} ${currencyName}`, 'success')
+    let toastMsg = `🏆 收获成功！获得 ${itemInfo}`
+    if (data.bonus_yield > 0) toastMsg += ` 🍀幸运多得+${data.bonus_yield}`
+    if (data.sss_drop) toastMsg += ` ✨获得SSS种子:${data.sss_drop.icon}`
+    addToast(toastMsg, 'success')
   } catch (error) {
     if (error.message && error.message.includes('背包已满')) {
       showBackpackFull.value = true
@@ -447,14 +449,27 @@ async function handleUpgrade() {
 onMounted(async () => {
   try {
     await userStore.loadFromLocal()
+  } catch (error) {
+    console.error('Failed to load user:', error)
+    addToast(error.message || '加载用户信息失败', 'error')
+    return
+  }
+
+  try {
+    await plotStore.loadPlotCosts()
+  } catch (error) {
+    console.error('Failed to load plot costs:', error)
+    addToast(error.message || '加载地块费用失败', 'error')
+  }
+
+  try {
     await plotStore.loadPlots()
-    // 每秒刷新进度条
     refreshTimer = setInterval(() => {
       plotStore.plots = [...plotStore.plots]
     }, 1000)
   } catch (error) {
-    console.error('Failed to load garden:', error)
-    addToast('加载花园数据失败', 'error')
+    console.error('Failed to load plots:', error)
+    addToast(error.message || '加载地块信息失败', 'error')
   }
 })
 

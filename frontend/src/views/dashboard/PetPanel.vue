@@ -19,6 +19,7 @@
       <div v-if="selectedPet" class="selected-pet-display">
         <!-- 宠物大图标 -->
         <div class="pet-big-container">
+          <div ref="panelEffectContainer" class="panel-effect-container"></div>
           <div class="pet-big-icon">{{ selectedPet.icon }}</div>
           <!-- 装饰槽位（四个，绕宠物旋转） -->
           <div class="decoration-slots">
@@ -27,7 +28,7 @@
               :key="key"
               class="deco-slot"
               :style="getSlotPosition(index)"
-              @click="openEquipModal()"
+              @click="openEquipModal(key)"
             >
               <span v-if="selectedPet.equipped_decorations[key]" class="deco-equipped">
                 {{ getDecIcon(selectedPet.equipped_decorations[key]) }}
@@ -90,7 +91,7 @@
           <button
             class="btn btn-feed"
             @click="showFeedModal = true"
-            :disabled="actionLoading || selectedPet.is_digesting || isTestPet"
+            :disabled="actionLoading || isTestPet"
             :title="isTestPet ? '测试宠物不可喂食' : ''"
           >🍖</button>
           <button
@@ -106,7 +107,7 @@
             :disabled="actionLoading"
           >💎</button>
         </div>
-        <div v-if="selectedPet.is_digesting" class="digesting-badge">🍽️ 消化中</div>
+
       </div>
     </div>
     
@@ -160,7 +161,7 @@
               <div class="food-effects">
                 <span>成长 +{{ petStore.foodEffects[food.name]?.growth }}</span>
                 <span>饱食 +{{ petStore.foodEffects[food.name]?.hunger }}</span>
-                <span>消化 {{ petStore.foodEffects[food.name]?.digest_hours }}h</span>
+
               </div>
             </div>
             <span class="food-count">×{{ food.quantity }}</span>
@@ -294,9 +295,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import { usePetStore } from '@/stores/petStore'
 import { useShopStore } from '@/stores/shopStore'
+import { loadEffect } from '@/effects'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const petStore = usePetStore()
@@ -314,6 +316,44 @@ const selectedSlot = ref(null)
 const actionLoading = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
 const hungerDecayTime = ref(0) // 饥饿倒计时（分钟）
+const panelEffectContainer = ref(null)
+let panelEffectInstance = null
+
+// 宠物名到特效名的映射
+const petEffectMap = {
+  '泡泡鱼': 'bubble-fish',
+  '小豆猫': 'cat-paw',
+  '星光兔': 'star-rabbit',
+  '雷霆鹰': 'thunder-eagle',
+  '水晶龙': 'crystal-dragon',
+  'LBOOKTest': 'lbooktest'
+}
+
+function getEffectName(pet) {
+  if (!pet) return null
+  return pet.effect_file || petEffectMap[pet.name] || null
+}
+
+function loadPanelEffect() {
+  if (panelEffectInstance) {
+    panelEffectInstance.destroy()
+    panelEffectInstance = null
+  }
+  if (!panelEffectContainer.value || !selectedPet.value) return
+  panelEffectContainer.value.innerHTML = ''
+  // 只有装备了特殊槽位饰品才显示特效
+  const equippedSpecial = selectedPet.value.equipped_decorations?.special
+  if (!equippedSpecial) return
+  const effectName = getEffectName(selectedPet.value)
+  if (!effectName) return
+  const effect = loadEffect(effectName)
+  if (effect) {
+    panelEffectInstance = effect.init(panelEffectContainer.value, {
+      level: selectedPet.value.level,
+      bonus: selectedPet.value.current_bonus
+    })
+  }
+}
 
 // 判断是否可以升级
 const canLevelUp = computed(() => {
@@ -442,8 +482,8 @@ function updateHungerDecayTime() {
   hungerDecayTime.value = currentHunger * 60 // 剩余小时数转为分钟
 }
 
-// 定时更新倒计时
-let timer = null
+let hungerTimer = null
+let refreshTimer = null
 onMounted(async () => {
   try {
     await Promise.all([
@@ -451,21 +491,32 @@ onMounted(async () => {
       petStore.loadDecorations(),
       shopStore.loadBackpack()
     ])
-    // 默认选中第一个宠物或激活的宠物
     if (petStore.pets.length > 0) {
       const activePet = petStore.pets.find(p => p.is_active)
       selectedPet.value = activePet || petStore.pets[0]
       updateHungerDecayTime()
     }
-    // 每分钟更新倒计时
-    timer = setInterval(updateHungerDecayTime, 60000)
+    await nextTick()
+    loadPanelEffect()
+    hungerTimer = setInterval(updateHungerDecayTime, 5000)
+    refreshTimer = setInterval(async () => {
+      if (selectedPet.value) {
+        await petStore.loadActivePet()
+        selectedPet.value = petStore.pets.find(p => p.user_pet_id === selectedPet.value.user_pet_id)
+      }
+    }, 5000)
   } catch (e) {
     console.error('PetPanel init error:', e)
   }
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  if (hungerTimer) clearInterval(hungerTimer)
+  if (refreshTimer) clearInterval(refreshTimer)
+  if (panelEffectInstance) {
+    panelEffectInstance.destroy()
+    panelEffectInstance = null
+  }
 })
 
 watch(() => petStore.pets, () => {
@@ -473,6 +524,17 @@ watch(() => petStore.pets, () => {
     selectedPet.value = petStore.pets.find(p => p.user_pet_id === selectedPet.value.user_pet_id)
     updateHungerDecayTime()
   }
+})
+
+// 宠物切换或装备变化时重新加载特效
+watch(() => selectedPet.value?.equipped_decorations, async () => {
+  await nextTick()
+  loadPanelEffect()
+}, { deep: true })
+
+watch(selectedPet, async () => {
+  await nextTick()
+  loadPanelEffect()
 })
 
 async function handleActivate() {
@@ -500,9 +562,7 @@ async function handleFeed() {
     selectedFood.value = null
     updateHungerDecayTime()
 
-    let msg = `喂食成功！成长+${result.growth_gained}，饱食+${result.hunger_restored}`
-    if (result.leveled_up) msg += ` 🎉 升级到 Lv.${result.leveled_up}！`
-    showToast(msg)
+    showToast(`喂食成功！饱食度 +${result.hunger_restored}`)
   } catch (e) {
     if (e.overflow) {
       // 溢出确认
@@ -530,9 +590,7 @@ async function confirmFeedOverflow() {
     pendingFoodId.value = null
     overflowData.value = null
     updateHungerDecayTime()
-    let msg = `喂食成功！成长+${result.growth_gained}，饱食+${result.hunger_restored}`
-    if (result.leveled_up) msg += ` 🎉 升级到 Lv.${result.leveled_up}！`
-    showToast(msg)
+    showToast(`喂食成功！饱食度 +${result.hunger_restored}`)
   } catch (e) {
     showToast(e.message, 'error')
   } finally {
@@ -632,18 +690,16 @@ async function handleUnequip(slotType) {
 .pet-panel {
   max-width: 900px;
   margin: 0 auto;
-  min-height: 100vh;
-  height: 100vh;
   display: flex;
   flex-direction: column;
   background: linear-gradient(145deg, #d0e7d9 0%, #b8d9c6 100%);
-  padding-top: 56px;
+  min-height: calc(100vh - 48px);
 }
 
 /* ========== 上方70%：宠物展示区 ========== */
 .pet-display-area {
-  flex: 0 0 70%;
-  max-height: 70vh;
+  flex: 1 1 auto;
+  min-height: 300px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -692,8 +748,8 @@ async function handleUnequip(slotType) {
 /* 宠物大图标容器 */
 .pet-big-container {
   position: relative;
-  width: 384px;
-  height: 384px;
+  width: min(384px, 80vw);
+  height: min(384px, 80vw);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -703,6 +759,18 @@ async function handleUnequip(slotType) {
   font-size: 240px;
   z-index: 10;
   animation: petFloat 3s ease-in-out infinite;
+}
+
+.panel-effect-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  height: 300px;
+  z-index: 5;
+  pointer-events: none;
+  overflow: visible;
 }
 
 @keyframes petFloat {
@@ -1022,18 +1090,12 @@ async function handleUnequip(slotType) {
   background: #f57c00;
 }
 
-.control-right .digesting-badge {
-  font-size: 0.7rem;
-  color: #ff9800;
-  padding: 2px 6px;
-  background: #fff3e0;
-  border-radius: 4px;
-}
 
 /* ========== 下方30%：宠物列表 ========== */
 .pet-list-area {
-  flex: 0 0 30%;
+  flex: 0 1 auto;
   max-height: 30vh;
+  min-height: 120px;
   background: rgba(255, 255, 255, 0.95);
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
@@ -1346,68 +1408,138 @@ async function handleUnequip(slotType) {
     color: #e0e0e0;
   }
 
-  .control-right .digesting-badge {
-    background: #3a3020;
-  }
 }
 
 /* 响应式 */
 @media (max-width: 600px) {
   .pet-panel {
-    padding-top: 56px;
+    min-height: auto;
+    height: auto;
   }
 
+  /* 展示区固定高度，不吃剩余空间 */
   .pet-display-area {
-    padding: 12px;
+    padding: 8px;
+    min-height: unset;
+    flex: 0 0 auto;
+    height: auto;
   }
 
   .pet-big-container {
-    width: 200px;
-    height: 200px;
+    width: min(180px, 60vw);
+    height: min(180px, 60vw);
   }
 
   .pet-big-icon {
-    font-size: 120px;
+    font-size: 100px;
   }
 
   .deco-slot {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
   }
 
   .deco-equipped {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .deco-empty {
-    font-size: 16px;
+    font-size: 14px;
   }
 
-  .pet-info-panel {
-    padding: 16px;
+  /* 控制面板纵向堆叠 */
+  .pet-control-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 12px;
+    gap: 8px;
   }
 
-  .pet-info-header .pet-name {
-    font-size: 1.2rem;
+  .control-left {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .control-left .pet-name {
+    font-size: 0.95rem;
+  }
+
+  .rarity-badge,
+  .active-badge,
+  .test-pet-badge,
+  .level-badge {
+    font-size: 0.6rem;
+    padding: 2px 6px;
   }
 
   .bonus-display {
-    font-size: 1.1rem;
+    font-size: 0.8rem;
   }
 
-  .bar-label {
+  .base-bonus-tag {
+    font-size: 0.55rem;
+  }
+
+  /* 右侧：进度条 + 按钮纵向 */
+  .control-right {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .bars-row {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .mini-bar-group {
+    flex: 1;
+  }
+
+  .mini-bar {
+    flex: 1;
+    min-width: 40px;
+  }
+
+  .mini-bar-group .bar-label {
+    width: 28px;
+    font-size: 0.6rem;
+  }
+
+  .mini-bar-group .bar-value {
     width: 40px;
-    font-size: 0.7rem;
+    font-size: 0.6rem;
   }
 
-  .bar-value {
-    width: 50px;
-    font-size: 0.7rem;
+  /* 操作按钮横向均分 */
+  .action-btns {
+    width: 100%;
+    display: flex;
+    gap: 6px;
   }
 
-  .btn {
-    padding: 10px 16px;
-    font-size: 0.85rem;
+  .action-btns .btn {
+    flex: 1;
+    padding: 10px 0;
+    font-size: 1.1rem;
+    text-align: center;
+  }
+
+  /* 宠物列表 */
+  .pet-list-area {
+    min-height: 100px;
+  }
+
+  .pet-list-item {
+    padding: 8px 12px;
+  }
+
+  .list-pet-icon {
+    font-size: 1.3rem;
+  }
+
+  .list-pet-name {
+    font-size: 0.8rem;
   }
 }
 

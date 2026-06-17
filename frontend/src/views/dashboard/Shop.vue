@@ -27,7 +27,11 @@
       >
         <div class="item-icon">{{ item.icon }}</div>
         <div class="item-name">{{ item.name }}</div>
-        <div v-if="item.pet_name" class="pet-exclusive">适配 {{ item.icon }}{{ item.pet_name }}</div>
+        <div v-if="item.item_type === 'decoration'" class="deco-info">
+          <span class="slot-tag">{{ slotLabel(item.slot_type) }}</span>
+          <span class="bonus-tag">+{{ item.bonus }}%</span>
+        </div>
+        <div v-if="item.pet_name" class="pet-exclusive">适配 {{ item.pet_name }}</div>
         <div class="item-rarity" :class="`rarity-${item.rarity}`">{{ item.rarity }}</div>
         <div class="item-price">
           <img
@@ -128,7 +132,19 @@ function openBuyModal(item) {
   console.log('openBuyModal called', item)
   buyItem.value = item
   let msg = `购买 ${item.icon} ${item.name}？`
-  if (item.pet_name) {
+  if (item.item_type === 'seed' && item.base_yield) {
+    msg += `\n基础产量：${item.base_yield}`
+  }
+  if (item.item_type === 'fertilizer' && item.stage_skip) {
+    msg += `\n可跳过 ${item.stage_skip} 个生长阶段`
+  }
+  if (item.item_type === 'decoration') {
+    msg += `\n部位：${slotLabel(item.slot_type)} | 加成：+${item.bonus}%`
+    if (item.pet_name) {
+      msg += `\n⚠️ 专属饰品，只能装备在 ${item.pet_name} 上`
+    }
+  }
+  if (item.item_type === 'pet' && item.pet_name) {
     msg += `\n⚠️ 这是专属饰品，只能装备在 ${item.pet_name} 上`
   }
   buyModalMessage.value = msg
@@ -140,7 +156,12 @@ function openBuyModal(item) {
   if (item.item_type === 'pet' || item.item_type === 'decoration') {
     maxBuyQty.value = 1
   } else {
-    const maxByCap = 999 - getOwnedQty(item.id, item.item_type)
+    const capConfig = {
+      seed: shopStore.globalConfig.max_seed_count || 999,
+      fertilizer: shopStore.globalConfig.max_fertilizer_count || 99,
+      pet_food: shopStore.globalConfig.max_pet_food_count || 999
+    }
+    const maxByCap = (capConfig[item.item_type] || 999) - getOwnedQty(item.id, item.item_type)
     maxBuyQty.value = Math.max(1, Math.min(maxByBalance, maxByCap))
   }
 
@@ -153,6 +174,7 @@ async function handleBuyConfirm(quantity) {
   if (!buyItem.value) return
   try {
     await shopStore.purchase(buyItem.value.id, quantity, buyItem.value.item_type)
+    await shopStore.loadShop(shopStore.currentTab)
     addToast(`🎉 购买成功！获得 ${buyItem.value.icon} ${buyItem.value.name} ×${quantity}`, 'success')
   } catch (error) {
     addToast(`💔 ${error.message || '购买失败'}`, 'error')
@@ -162,10 +184,17 @@ async function handleBuyConfirm(quantity) {
   }
 }
 
+// 饰品部位映射
+function slotLabel(slotType) {
+  const map = { head: '头部', neck: '颈部', back: '背部', special: '特殊' }
+  return map[slotType] || slotType
+}
+
 // 初始化
 onMounted(async () => {
   try {
     await userStore.loadFromLocal()
+    await shopStore.loadGlobalConfig()
     await shopStore.loadShop('seeds')
     await shopStore.loadBackpack()
   } catch (error) {
@@ -259,6 +288,38 @@ onMounted(async () => {
   margin-bottom: 6px;
   color: #333;
   font-size: 0.95rem;
+}
+
+.deco-info {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.slot-tag {
+  background: #e3f2fd;
+  color: #1565c0;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.bonus-tag {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.pet-exclusive {
+  font-size: 0.7rem;
+  color: #9c27b0;
+  margin-bottom: 4px;
+  font-weight: 500;
 }
 
 .item-rarity {
