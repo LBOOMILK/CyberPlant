@@ -18,8 +18,8 @@ router.get('/shop', authenticateToken, async (req, res) => {
       return res.json(result.rows.map(r => ({ id: r.id, name: r.name, icon: r.icon, rarity: r.rarity, item_type: 'pet', buy_price: Number(r.price_amount), sell_price: 0, currency_type: r.price_type, base_yield: Number(r.base_bonus), purchasable: true, sold_out: false })));
     }
     if (tab === 'decorations') {
-      const result = await client.query('SELECT id, name, icon, slot_type, quality, bonus, price_type, price_amount, pet_id FROM decorations ORDER BY quality DESC, id');
-      return res.json(result.rows.map(r => ({ id: r.id, name: r.name, icon: r.icon, rarity: r.quality, item_type: 'decoration', buy_price: Number(r.price_amount), sell_price: 0, currency_type: r.price_type, base_yield: Number(r.bonus), slot_type: r.slot_type, pet_id: r.pet_id, purchasable: true, sold_out: ownedDecIds.includes(r.id) ? '已拥有' : false })));
+      const result = await client.query(`SELECT d.id, d.name, d.icon, d.slot_type, d.quality, d.bonus, d.price_type, d.price_amount, d.pet_id, p.name as pet_name FROM decorations d LEFT JOIN pets p ON d.pet_id = p.id ORDER BY d.quality DESC, d.id`);
+      return res.json(result.rows.map(r => ({ id: r.id, name: r.name, icon: r.icon, rarity: r.quality, item_type: 'decoration', buy_price: Number(r.price_amount), sell_price: 0, currency_type: r.price_type, bonus: Number(r.bonus), slot_type: r.slot_type, pet_id: r.pet_id, pet_name: r.pet_name || null, purchasable: true, sold_out: ownedDecIds.includes(r.id) ? '已拥有' : false })));
     }
     const itemType = SHOP_TAB_MAP[tab];
     const result = await client.query('SELECT id, name, icon, rarity, item_type, buy_price, sell_price, currency_type, base_yield, water_cd, purchasable FROM items WHERE item_type = $1 AND is_shop = true ORDER BY rarity, id', [itemType]);
@@ -100,18 +100,18 @@ router.post('/user/decorations/purchase', authenticateToken, async (req, res) =>
 router.get('/decorations', authenticateToken, async (req, res) => {
   try {
     const slotType = req.query.slot_type;
-    let query = 'SELECT id, name, icon, slot_type, quality, bonus, price_type, price_amount, pet_id FROM decorations';
+    let query = `SELECT d.id, d.name, d.icon, d.slot_type, d.quality, d.bonus, d.price_type, d.price_amount, d.pet_id, p.name as pet_name FROM decorations d LEFT JOIN pets p ON d.pet_id = p.id`;
     const params = [];
-    if (slotType) { query += ' WHERE slot_type = $1'; params.push(slotType); }
-    query += ' ORDER BY quality DESC, id';
-    res.json((await client.query(query, params)).rows.map(d => ({ id: d.id, name: d.name, icon: d.icon, slot_type: d.slot_type, quality: d.quality, bonus: Number(d.bonus), price_type: d.price_type, price_amount: Number(d.price_amount), pet_id: d.pet_id })));
+    if (slotType) { query += ' WHERE d.slot_type = $1'; params.push(slotType); }
+    query += ' ORDER BY d.quality DESC, d.id';
+    res.json((await client.query(query, params)).rows.map(d => ({ id: d.id, name: d.name, icon: d.icon, slot_type: d.slot_type, quality: d.quality, bonus: Number(d.bonus), price_type: d.price_type, price_amount: Number(d.price_amount), pet_id: d.pet_id, pet_name: d.pet_name || null })));
   } catch (error) { res.status(500).json({ error: '获取装饰列表失败' }); }
 });
 
 router.get('/user/decorations', authenticateToken, async (req, res) => {
   try {
-    const result = await client.query('SELECT ud.quantity, d.id, d.name, d.icon, d.slot_type, d.quality, d.bonus, d.price_type, d.price_amount, d.pet_id FROM user_decorations ud JOIN decorations d ON ud.decoration_id = d.id WHERE ud.user_id = $1 AND ud.quantity > 0 ORDER BY d.slot_type, d.quality DESC', [req.user.id]);
-    res.json(result.rows.map(d => ({ decoration_id: d.id, quantity: d.quantity, name: d.name, icon: d.icon, slot_type: d.slot_type, quality: d.quality, bonus: Number(d.bonus), price_type: d.price_type, price_amount: Number(d.price_amount), pet_id: d.pet_id })));
+    const result = await client.query(`SELECT ud.quantity, d.id, d.name, d.icon, d.slot_type, d.quality, d.bonus, d.price_type, d.price_amount, d.pet_id, p.name as pet_name FROM user_decorations ud JOIN decorations d ON ud.decoration_id = d.id LEFT JOIN pets p ON d.pet_id = p.id WHERE ud.user_id = $1 AND ud.quantity > 0 ORDER BY d.slot_type, d.quality DESC`, [req.user.id]);
+    res.json(result.rows.map(d => ({ decoration_id: d.id, quantity: d.quantity, name: d.name, icon: d.icon, slot_type: d.slot_type, quality: d.quality, bonus: Number(d.bonus), price_type: d.price_type, price_amount: Number(d.price_amount), pet_id: d.pet_id, pet_name: d.pet_name || null })));
   } catch (error) { res.status(500).json({ error: '获取用户装饰列表失败' }); }
 });
 

@@ -6,23 +6,37 @@ const router = express.Router();
 
 const PLOT_LEVEL_MULTIPLIER = { 1: 1.0, 2: 1.1, 3: 1.3, 4: 1.5, 5: 1.8 };
 const STAGE_ICONS = ['🥜', '🌱', '🌿', '🌻'];
+const CURRENCY_ICON_MAP = { silver_coin: '/silver_icon.png', gold_coin: '/gold_icon.png', diamond: '/diamond.png' };
+const CURRENCY_NAME_MAP = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' };
 
 async function getUnlockCost(plotIndex) {
   const amount = await getConfig(`plot_unlock_${plotIndex}`);
   if (amount === null) return null;
-  let type = 'silver_coin';
-  if (plotIndex >= 3 && plotIndex <= 4) type = 'gold_coin';
-  if (plotIndex >= 5) type = 'diamond';
+  const type = await getConfig(`plot_unlock_${plotIndex}_type`) || (plotIndex >= 5 ? 'diamond' : (plotIndex >= 3 ? 'gold_coin' : 'silver_coin'));
   return { type, amount };
 }
 async function getUpgradeCost(nextLevel) {
   const amount = await getConfig(`plot_upgrade_${nextLevel - 1}_${nextLevel}`);
   if (amount === null) return null;
-  let type = 'silver_coin';
-  if (nextLevel === 3 || nextLevel === 4) type = 'gold_coin';
-  if (nextLevel === 5) type = 'diamond';
+  const type = await getConfig(`plot_upgrade_${nextLevel - 1}_${nextLevel}_type`) || (nextLevel === 5 ? 'diamond' : (nextLevel >= 3 ? 'gold_coin' : 'silver_coin'));
   return { type, amount };
 }
+
+router.get('/user/plots/costs', authenticateToken, async (req, res) => {
+  try {
+    const unlockCosts = {};
+    for (let i = 2; i <= 6; i++) {
+      const cost = await getUnlockCost(i);
+      if (cost) unlockCosts[i] = { type: cost.type, amount: cost.amount, icon: CURRENCY_ICON_MAP[cost.type], label: `${cost.amount} ${CURRENCY_NAME_MAP[cost.type]}` };
+    }
+    const upgradeCosts = {};
+    for (let i = 2; i <= 5; i++) {
+      const cost = await getUpgradeCost(i);
+      if (cost) upgradeCosts[i] = { type: cost.type, amount: cost.amount, icon: CURRENCY_ICON_MAP[cost.type], label: `${cost.amount} ${CURRENCY_NAME_MAP[cost.type]}` };
+    }
+    res.json({ unlockCosts, upgradeCosts, levelMultiplier: PLOT_LEVEL_MULTIPLIER });
+  } catch (error) { logger.error('Get plot costs error:', { error: error.message }); res.status(500).json({ error: '获取地块费用信息失败' }); }
+});
 
 router.get('/user/plots', authenticateToken, async (req, res) => {
   try {
@@ -184,12 +198,14 @@ router.post('/user/plots/:plotIndex/harvest', authenticateToken, async (req, res
     actualYield = Math.min(actualYield, maxCropCount - currentCount);
     if (actualYield <= 0) return res.status(400).json({ error: '背包已满', overflow: true });
     let sssDrop = null;
-    const sssDropBase = await getConfig('sss_drop_base') || 0.33;
-    const sssDropCap = await getConfig('sss_drop_cap') || 1.0;
-    const dropRate = Math.min(sssDropBase * (levelMultiplier + petBonus / 100), sssDropCap);
-    if (Math.random() < dropRate) {
-      const sssSeeds = await client.query("SELECT id, name, icon FROM items WHERE item_type = 'seed' AND rarity = 'SSS'");
-      if (sssSeeds.rowCount > 0) { const d = sssSeeds.rows[Math.floor(Math.random() * sssSeeds.rowCount)]; await client.query('INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1,$2,1) ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + 1, updated_at = CURRENT_TIMESTAMP', [userId, d.id]); sssDrop = { id: d.id, name: d.name, icon: d.icon }; }
+    if (harvestItemRarity === 'S') {
+      const sssDropBase = await getConfig('sss_drop_base') || 0.33;
+      const sssDropCap = await getConfig('sss_drop_cap') || 1.0;
+      const dropRate = Math.min(sssDropBase * (levelMultiplier + petBonus / 100), sssDropCap);
+      if (Math.random() < dropRate) {
+        const sssSeeds = await client.query("SELECT id, name, icon FROM items WHERE item_type = 'seed' AND rarity = 'SSS'");
+        if (sssSeeds.rowCount > 0) { const d = sssSeeds.rows[Math.floor(Math.random() * sssSeeds.rowCount)]; await client.query('INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1,$2,1) ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + 1, updated_at = CURRENT_TIMESTAMP', [userId, d.id]); sssDrop = { id: d.id, name: d.name, icon: d.icon }; }
+      }
     }
     await client.query('BEGIN');
     try {
