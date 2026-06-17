@@ -1,10 +1,7 @@
 <template>
-  <div class="admin-page">
+  <div class="plants-page">
     <Toast ref="toastRef" />
-    <AdminSidebar />
-    
-    <div class="admin-content">
-      <h1>商店管理</h1>
+    <h1>商店管理</h1>
       
       <!-- Tab 切换 -->
       <div class="tab-bar">
@@ -86,10 +83,9 @@
                 <th>图标</th>
                 <th>名称</th>
                 <th>稀有度</th>
-                <th>基础加成</th>
                 <th>价格</th>
                 <th>货币</th>
-                <th>商店</th>
+                <th>可购买</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -98,11 +94,10 @@
                 <td>{{ pet.id }}</td>
                 <td class="icon-cell">{{ pet.icon }}</td>
                 <td>{{ pet.name }}</td>
-                <td><span :class="['item-rarity', pet.rarity]">{{ pet.rarity }}</span></td>
-                <td>{{ pet.base_bonus }}%</td>
+                <td><span :class="['item-rarity', pet.rarity]">{{ rarityLabel(pet.rarity) }}</span></td>
                 <td>{{ pet.price_amount }}</td>
                 <td>{{ currencyName(pet.price_type) }}</td>
-                <td>{{ pet.is_shop ? '✅' : '❌' }}</td>
+                <td>{{ pet.purchasable !== false ? '✅' : '❌' }}</td>
                 <td>
                   <div class="action-buttons">
                     <button class="edit-btn" @click="openEditPetModal(pet)">编辑</button>
@@ -154,12 +149,12 @@
             <div class="form-row" v-if="newItem.item_type === 'seed'">
               <div class="form-group">
                 <label for="water_cd">浇水冷却时间(秒)</label>
-                <input type="number" id="water_cd" v-model.number="newItem.water_cd" min="10" max="240" placeholder="5">
+                <span class="number-input-group"><button class="num-btn" @click="newItem.water_cd = Math.max(5, newItem.water_cd - 5)" type="button">−</button><input type="number" id="water_cd" v-model.number="newItem.water_cd" min="5" max="240" placeholder="5" /><button class="num-btn" @click="newItem.water_cd = Math.min(240, newItem.water_cd + 5)" type="button">+</button></span>
                 <small class="field-hint">总生长时间 = 浇水CD × 5（5个阶段）</small>
               </div>
               <div class="form-group">
                 <label for="base_yield">基础产量</label>
-                <input type="number" id="base_yield" v-model.number="newItem.base_yield" min="0" placeholder="1">
+                <span class="number-input-group"><button class="num-btn" @click="newItem.base_yield = Math.max(0, newItem.base_yield - 1)" type="button">−</button><input type="number" id="base_yield" v-model.number="newItem.base_yield" min="0" placeholder="1" /><button class="num-btn" @click="newItem.base_yield++" type="button">+</button></span>
                 <small class="field-hint">收获作物数量</small>
               </div>
             </div>
@@ -179,11 +174,11 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="buy_price">购买价格</label>
-                <input type="number" id="buy_price" v-model.number="newItem.buy_price" min="0" placeholder="0">
+                <span class="number-input-group"><button class="num-btn" @click="newItem.buy_price = Math.max(0, newItem.buy_price - 100)" type="button">−</button><input type="number" id="buy_price" v-model.number="newItem.buy_price" min="0" placeholder="0" /><button class="num-btn" @click="newItem.buy_price += 100" type="button">+</button></span>
               </div>
               <div class="form-group">
                 <label for="sell_price">出售价格</label>
-                <input type="number" id="sell_price" v-model.number="newItem.sell_price" min="0" placeholder="0">
+                <span class="number-input-group"><button class="num-btn" @click="newItem.sell_price = Math.max(0, newItem.sell_price - 100)" type="button">−</button><input type="number" id="sell_price" v-model.number="newItem.sell_price" min="0" placeholder="0" /><button class="num-btn" @click="newItem.sell_price += 100" type="button">+</button></span>
               </div>
             </div>
             <div class="form-row">
@@ -250,12 +245,12 @@
             <div class="form-row" v-if="currentItem.item_type === 'seed'">
               <div class="form-group">
                 <label for="edit-water_cd">浇水冷却时间(秒)</label>
-                <input type="number" id="edit-water_cd" v-model.number="currentItem.water_cd" min="10" max="240">
+                <span class="number-input-group"><button class="num-btn" @click="currentItem.water_cd = Math.max(5, currentItem.water_cd - 5)" type="button">−</button><input type="number" id="edit-water_cd" v-model.number="currentItem.water_cd" min="5" max="240" /><button class="num-btn" @click="currentItem.water_cd = Math.min(240, currentItem.water_cd + 5)" type="button">+</button></span>
                 <small class="field-hint">总生长时间 = 浇水CD × 5（5个阶段）</small>
               </div>
               <div class="form-group">
                 <label for="edit-base_yield">基础产量</label>
-                <input type="number" id="edit-base_yield" v-model.number="currentItem.base_yield" min="0">
+                <span class="number-input-group"><button class="num-btn" @click="currentItem.base_yield = Math.max(0, currentItem.base_yield - 1)" type="button">−</button><input type="number" id="edit-base_yield" v-model.number="currentItem.base_yield" min="0" /><button class="num-btn" @click="currentItem.base_yield++" type="button">+</button></span>
               </div>
             </div>
             <!-- 作物关联选择（仅种子类型显示） -->
@@ -274,11 +269,11 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="edit-buy_price">购买价格</label>
-                <input type="number" id="edit-buy_price" v-model.number="currentItem.buy_price" min="0">
+                <span class="number-input-group"><button class="num-btn" @click="currentItem.buy_price = Math.max(0, currentItem.buy_price - 100)" type="button">−</button><input type="number" id="edit-buy_price" v-model.number="currentItem.buy_price" min="0" /><button class="num-btn" @click="currentItem.buy_price += 100" type="button">+</button></span>
               </div>
               <div class="form-group">
                 <label for="edit-sell_price">出售价格</label>
-                <input type="number" id="edit-sell_price" v-model.number="currentItem.sell_price" min="0">
+                <span class="number-input-group"><button class="num-btn" @click="currentItem.sell_price = Math.max(0, currentItem.sell_price - 100)" type="button">−</button><input type="number" id="edit-sell_price" v-model.number="currentItem.sell_price" min="0" /><button class="num-btn" @click="currentItem.sell_price += 100" type="button">+</button></span>
               </div>
             </div>
             <div class="form-row">
@@ -338,7 +333,6 @@
               <div class="form-group">
                 <label for="pet-rarity">稀有度</label>
                 <select id="pet-rarity" v-model="newPet.rarity" required>
-                  <option value="C">C - 普通</option>
                   <option value="B">B - 稀有</option>
                   <option value="A">A - 史诗</option>
                   <option value="S">S - 传说</option>
@@ -346,14 +340,13 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="pet-base_bonus">基础加成 (%)</label>
-                <input type="number" id="pet-base_bonus" v-model.number="newPet.base_bonus" min="0" step="0.5" placeholder="5">
+
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
                 <label for="pet-price_amount">价格</label>
-                <input type="number" id="pet-price_amount" v-model.number="newPet.price_amount" min="0" placeholder="100">
+                <span class="number-input-group"><button class="num-btn" @click="newPet.price_amount = Math.max(0, newPet.price_amount - 100)" type="button">−</button><input type="number" id="pet-price_amount" v-model.number="newPet.price_amount" min="0" placeholder="100" /><button class="num-btn" @click="newPet.price_amount += 100" type="button">+</button></span>
               </div>
               <div class="form-group">
                 <label for="pet-price_type">货币类型</label>
@@ -366,10 +359,10 @@
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label for="pet-is_shop">商店出售</label>
-                <select id="pet-is_shop" v-model="newPet.is_shop">
+                <label for="pet-purchasable">可购买</label>
+                <select id="pet-purchasable" v-model="newPet.purchasable">
                   <option :value="true">是</option>
-                  <option :value="false">否</option>
+                  <option :value="false">否（显示售罄）</option>
                 </select>
               </div>
             </div>
@@ -400,22 +393,20 @@
               <div class="form-group">
                 <label for="edit-pet-rarity">稀有度</label>
                 <select id="edit-pet-rarity" v-model="currentPet.rarity" required>
-                  <option value="C">C - 普通</option>
                   <option value="B">B - 稀有</option>
                   <option value="A">A - 史诗</option>
                   <option value="S">S - 传说</option>
                   <option value="SSS">SSS - 神话</option>
+                  <option value="SSR">SSR 测试专属</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label for="edit-pet-base_bonus">基础加成 (%)</label>
-                <input type="number" id="edit-pet-base_bonus" v-model.number="currentPet.base_bonus" min="0" step="0.5">
-              </div>
+            </div>
+            <div class="form-row">
             </div>
             <div class="form-row">
               <div class="form-group">
                 <label for="edit-pet-price_amount">价格</label>
-                <input type="number" id="edit-pet-price_amount" v-model.number="currentPet.price_amount" min="0">
+                <span class="number-input-group"><button class="num-btn" @click="currentPet.price_amount = Math.max(0, currentPet.price_amount - 100)" type="button">−</button><input type="number" id="edit-pet-price_amount" v-model.number="currentPet.price_amount" min="0" /><button class="num-btn" @click="currentPet.price_amount += 100" type="button">+</button></span>
               </div>
               <div class="form-group">
                 <label for="edit-pet-price_type">货币类型</label>
@@ -428,10 +419,10 @@
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label for="edit-pet-is_shop">商店出售</label>
-                <select id="edit-pet-is_shop" v-model="currentPet.is_shop">
+                <label for="edit-pet-purchasable">可购买</label>
+                <select id="edit-pet-purchasable" v-model="currentPet.purchasable">
                   <option :value="true">是</option>
-                  <option :value="false">否</option>
+                  <option :value="false">否（显示售罄）</option>
                 </select>
               </div>
             </div>
@@ -455,14 +446,12 @@
           </div>
         </div>
       </div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import Toast from '@/components/common/Toast.vue'
-import AdminSidebar from '@/components/admin/AdminSidebar.vue'
 
 const items = ref([])
 const cropItems = ref([])
@@ -506,11 +495,10 @@ const newItem = ref({
 const newPet = ref({
   name: '',
   icon: '',
-  rarity: 'C',
-  base_bonus: 5,
+  rarity: 'B',
   price_amount: 100,
   price_type: 'silver_coin',
-  is_shop: true
+  purchasable: true
 })
 
 function itemTypeName(type) {
@@ -521,6 +509,11 @@ function itemTypeName(type) {
 function currencyName(type) {
   const map = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }
   return map[type] || type
+}
+
+function rarityLabel(rarity) {
+  const map = { B: 'B 稀有', A: 'A 史诗', S: 'S 传说', SSS: 'SSS 神话', SSR: 'SSR 测试' }
+  return map[rarity] || rarity
 }
 
 function getCropName(cropId) {
@@ -769,21 +762,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.admin-page {
-  display: flex;
-  min-height: 100vh;
-  background: #f5f5f5;
-}
-
-.admin-content {
-  flex: 1;
-  padding: 32px;
-  overflow-y: auto;
-}
-
-.admin-content h1 {
+.plants-page h1 {
   margin: 0 0 24px 0;
   color: #f59e0b;
+  font-size: 1.6rem;
 }
 
 /* Tab 样式 */
@@ -1011,6 +993,7 @@ onMounted(() => {
 .item-rarity.A { background: #2196f3; color: white; }
 .item-rarity.S { background: #9c27b0; color: white; }
 .item-rarity.SSS { background: #ff9800; color: white; }
+.item-rarity.SSR { background: #ef4444; color: white; }
 
 .edit-btn,
 .delete-btn {

@@ -1,10 +1,7 @@
 <template>
-  <div class="admin-page">
+  <div class="users-page">
     <Toast ref="toastRef" />
-    <AdminSidebar />
-    
-    <div class="admin-content">
-      <h1>用户管理</h1>
+    <h1>用户管理</h1>
       
       <div class="action-bar">
         <button class="add-btn" @click="showAddModal = true">添加用户</button>
@@ -96,15 +93,15 @@
               <div class="currency-edit">
                 <div class="currency-row">
                   <span class="currency-label">银币</span>
-                  <input type="number" v-model.number="editCurrencies.silver_coin" min="0" max="999999999" />
+                  <span class="number-input-group"><button class="num-btn" @click="editCurrencies.silver_coin = Math.max(0, editCurrencies.silver_coin - 100)" type="button">−</button><input type="number" v-model.number="editCurrencies.silver_coin" min="0" max="999999999" /><button class="num-btn" @click="editCurrencies.silver_coin += 100" type="button">+</button></span>
                 </div>
                 <div class="currency-row">
                   <span class="currency-label">金币</span>
-                  <input type="number" v-model.number="editCurrencies.gold_coin" min="0" max="999999999" />
+                  <span class="number-input-group"><button class="num-btn" @click="editCurrencies.gold_coin = Math.max(0, editCurrencies.gold_coin - 100)" type="button">−</button><input type="number" v-model.number="editCurrencies.gold_coin" min="0" max="999999999" /><button class="num-btn" @click="editCurrencies.gold_coin += 100" type="button">+</button></span>
                 </div>
                 <div class="currency-row">
                   <span class="currency-label">钻石</span>
-                  <input type="number" v-model.number="editCurrencies.diamond" min="0" max="999999999" />
+                  <span class="number-input-group"><button class="num-btn" @click="editCurrencies.diamond = Math.max(0, editCurrencies.diamond - 100)" type="button">−</button><input type="number" v-model.number="editCurrencies.diamond" min="0" max="999999999" /><button class="num-btn" @click="editCurrencies.diamond += 100" type="button">+</button></span>
                 </div>
               </div>
             </div>
@@ -185,7 +182,6 @@
           </div>
         </div>
       </div>
-    </div>
   </div>
 </template>
 
@@ -193,7 +189,6 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Toast from '@/components/common/Toast.vue'
-import AdminSidebar from '@/components/admin/AdminSidebar.vue'
 
 const router = useRouter()
 const users = ref([])
@@ -536,143 +531,7 @@ onMounted(() => {
 })
 </script>
 <style scoped>
-.admin-page {
-  display: flex;
-  min-height: 100vh;
-  background: #f5f5f5;
-}
-
-.admin-sidebar {
-  width: 200px;
-  background: #2c5a2a;
-  color: white;
-  padding: 20px;
-}
-
-.admin-sidebar h2 {
-  margin: 0 0 32px 0;
-  font-size: 1.5rem;
-}
-
-.admin-sidebar ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.admin-sidebar ul li {
-  margin-bottom: 12px;
-  padding: 12px 16px 12px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  position: relative;
-}
-
-.admin-sidebar ul li::before {
-  content: '•';
-  position: absolute;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-}
-
-.admin-sidebar ul li:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.admin-sidebar ul li a {
-  color: white;
-  text-decoration: none;
-  display: block;
-}
-
-/* 二级菜单样式 */
-.menu-item {
-  position: relative;
-}
-
-.menu-title {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 12px 24px;
-  border-radius: 8px;
-  transition: background-color 0.2s ease;
-  position: relative;
-}
-
-.menu-title::before {
-  content: '•';
-  position: absolute;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-}
-
-.menu-title:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.menu-arrow {
-  transition: transform 0.2s ease;
-  font-size: 0.8rem;
-}
-
-.menu-arrow.open {
-  transform: rotate(90deg);
-}
-
-.sub-menu {
-  margin: 8px 0 0 24px;
-  padding: 0;
-  list-style: none;
-  position: relative;
-}
-
-.sub-menu::before {
-  content: '';
-  position: absolute;
-  left: 12px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.sub-menu li {
-  margin-bottom: 4px;
-  padding: 8px 12px 8px 24px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  position: relative;
-}
-
-.sub-menu li::before {
-  content: '•';
-  position: absolute;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-}
-
-.sub-menu li:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.sub-menu li a {
-  display: block;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.admin-content {
-  flex: 1;
-  padding: 32px;
-  overflow-y: auto;
-}
-
-.admin-content h1 {
+.users-page h1 {
   margin: 0 0 32px 0;
   color: #f59e0b;
 }

@@ -1,70 +1,69 @@
 <template>
-  <div class="admin-page">
-    <AdminSidebar />
-    
-    <div class="admin-content">
-      <h1>订单管理</h1>
-      
-      <div class="action-bar">
-      </div>
-      
-      <div v-if="loading" class="loading">
-        <div class="loading-spinner"></div>
-        <p>加载中...</p>
-      </div>
-      
-      <div v-else-if="orders.length === 0" class="empty-msg">
-        <p>暂无订单记录</p>
-      </div>
-      
-      <div v-else class="orders-table">
-        <table>
-          <thead>
-            <tr>
-              <th>订单ID</th>
-              <th>用户ID</th>
-              <th>操作类型</th>
-              <th>货币类型</th>
-              <th>金额变化</th>
-              <th>创建时间</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="order in orders" :key="order.id">
-              <td>{{ order.id }}</td>
-              <td>{{ order.user_id }}</td>
-              <td>{{ orderTypeText(order.type) }}</td>
-              <td>{{ currencyName(order.currency_type) }}</td>
-              <td :class="amountClass(order.amount)">{{ formatAmount(order.amount) }}</td>
-              <td>{{ formatTime(order.created_at) }}</td>
-              <td>
-                <button class="delete-btn" @click="handleDeleteOrder(order.id)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        
-        <div v-if="loadingMore" class="loading-more">
-          <div class="loading-spinner small"></div>
-          <p>加载更多...</p>
+  <div class="orders-page">
+    <h1>订单管理</h1>
+
+    <div v-if="loading" class="loading">
+      <div class="loading-spinner"></div>
+      <p>加载中...</p>
+    </div>
+
+    <div v-else-if="orders.length === 0" class="empty-msg">
+      <p>暂无订单记录</p>
+    </div>
+
+    <div v-else class="orders-table">
+      <table>
+        <thead>
+          <tr>
+            <th>订单ID</th>
+            <th>用户</th>
+            <th>操作类型</th>
+            <th>货币类型</th>
+            <th>金额变化</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="order in orders" :key="order.id">
+            <td>{{ order.id }}</td>
+            <td>{{ order.user?.name || order.user_id }}</td>
+            <td>{{ orderTypeText(order.type) }}</td>
+            <td>{{ currencyName(order.currency_type) }}</td>
+            <td :class="amountClass(order.amount)">{{ formatAmount(order.amount) }}</td>
+            <td>{{ formatTime(order.created_at) }}</td>
+            <td>
+              <button class="action-btn-sm danger" @click="handleDeleteOrder(order.id)">删除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 分页 -->
+      <div class="pagination">
+        <button class="page-btn" :disabled="currentPage <= 1" @click="goPage(currentPage - 1)">‹ 上一页</button>
+        <div class="page-numbers">
+          <button
+            v-for="p in visiblePages"
+            :key="p"
+            :class="['page-num', { active: p === currentPage, ellipsis: p === '...' }]"
+            :disabled="p === '...'"
+            @click="p !== '...' && goPage(p)"
+          >{{ p }}</button>
         </div>
-        
-        <div v-if="!hasMore && orders.length > 0" class="end-msg">
-          <p>没有更多订单了</p>
-        </div>
+        <button class="page-btn" :disabled="currentPage >= totalPages" @click="goPage(currentPage + 1)">下一页 ›</button>
       </div>
-      
-      <!-- 删除确认弹窗 -->
-      <div v-if="showDeleteModal" class="modal-overlay" @mousedown.self="cancelDeleteOrder">
-        <div class="modal-content">
-          <h3>⚠️ 删除订单</h3>
-          <p>确定要删除此订单吗？</p>
-          <p class="warning-text">删除订单无法找回，且其操作并不会撤回。</p>
-          <div class="modal-actions">
-            <button class="cancel-btn" @click="cancelDeleteOrder">取消</button>
-            <button class="confirm-btn" @click="confirmDeleteOrder">确定删除</button>
-          </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div v-if="showDeleteModal" class="modal-overlay" @mousedown.self="cancelDeleteOrder">
+      <div class="modal-card" style="max-width:400px;text-align:center;">
+        <h3>⚠️ 删除订单</h3>
+        <p style="color:var(--text-secondary,#8b949e);margin:0 0 8px 0;font-size:13px;">确定要删除此订单吗？</p>
+        <p style="color:#f87171;font-weight:600;margin:0 0 20px 0;font-size:12px;">删除订单无法找回，且其操作并不会撤回。</p>
+        <div class="modal-actions" style="justify-content:center;">
+          <button @click="cancelDeleteOrder">取消</button>
+          <button class="primary" style="background:rgba(220,38,38,0.15);border-color:#dc2626;color:#f87171;" @click="confirmDeleteOrder">确定删除</button>
         </div>
       </div>
     </div>
@@ -72,513 +71,251 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
-import AdminSidebar from '@/components/admin/AdminSidebar.vue'
+import { ref, computed, onMounted } from 'vue'
 
-const router = useRouter()
 const orders = ref([])
 const loading = ref(true)
-const loadingMore = ref(false)
-const hasMore = ref(true)
-const page = ref(1)
-const limit = ref(10)
+const currentPage = ref(1)
+const totalPages = ref(1)
+const limit = 10
 const showDeleteModal = ref(false)
 const deletingOrderId = ref(null)
 
-// 订单类型中文映射
 const orderTypeMap = {
-  SHOP_PURCHASE: '商店购买',
-  SHOP_SELL: '商店出售',
-  EXCHANGE: '货币兑换',
-  CURRENCY_EXCHANGE: '货币兑换',
-  CURRENCY_GIFT: '货币赠送',
-  PLOT_UNLOCK: '地块解锁',
-  PLOT_UPGRADE: '地块升级',
-  NEWBIE_PACK: '新手礼包',
-  PET_PURCHASE: '购买宠物',
-  DECORATION_PURCHASE: '购买装饰',
-  PURCHASE_SEED: '购买种子',
-  SELL_SEED: '卖出种子',
-  SELL_CROP: '卖出作物',
-  PURCHASE_USE: '购买肥料',
-  SELL_USE: '卖出肥料'
+  SHOP_PURCHASE: '商店购买', SHOP_SELL: '商店出售', EXCHANGE: '货币兑换',
+  CURRENCY_EXCHANGE: '货币兑换', CURRENCY_GIFT: '货币赠送', PLOT_UNLOCK: '地块解锁',
+  PLOT_UPGRADE: '地块升级', NEWBIE_PACK: '新手礼包', PET_PURCHASE: '购买宠物',
+  DECORATION_PURCHASE: '购买装饰', PURCHASE_SEED: '购买种子', SELL_SEED: '卖出种子',
+  SELL_CROP: '卖出作物', PURCHASE_USE: '购买肥料', SELL_USE: '卖出肥料'
 }
 
-// 获取订单类型中文
-function orderTypeText(type) {
-  return orderTypeMap[type] || type
-}
-
-// 获取货币类型中文
+function orderTypeText(type) { return orderTypeMap[type] || type }
 function currencyName(type) {
   const map = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }
   return map[type] || type || '-'
 }
-
-// 根据积分变化设置样式
-function amountClass(amount) {
-  return amount > 0 ? 'amount-positive' : 'amount-negative'
-}
-
-// 格式化积分变化
-function formatAmount(amount) {
-  return amount > 0 ? `+${amount}` : amount.toString()
-}
-
-// 格式化时间
+function amountClass(amount) { return amount > 0 ? 'amount-positive' : 'amount-negative' }
+function formatAmount(amount) { return amount > 0 ? `+${amount}` : String(amount) }
 function formatTime(time) {
   if (!time) return ''
-  const date = new Date(time)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
+  return new Date(time).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-// 加载订单数据
-async function loadOrders(isLoadingMore = false) {
-  if (isLoadingMore) {
-    loadingMore.value = true
-  } else {
-    loading.value = true
-    page.value = 1
-    orders.value = []
-  }
-  
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const cur = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = []
+  pages.push(1)
+  if (cur > 3) pages.push('...')
+  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i)
+  if (cur < total - 2) pages.push('...')
+  pages.push(total)
+  return pages
+})
+
+async function loadOrders(page = 1) {
+  loading.value = true
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders?page=${page.value}&limit=${limit.value}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+    const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders?page=${page}&limit=${limit}`, {
+      headers: { Authorization: `Bearer ${token}` }
     })
-    
-    if (!response.ok) {
-      throw new Error('获取订单列表失败，请检查网络连接')
+    if (r.ok) {
+      const data = await r.json()
+      orders.value = data.orders || []
+      totalPages.value = data.pagination?.totalPages || 1
+      currentPage.value = data.pagination?.page || page
     }
-    
-    const data = await response.json()
-    console.log('Order data:', data)
-    
-    if (isLoadingMore) {
-      orders.value = [...orders.value, ...data.orders]
-    } else {
-      orders.value = data.orders
-    }
-    
-    hasMore.value = data.pagination.page < data.pagination.totalPages
-    page.value = data.pagination.page + 1
-  } catch (error) {
-    console.error('Failed to load orders:', error)
-    if (!isLoadingMore) {
-      orders.value = []
-      alert(error.message || '加载订单数据失败，请检查网络连接')
-    }
+  } catch (e) {
+    console.error('Failed to load orders:', e)
   } finally {
     loading.value = false
-    loadingMore.value = false
   }
 }
 
-// 处理滚动加载
-function handleScroll() {
-  if (loadingMore.value || !hasMore.value) return
-  
-  const scrollTop = document.documentElement.scrollTop || document.body.scrollTop
-  const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight
-  const clientHeight = document.documentElement.clientHeight || window.innerHeight
-  
-  if (scrollTop + clientHeight >= scrollHeight - 100) {
-    loadOrders(true)
-  }
+function goPage(p) {
+  if (p < 1 || p > totalPages.value) return
+  loadOrders(p)
 }
 
-// 处理删除订单
-function handleDeleteOrder(orderId) {
-  deletingOrderId.value = orderId
+function handleDeleteOrder(id) {
+  deletingOrderId.value = id
   showDeleteModal.value = true
 }
 
-// 确认删除订单
 async function confirmDeleteOrder() {
   if (!deletingOrderId.value) return
-  
-  try {
-    const token = localStorage.getItem('auth_token')
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders/${deletingOrderId.value}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    
-    if (!response.ok) {
-      throw new Error('删除订单失败，请检查网络连接')
-    }
-    
-    // 重新加载订单列表
-    await loadOrders()
-    alert('订单删除成功')
-  } catch (error) {
-    console.error('Failed to delete order:', error)
-    alert(error.message || '删除订单失败，请检查网络连接')
-  } finally {
-    showDeleteModal.value = false
-    deletingOrderId.value = null
-  }
+  const token = localStorage.getItem('auth_token')
+  await fetch(`${import.meta.env.VITE_API_URL}/admin/orders/${deletingOrderId.value}`, {
+    method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+  })
+  showDeleteModal.value = false
+  deletingOrderId.value = null
+  await loadOrders(currentPage.value)
 }
 
-// 取消删除订单
 function cancelDeleteOrder() {
   showDeleteModal.value = false
   deletingOrderId.value = null
 }
 
-// 生命周期
-onMounted(() => {
-  loadOrders()
-  window.addEventListener('scroll', handleScroll)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll)
-})
+onMounted(() => loadOrders())
 </script>
 
 <style scoped>
-.admin-page {
-  display: flex;
-  min-height: 100vh;
-  background: #f5f5f5;
-}
-
-
-
-.admin-content {
-  flex: 1;
-  padding: 32px;
-  overflow-y: auto;
-}
-
-.admin-content h1 {
-  margin: 0 0 32px 0;
+.orders-page h1 {
+  margin: 0 0 24px 0;
   color: #f59e0b;
+  font-size: 1.6rem;
 }
 
-.action-bar {
-  display: flex;
-  margin-bottom: 24px;
-  justify-content: flex-end;
+.loading {
+  text-align: center;
+  padding: 60px 0;
+  color: var(--text-muted, #8b949e);
 }
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-color, #21262d);
+  border-top-color: #f59e0b;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
+.empty-msg {
+  text-align: center;
+  padding: 60px 0;
+  color: var(--text-muted, #6b7280);
+}
 
 .orders-table {
-  background: white;
+  background: var(--bg-secondary, #1e293b);
+  border: 1px solid var(--border-color, #334155);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
-
 .orders-table table {
   width: 100%;
   border-collapse: collapse;
 }
-
 .orders-table th,
 .orders-table td {
-  padding: 16px;
+  padding: 12px 16px;
   text-align: left;
-  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.875rem;
 }
-
 .orders-table th {
-  background: #f5f5f5;
-  font-weight: bold;
-  color: #333;
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--text-muted, #8b949e);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.orders-table tbody tr {
+  border-top: 1px solid var(--border-color, #334155);
+  transition: background 0.15s;
+}
+.orders-table tbody tr:hover {
+  background: rgba(245, 158, 11, 0.04);
+}
+.orders-table td {
+  color: var(--text-primary, #f1f5f9);
 }
 
-.orders-table tr:hover {
-  background: #f9f9f9;
-}
+.amount-positive { color: #22c55e; font-weight: 600; }
+.amount-negative { color: #ef4444; font-weight: 600; }
 
-.status-已完成 {
-  color: #4caf50;
-  font-weight: bold;
+/* 分页 */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--border-color, #334155);
 }
-
-.status-待支付 {
-  color: #ff9800;
-  font-weight: bold;
-}
-
-.status-已取消 {
-  color: #f44336;
-  font-weight: bold;
-}
-
-.edit-btn,
-.delete-btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.9rem;
+.page-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 6px;
+  background: var(--bg-primary, #0f172a);
+  color: var(--text-primary, #f1f5f9);
+  font-size: 13px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  margin-right: 8px;
+  transition: all 0.2s;
 }
-
-.edit-btn {
-  background: #f97316;
-  color: white;
-}
-
-.edit-btn:hover {
-  background: #ea580c;
-}
-
-.delete-btn {
-  background: #f44336;
-  color: white;
-}
-
-.delete-btn:hover {
-  background: #d32f2f;
-}
-
-/* 加载状态 */
-.loading,
-.loading-more {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 0;
-  color: #666;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #4caf50;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 16px;
-}
-
-.loading-spinner.small {
-  width: 24px;
-  height: 24px;
-  border-width: 2px;
-  margin-bottom: 8px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* 空状态 */
-.empty-msg {
-  text-align: center;
-  padding: 60px 0;
-  color: #999;
-  font-size: 1.1rem;
-}
-
-/* 结束状态 */
-.end-msg {
-  text-align: center;
-  padding: 20px 0;
-  color: #999;
-  font-size: 0.9rem;
-  border-top: 1px solid #f0f0f0;
-}
-
-/* 积分变化样式 */
-.amount-positive {
-  color: #4caf50;
-  font-weight: bold;
-}
-
-.amount-negative {
-  color: #f44336;
-  font-weight: bold;
-}
-
-/* 弹窗样式 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  text-align: center;
-}
-
-.modal-content h3 {
-  margin: 0 0 16px 0;
+.page-btn:hover:not(:disabled) {
+  border-color: #f59e0b;
   color: #f59e0b;
 }
-
-.modal-content p {
-  margin: 0 0 16px 0;
-  color: #555;
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
-
-.modal-content .warning-text {
-  color: #f44336;
-  font-weight: bold;
-  margin-bottom: 24px;
-}
-
-.modal-actions {
+.page-numbers {
   display: flex;
-  gap: 12px;
+  gap: 4px;
+}
+.page-num {
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted, #8b949e);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
-
-.cancel-btn,
-.confirm-btn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
+.page-num:hover:not(.active):not(.ellipsis) {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+.page-num.active {
+  background: #f59e0b;
+  color: #000;
+  font-weight: 600;
+}
+.page-num.ellipsis {
+  cursor: default;
+  color: var(--text-muted, #6b7280);
 }
 
-.cancel-btn {
-  background: #9e9e9e;
-  color: white;
+/* 弹窗 */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 100; display: flex; align-items: center; justify-content: center;
 }
-
-.cancel-btn:hover {
-  background: #757575;
+.modal-card {
+  background: var(--bg-secondary, #161b22);
+  border: 1px solid var(--border-color, #30363d);
+  border-radius: 12px; padding: 24px; width: 90%; max-width: 500px;
 }
-
-.confirm-btn {
-  background: #f44336;
-  color: white;
+.modal-card h3 { color: #f59e0b; margin: 0 0 16px 0; font-size: 15px; }
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
 }
-
-.confirm-btn:hover {
-  background: #d32f2f;
+.modal-actions button {
+  padding: 6px 16px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; border: 1px solid var(--border-color, #30363d);
+  background: var(--bg-tertiary, #21262d); color: var(--text-primary, #c9d1d9);
 }
-
-/* 深色模式 */
-@media (prefers-color-scheme: dark) {
-  .admin-page {
-    background: #1a1a1a;
-  }
-  
-
-  .admin-content h1 {
-    color: #fbbf24;
-  }
-  
-  .search-bar input {
-    background: #2a2a2a;
-    border-color: #444;
-    color: #e0e0e0;
-  }
-  
-  .orders-table {
-    background: #2a2a2a;
-  }
-  
-  .orders-table th {
-    background: #3a3a3a;
-    color: #e0e0e0;
-  }
-  
-  .orders-table td {
-    border-bottom: 1px solid #3a3a3a;
-    color: #e0e0e0;
-  }
-  
-  .orders-table tr:hover {
-    background: #333;
-  }
-  
-  .loading,
-  .loading-more {
-    color: #aaa;
-  }
-  
-  .loading-spinner {
-    border-color: #333;
-    border-top-color: #f59e0b;
-  }
-  
-  .empty-msg {
-    color: #666;
-  }
-  
-  .end-msg {
-    color: #666;
-    border-top-color: #3a3a3a;
-  }
-  
-  .amount-positive {
-    color: #4caf50;
-  }
-  
-  .amount-negative {
-    color: #ef5350;
-  }
-  
-  /* 深色模式弹窗 */
-  .modal-content {
-    background: #333;
-  }
-  
-  .modal-content h3 {
-    color: #fbbf24;
-  }
-  
-  .modal-content p {
-    color: #ddd;
-  }
-  
-  .modal-content .warning-text {
-    color: #ef5350;
-  }
-  
-  .cancel-btn {
-    background: #555;
-  }
-  
-  .cancel-btn:hover {
-    background: #444;
-  }
-  
-  .confirm-btn {
-    background: #d32f2f;
-  }
-  
-  .confirm-btn:hover {
-    background: #b71c1c;
-  }
+.modal-actions button.primary {
+  background: rgba(0,255,136,0.15); border-color: #00ff88; color: #00ff88;
 }
+.modal-actions button:hover { opacity: 0.8; }
+
+.action-btn-sm {
+  padding: 3px 8px; border: 1px solid rgba(220,38,38,0.3); border-radius: 4px;
+  background: rgba(220,38,38,0.1); color: #f87171; font-size: 11px; cursor: pointer;
+}
+.action-btn-sm:hover { background: rgba(220,38,38,0.2); }
 </style>
