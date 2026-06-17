@@ -122,7 +122,8 @@ async function getPetBonus(userId) {
       if (decResult.rowCount > 0) bonus += Number(decResult.rows[0].bonus);
     }
     const cap = await getConfig('pet_deco_bonus_cap') || 120;
-    return Math.round(Math.min(bonus, cap) * 100) / 100;
+    const finalBonus = pet.is_test ? bonus : Math.min(bonus, cap);
+    return Math.round(finalBonus * 100) / 100;
   } catch (error) {
     logger.error('getPetBonus error:', { error: error.message });
     return 0;
@@ -141,7 +142,7 @@ async function formatPetData(pet, petTemplate) {
     if (decResult.rowCount > 0) decorationBonus += Number(decResult.rows[0].bonus);
   }
   const cap = await getConfig('pet_deco_bonus_cap') || 120;
-  const totalBonus = Math.min(bonus + decorationBonus, cap);
+  const totalBonus = pet.is_test ? (bonus + decorationBonus) : Math.min(bonus + decorationBonus, cap);
   return {
     user_pet_id: pet.id, pet_id: pet.pet_id, name: petTemplate.name, icon: petTemplate.icon,
     pixel_art: petTemplate.pixel_art, rarity: petTemplate.rarity, level: pet.level,
