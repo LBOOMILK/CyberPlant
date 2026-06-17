@@ -1,7 +1,6 @@
 <template>
-  <div :class="{'admin-page': isStandalone}">
-    <AdminSidebar v-if="isStandalone" />
-    <div :class="{'admin-content': isStandalone}" class="pets-panel">
+  <div :class="['pets-panel', isClassic ? 'theme-classic' : 'theme-hub']">
+    <h1 class="panel-title">宠物管理</h1>
     <div v-if="loading" class="panel-loading">加载中...</div>
     <div v-else>
       <!-- 宠物选择 -->
@@ -64,17 +63,15 @@
     </div>
     <Toast ref="toastRef" />
   </div>
-</div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Toast from '@/components/common/Toast.vue'
-import AdminSidebar from '@/components/admin/AdminSidebar.vue'
 
 const route = useRoute()
-const isStandalone = computed(() => route.name === 'admin-pets')
+const isClassic = computed(() => route.path.startsWith('/admin/classic'))
 
 const loading = ref(true)
 const pets = ref([])
@@ -157,112 +154,85 @@ onMounted(loadPets)
 </script>
 
 <style scoped>
-.pets-panel { font-size: 13px; }
-.panel-loading { text-align: center; padding: 40px; color: var(--text-muted, #8b949e); }
-
-.pet-selector {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
+/* ===== Hub 主题（绿色/赛博） ===== */
+.theme-hub .panel-title { display: none; }
+.theme-hub .panel-loading { text-align: center; padding: 40px; color: var(--text-muted, #8b949e); }
+.theme-hub .pet-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.theme-hub .pet-selector label { color: var(--text-secondary, #8b949e); }
+.theme-hub .pet-select {
+  padding: 6px 12px; background: var(--bg-primary, #0d1117);
+  border: 1px solid var(--border-color, #21262d); color: var(--text-primary, #c9d1d9);
+  border-radius: 6px; font-size: 13px;
 }
-.pet-selector label { color: var(--text-secondary, #8b949e); }
-.pet-select {
-  padding: 6px 12px;
-  background: var(--bg-primary, #0d1117);
-  border: 1px solid var(--border-color, #21262d);
-  color: var(--text-primary, #c9d1d9);
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.curve-section {
-  margin-bottom: 24px;
-}
-.curve-section h4 {
-  color: #00ff88;
-  margin: 0 0 4px 0;
-  font-size: 13px;
-}
-.curve-hint {
-  font-size: 11px;
-  color: var(--text-muted, #8b949e);
-  margin: 0 0 12px 0;
-}
-
-.curve-bars {
-  display: flex;
-  gap: 8px;
+.theme-hub .curve-section { margin-bottom: 24px; }
+.theme-hub .curve-section h4 { color: #00ff88; margin: 0 0 4px 0; font-size: 13px; }
+.theme-hub .curve-hint { font-size: 11px; color: var(--text-muted, #8b949e); margin: 0 0 12px 0; }
+.theme-hub .curve-bars { display: flex; gap: 8px; justify-content: center; }
+.theme-hub .bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; max-width: 60px; }
+.theme-hub .bar-wrapper {
+  width: 100%; height: 80px; display: flex; align-items: flex-end;
   justify-content: center;
 }
-.bar-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-  max-width: 60px;
+.theme-hub .bar {
+  width: 70%; background: linear-gradient(to top, #00ff88, #00cc6a);
+  border-radius: 3px 3px 0 0; min-height: 4px; transition: height 0.3s;
 }
-.bar-wrapper {
-  width: 100%;
-  height: 80px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+.theme-hub .bar.growth { background: linear-gradient(to top, #f59e0b, #f97316); }
+.theme-hub .bar-input {
+  width: 100%; text-align: center; padding: 2px;
+  background: var(--bg-primary, #0d1117); border: 1px solid var(--border-color, #21262d);
+  color: var(--text-primary, #c9d1d9); border-radius: 3px; font-size: 10px;
 }
-.bar {
-  width: 70%;
-  background: linear-gradient(to top, #00ff88, #00cc6a);
-  border-radius: 3px 3px 0 0;
-  min-height: 4px;
-  transition: height 0.3s;
+.theme-hub .bar-input:focus { outline: none; border-color: #00ff88; }
+.theme-hub .bar-label { font-size: 9px; color: var(--text-muted, #8b949e); }
+.theme-hub .curve-actions { display: flex; gap: 10px; margin-top: 16px; justify-content: center; }
+.theme-hub .save-btn, .theme-hub .reset-btn {
+  padding: 8px 20px; border: 1px solid; border-radius: 6px; font-size: 12px;
+  cursor: pointer; transition: all 0.2s;
 }
-.bar.growth {
-  background: linear-gradient(to top, #f59e0b, #f97316);
-}
-.bar-input {
-  width: 100%;
-  text-align: center;
-  padding: 2px;
-  background: var(--bg-primary, #0d1117);
-  border: 1px solid var(--border-color, #21262d);
-  color: var(--text-primary, #c9d1d9);
-  border-radius: 3px;
-  font-size: 10px;
-}
-.bar-input:focus {
-  outline: none;
-  border-color: #00ff88;
-}
-.bar-label {
-  font-size: 9px;
-  color: var(--text-muted, #8b949e);
-}
+.theme-hub .save-btn { background: rgba(0,255,136,0.1); border-color: rgba(0,255,136,0.3); color: #00ff88; }
+.theme-hub .save-btn:hover { background: rgba(0,255,136,0.2); }
+.theme-hub .reset-btn { background: rgba(255,255,255,0.05); border-color: var(--border-color, #21262d); color: var(--text-muted, #8b949e); }
+.theme-hub .reset-btn:hover { background: rgba(255,255,255,0.08); }
 
-.curve-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-  justify-content: center;
+/* ===== Classic 主题（橙色） ===== */
+.theme-classic .panel-title { margin: 0 0 32px 0; color: #f59e0b; font-size: 1.6rem; }
+.theme-classic .panel-loading { text-align: center; padding: 40px; color: var(--text-muted, #8b949e); }
+.theme-classic .pet-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+.theme-classic .pet-selector label { color: var(--text-secondary, #8b949e); font-size: 13px; }
+.theme-classic .pet-select {
+  padding: 8px 16px; background: var(--bg-secondary, #1e293b);
+  border: 1px solid var(--border-color, #334155); color: var(--text-primary, #f1f5f9);
+  border-radius: 6px; font-size: 13px;
 }
-.save-btn, .reset-btn {
-  padding: 8px 20px;
-  border: 1px solid;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
+.theme-classic .curve-section { margin-bottom: 28px; }
+.theme-classic .curve-section h4 { color: #f59e0b; margin: 0 0 8px 0; font-size: 1rem; font-weight: 600; }
+.theme-classic .curve-hint { font-size: 12px; color: var(--text-muted, #8b949e); margin: 0 0 16px 0; }
+.theme-classic .curve-bars { display: flex; gap: 10px; justify-content: center; }
+.theme-classic .bar-col { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; max-width: 60px; }
+.theme-classic .bar-wrapper {
+  width: 100%; height: 100px; display: flex; align-items: flex-end;
+  justify-content: center; background: rgba(245,158,11,0.05); border-radius: 6px; padding-bottom: 8px;
 }
-.save-btn {
-  background: rgba(0,255,136,0.1);
-  border-color: rgba(0,255,136,0.3);
-  color: #00ff88;
+.theme-classic .bar {
+  width: 70%; background: linear-gradient(to top, #f59e0b, #fbbf24);
+  border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.3s;
 }
-.save-btn:hover { background: rgba(0,255,136,0.2); }
-.reset-btn {
-  background: rgba(255,255,255,0.05);
-  border-color: var(--border-color, #21262d);
-  color: var(--text-muted, #8b949e);
+.theme-classic .bar.growth { background: linear-gradient(to top, #ef4444, #f87171); }
+.theme-classic .bar-input {
+  width: 100%; text-align: center; padding: 4px 8px;
+  background: var(--bg-secondary, #1e293b); border: 1px solid var(--border-color, #334155);
+  color: var(--text-primary, #f1f5f9); border-radius: 4px; font-size: 11px;
 }
-.reset-btn:hover { background: rgba(255,255,255,0.08); }
+.theme-classic .bar-input:focus { outline: none; border-color: #f59e0b; }
+.theme-classic .bar-label { font-size: 10px; color: var(--text-muted, #8b949e); }
+.theme-classic .curve-actions { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
+.theme-classic .save-btn, .theme-classic .reset-btn {
+  padding: 10px 24px; border: 1px solid; border-radius: 6px; font-size: 13px;
+  font-weight: 500; cursor: pointer; transition: all 0.2s;
+}
+.theme-classic .save-btn { background: #f59e0b; border-color: #f59e0b; color: white; }
+.theme-classic .save-btn:hover { background: #d97706; }
+.theme-classic .reset-btn { background: rgba(255,255,255,0.05); border-color: var(--border-color, #334155); color: var(--text-muted, #8b949e); }
+.theme-classic .reset-btn:hover { background: rgba(255,255,255,0.1); }
 </style>

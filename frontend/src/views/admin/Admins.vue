@@ -1,10 +1,7 @@
 <template>
-  <div class="admin-page">
+  <div class="admins-page">
     <Toast ref="toastRef" />
-    <AdminSidebar />
-    
-    <div class="admin-content">
-      <h1>管理员管理</h1>
+    <h1>管理员管理</h1>
       
       <div class="action-bar">
         <button class="add-btn" @click="showAddModal = true">添加管理员</button>
@@ -141,7 +138,6 @@
           </div>
         </div>
       </div>
-    </div>
   </div>
 </template>
 
@@ -150,7 +146,6 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Toast from '@/components/common/Toast.vue'
 import Modal from '@/components/common/Modal.vue'
-import AdminSidebar from '@/components/admin/AdminSidebar.vue'
 
 const router = useRouter()
 const admins = ref([])
