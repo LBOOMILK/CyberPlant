@@ -1,36 +1,36 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 
 export const useThemeStore = defineStore('theme', () => {
   // admin_theme: 'hub' | 'classic'
   const adminTheme = ref(localStorage.getItem('admin_theme') || 'hub')
-  // color_scheme: 'dark' | 'light'
-  const colorScheme = ref(localStorage.getItem('color_scheme') || 'dark')
+  // color_scheme: 'dark' | 'light' — 跟随系统
+  const colorScheme = ref('dark')
 
   function setAdminTheme(theme) {
     adminTheme.value = theme
     localStorage.setItem('admin_theme', theme)
   }
 
-  function setColorScheme(scheme) {
-    colorScheme.value = scheme
-    localStorage.setItem('color_scheme', scheme)
-    applyColorScheme(scheme)
-  }
-
   function applyColorScheme(scheme) {
+    colorScheme.value = scheme
     document.documentElement.setAttribute('data-theme', scheme)
   }
 
   function init() {
-    applyColorScheme(colorScheme.value)
+    // 检测系统偏好
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    applyColorScheme(mediaQuery.matches ? 'dark' : 'light')
+    // 监听系统变化
+    mediaQuery.addEventListener('change', (e) => {
+      applyColorScheme(e.matches ? 'dark' : 'light')
+    })
   }
 
   return {
     adminTheme,
     colorScheme,
     setAdminTheme,
-    setColorScheme,
     init
   }
 })

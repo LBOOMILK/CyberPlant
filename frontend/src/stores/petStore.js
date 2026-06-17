@@ -14,12 +14,11 @@ export const usePetStore = defineStore('pet', () => {
   const userDecorations = ref([])
   const loading = ref(false)
 
-  // 稀有度配置
+  // 稀有度配置 (B/A/S)
   const rarityConfig = {
-    common: { label: '普通', color: '#9e9e9e', bg: '#f5f5f5' },
-    rare: { label: '稀有', color: '#2196f3', bg: '#e3f2fd' },
-    epic: { label: '史诗', color: '#9c27b0', bg: '#f3e5f5' },
-    legendary: { label: '传说', color: '#FF9800', bg: '#fff3e0' }
+    B: { label: '普通', color: '#9e9e9e', bg: '#f5f5f5' },
+    A: { label: '稀有', color: '#2196f3', bg: '#e3f2fd' },
+    S: { label: '史诗', color: '#9c27b0', bg: '#f3e5f5' }
   }
 
   // 槽位配置
@@ -32,10 +31,10 @@ export const usePetStore = defineStore('pet', () => {
 
   // 宠物粮效果
   const foodEffects = {
-    '普通粮': { growth: 30, hunger: 20, digest_hours: 4, icon: '🍖' },
-    '精良粮': { growth: 60, hunger: 40, digest_hours: 8, icon: '🥩' },
-    '高级粮': { growth: 100, hunger: 60, digest_hours: 12, icon: '🍱' },
-    '稀有粮': { growth: 200, hunger: 100, digest_hours: 24, icon: '🍜' }
+    '普通粮': { growth: 30, hunger: 20, icon: '🍖' },
+    '精良粮': { growth: 60, hunger: 40, icon: '🥩' },
+    '高级粮': { growth: 100, hunger: 60, icon: '🍱' },
+    '稀有粮': { growth: 200, hunger: 100, icon: '🍜' }
   }
 
   // ========== 计算属性 ==========
@@ -139,6 +138,21 @@ export const usePetStore = defineStore('pet', () => {
     if (!response.ok) {
       const err = await response.json()
       throw new Error(err.error || '激活宠物失败')
+    }
+    const data = await response.json()
+    await loadPets()
+    return data
+  }
+
+  // ========== 升级宠物 ==========
+  async function upgradePet(userPetId) {
+    const response = await fetch(`${API_URL}/user/pets/${userPetId}/upgrade`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    })
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.error || '升级宠物失败')
     }
     const data = await response.json()
     await loadPets()
@@ -274,6 +288,7 @@ export const usePetStore = defineStore('pet', () => {
     loadActivePet,
     purchasePet,
     activatePet,
+    upgradePet,
     feedPet,
     loadDecorations,
     loadUserDecorations,

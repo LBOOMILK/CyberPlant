@@ -8,26 +8,9 @@ export const usePlotStore = defineStore('plot', () => {
   // ========== 状态 ==========
   const plots = ref([])
   const loading = ref(false)
-
-  // 解锁费用配置
-  const unlockCosts = {
-    2: { type: 'silver_coin', amount: 200, icon: '/silver_icon.png', label: '200 银币' },
-    3: { type: 'silver_coin', amount: 800, icon: '/silver_icon.png', label: '800 银币' },
-    4: { type: 'gold_coin', amount: 300, icon: '/gold_icon.png', label: '300 金币' },
-    5: { type: 'gold_coin', amount: 800, icon: '/gold_icon.png', label: '800 金币' },
-    6: { type: 'diamond', amount: 100, icon: '/diamond.png', label: '100 钻石' }
-  }
-
-  // 升级费用配置
-  const upgradeCosts = {
-    2: { type: 'silver_coin', amount: 1500, icon: '/silver_icon.png', label: '1500 银币' },
-    3: { type: 'gold_coin', amount: 500, icon: '/gold_icon.png', label: '500 金币' },
-    4: { type: 'gold_coin', amount: 1500, icon: '/gold_icon.png', label: '1500 金币' },
-    5: { type: 'diamond', amount: 500, icon: '/diamond.png', label: '500 钻石' }
-  }
-
-  // 等级倍率
-  const levelMultiplier = { 1: 1.0, 2: 1.2, 3: 1.5, 4: 2.0, 5: 3.0 }
+  const unlockCosts = ref({})
+  const upgradeCosts = ref({})
+  const levelMultiplier = ref({ 1: 1.0, 2: 1.1, 3: 1.3, 4: 1.5, 5: 1.8 })
 
   // 等级边框颜色
   const levelColors = {
@@ -64,6 +47,24 @@ export const usePlotStore = defineStore('plot', () => {
       throw error
     } finally {
       loading.value = false
+    }
+  }
+
+  // ========== 加载地块费用配置 ==========
+  async function loadPlotCosts() {
+    try {
+      const response = await fetch(`${API_URL}/user/plots/costs`, {
+        headers: getAuthHeaders()
+      })
+      if (!response.ok) throw new Error('获取地块费用信息失败')
+      const data = await response.json()
+      unlockCosts.value = data.unlockCosts || {}
+      upgradeCosts.value = data.upgradeCosts || {}
+      if (data.levelMultiplier) levelMultiplier.value = data.levelMultiplier
+      return data
+    } catch (error) {
+      console.error('loadPlotCosts error:', error)
+      throw error
     }
   }
 
@@ -183,6 +184,7 @@ export const usePlotStore = defineStore('plot', () => {
     levelColors,
     stageIcons,
     loadPlots,
+    loadPlotCosts,
     unlockPlot,
     upgradePlot,
     plant,

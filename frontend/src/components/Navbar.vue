@@ -147,6 +147,7 @@ const navStyle = computed(() => ({
 
 const startDrag = (e) => {
     e.stopPropagation()
+    if (e.cancelable) e.preventDefault()
     isDragging.value = true
     hasDragged.value = false
     const touch = e.touches ? e.touches[0] : e
@@ -157,12 +158,13 @@ const startDrag = (e) => {
     }
     document.addEventListener('mousemove', onNavDrag)
     document.addEventListener('mouseup', stopNavDrag)
-    document.addEventListener('touchmove', onNavDrag)
+    document.addEventListener('touchmove', onNavDrag, { passive: false })
     document.addEventListener('touchend', stopNavDrag)
 }
 
 const onNavDrag = (e) => {
     if (!isDragging.value) return
+    if (e.cancelable) e.preventDefault()
     const touch = e.touches ? e.touches[0] : e
     // 检查是否真正拖拽（移动距离超过5px）
     const moveDistance = Math.abs(touch.clientX - dragStartPosition.value.x) + Math.abs(touch.clientY - dragStartPosition.value.y)
@@ -248,6 +250,16 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
 
 .main-content.no-topbar {
     padding-top: 0;
+}
+
+/* 移动端：topbar 高度为 44px，主内容下移避免遮挡 */
+@media (max-width: 767px) {
+    .main-content:not(.no-topbar) {
+        padding-top: 44px;
+    }
+    .bottom-nav {
+        bottom: 0;
+    }
 }
 
 /* 页面过渡动画 */
@@ -546,6 +558,10 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
 
     .nav-emoji {
         font-size: 1.3rem;
+    }
+
+    .floating-nav {
+        display: none;
     }
 }
 

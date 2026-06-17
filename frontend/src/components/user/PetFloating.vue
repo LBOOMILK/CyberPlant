@@ -1,4 +1,50 @@
 <template>
+  <!-- 移动端顶部状态栏（窄屏显示，宽屏隐藏） -->
+  <div v-if="visible" class="pet-topbar" @click="handleClick">
+    <!-- 左侧：宠物信息 -->
+    <div v-if="petStore.hasActivePet" class="topbar-left">
+      <div class="topbar-pet">
+        <span class="topbar-pet-icon">{{ petStore.activePet?.icon || '🐾' }}</span>
+        <span class="topbar-pet-bonus" :class="{ paused: hunger <= 0 }">
+          {{ hunger > 0 ? '+' + petStore.activeBonus + '%' : '暂停' }}
+        </span>
+      </div>
+    </div>
+    <div v-else class="topbar-left">
+      <div class="topbar-pet" @click.stop="goToPetPage">
+        <span class="topbar-pet-icon">🐾</span>
+        <span class="topbar-pet-bonus">激活</span>
+      </div>
+    </div>
+
+    <!-- 中间：货币信息 -->
+    <div class="topbar-currencies">
+      <div class="topbar-currency" @click.stop="openExchange">
+        <img src="/silver_icon.png" alt="银币" class="topbar-currency-icon" />
+        <span class="topbar-currency-value">{{ formatNumber(userStore.currencies.silver_coin) }}</span>
+      </div>
+      <div class="topbar-currency" @click.stop="openExchange">
+        <img src="/gold_icon.png" alt="金币" class="topbar-currency-icon" />
+        <span class="topbar-currency-value">{{ formatNumber(userStore.currencies.gold_coin) }}</span>
+      </div>
+      <div class="topbar-currency" @click.stop="openExchange">
+        <img src="/diamond.png" alt="钻石" class="topbar-currency-icon" />
+        <span class="topbar-currency-value">{{ formatNumber(userStore.currencies.diamond) }}</span>
+      </div>
+    </div>
+
+    <!-- 右侧：宠物饥饿条 -->
+    <div v-if="petStore.hasActivePet" class="topbar-right">
+      <div class="topbar-hunger" :title="'饥饿度 ' + hunger + '%'">
+        <div
+          class="topbar-hunger-fill"
+          :class="{ low: hunger < 20 }"
+          :style="{ width: hunger + '%' }"
+        ></div>
+      </div>
+    </div>
+  </div>
+
   <div
     v-if="visible"
     class="pet-floating"
@@ -167,6 +213,9 @@ function loadPetEffect() {
   if (!effectContainer.value || !petStore.activePet) return
   // 清空容器
   effectContainer.value.innerHTML = ''
+  // 只有装备了特殊槽位饰品才显示特效
+  const equippedSpecial = petStore.activePet.equipped_decorations?.special
+  if (!equippedSpecial) return
   const effectName = getEffectName(petStore.activePet)
   if (!effectName) return
   const effect = loadEffect(effectName)
@@ -304,6 +353,7 @@ function updateHunger() {
 
 function startDrag(e) {
   isDragging.value = true
+  if (e.cancelable) e.preventDefault()
   const touch = e.touches ? e.touches[0] : e
   dragOffset.value = {
     x: window.innerWidth - touch.clientX - position.value.x,
@@ -311,12 +361,13 @@ function startDrag(e) {
   }
   document.addEventListener('mousemove', onDrag)
   document.addEventListener('mouseup', stopDrag)
-  document.addEventListener('touchmove', onDrag)
+  document.addEventListener('touchmove', onDrag, { passive: false })
   document.addEventListener('touchend', stopDrag)
 }
 
 function onDrag(e) {
   if (!isDragging.value) return
+  if (e.cancelable) e.preventDefault()
   const touch = e.touches ? e.touches[0] : e
   const newX = window.innerWidth - touch.clientX - dragOffset.value.x
   const newY = touch.clientY - dragOffset.value.y
@@ -378,6 +429,12 @@ watch(() => petStore.activePet, async () => {
   await nextTick()
   loadPetEffect()
 })
+
+// 装备变化时重新加载特效
+watch(() => petStore.activePet?.equipped_decorations, async () => {
+  await nextTick()
+  loadPetEffect()
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -601,30 +658,162 @@ watch(() => petStore.activePet, async () => {
   color: #f44336;
 }
 
-/* 拖动手柄 */
+/* 拖动手柄 - 放在悬浮窗边缘右侧中间 */
 .drag-handle {
   position: absolute;
-  right: -24px;
   top: 50%;
+  right: -28px;
   transform: translateY(-50%);
-  width: 24px;
-  height: 50px;
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(76, 175, 80, 0.25));
+  width: 28px;
+  height: 60px;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.3));
   border-radius: 0 12px 12px 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   color: #4caf50;
   cursor: grab;
-  opacity: 0.5;
-  transition: opacity 0.2s ease;
-  border: 1px solid rgba(76, 175, 80, 0.2);
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(76, 175, 80, 0.3);
   border-left: none;
+  z-index: 10;
 }
 
 .drag-handle:hover {
   opacity: 1;
+}
+
+/* ========== 宽屏悬浮窗样式（桌面端/平板） ========== */
+@media (min-width: 768px) {
+  .pet-floating {
+    display: flex;
+  }
+  .pet-topbar {
+    display: none;
+  }
+}
+
+/* ========== 窄屏 topbar 样式（移动端） ========== */
+.pet-topbar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 248, 0.95));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(76, 175, 80, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  z-index: 999;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  gap: 6px;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.topbar-pet {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  background: rgba(76, 175, 80, 0.08);
+  border-radius: 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+.topbar-pet-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.topbar-pet-bonus {
+  font-size: 0.7rem;
+  color: #4caf50;
+  font-weight: 700;
+}
+
+.topbar-pet-bonus.paused {
+  color: #f44336;
+}
+
+.topbar-currencies {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.topbar-currency {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  white-space: nowrap;
+}
+
+.topbar-currency-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.topbar-currency-value {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.topbar-hunger {
+  width: 36px;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.topbar-hunger-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff9800, #4caf50);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.topbar-hunger-fill.low {
+  background: #f44336;
+}
+
+@media (max-width: 767px) {
+  .pet-floating {
+    display: none;
+  }
+  .pet-topbar {
+    display: flex;
+  }
 }
 
 /* 兑换面板 */
@@ -996,57 +1185,20 @@ watch(() => petStore.activePet, async () => {
   }
 }
 
-@media (max-width: 600px) {
-  .pet-floating {
-    padding: 6px 10px;
-    padding-right: 28px;
-    gap: 6px;
-    border-radius: 30px;
+@media (prefers-color-scheme: dark) {
+  .pet-topbar {
+    background: linear-gradient(135deg, rgba(40, 40, 40, 0.95), rgba(50, 50, 50, 0.95));
+    border-bottom: 1px solid rgba(76, 175, 80, 0.3);
   }
-
-  .user-section {
-    display: none; /* 移动端隐藏用户名 */
+  .topbar-currency {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
   }
-
-  .currency-section {
-    border-right: none;
-    padding-right: 0;
-    gap: 4px;
+  .topbar-currency-value {
+    color: #eee;
   }
-
-  .currency-item {
-    padding: 3px 6px;
-  }
-
-  .currency-icon {
-    width: 16px;
-    height: 16px;
-  }
-
-  .currency-value {
-    font-size: 0.75rem;
-  }
-
-  .pet-float-icon {
-    font-size: 1.5rem;
-  }
-
-  .pet-float-info {
-    min-width: 50px;
-  }
-
-  .pet-float-name {
-    font-size: 0.7rem;
-  }
-
-  .pet-float-level {
-    font-size: 0.6rem;
-  }
-
-  .drag-handle {
-    right: -20px;
-    width: 20px;
-    height: 40px;
+  .topbar-pet {
+    background: rgba(76, 175, 80, 0.15);
   }
 }
 </style>

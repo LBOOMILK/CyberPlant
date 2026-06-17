@@ -14,17 +14,28 @@
       
       <ul class="menu-container">
         <li class="menu-item">
-          <router-link to="/admin/classic/dashboard" class="menu-link" @click="closeMobileMenu">📊 仪表盘</router-link>
+          <router-link to="/admin/classic/dashboard" class="menu-link" @click="closeMobileMenu">仪表盘</router-link>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/classic/plants" class="menu-link" @click="closeMobileMenu">📦 物品管理</router-link>
+          <router-link to="/admin/classic/plants" class="menu-link" @click="closeMobileMenu">物品管理</router-link>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/classic/pets" class="menu-link" @click="closeMobileMenu">🐾 宠物管理</router-link>
+          <div class="menu-title" @click="togglePetMenu">
+            <span>宠物管理</span>
+            <span class="menu-arrow" :class="{ open: petMenuOpen }">&#9660;</span>
+          </div>
+          <ul v-if="petMenuOpen" class="sub-menu">
+            <li class="menu-item">
+              <router-link to="/admin/classic/pets" class="menu-link" @click="closeMobileMenu">宠物列表</router-link>
+            </li>
+            <li class="menu-item">
+              <router-link to="/admin/classic/effects" class="menu-link" @click="closeMobileMenu">特效管理</router-link>
+            </li>
+          </ul>
         </li>
         <li class="menu-item">
           <div class="menu-title" @click="toggleUserMenu">
-            <span>👥 用户管理</span>
+            <span>用户管理</span>
             <span class="menu-arrow" :class="{ open: userMenuOpen }">&#9660;</span>
           </div>
           <ul v-if="userMenuOpen" class="sub-menu">
@@ -34,18 +45,15 @@
             <li class="menu-item">
               <router-link to="/admin/classic/admins" class="menu-link" @click="closeMobileMenu">管理员</router-link>
             </li>
+            <li class="menu-item">
+              <router-link to="/admin/classic/orders" class="menu-link" @click="closeMobileMenu">订单管理</router-link>
+            </li>
           </ul>
         </li>
         <li class="menu-item">
-          <router-link to="/admin/classic/orders" class="menu-link" @click="closeMobileMenu">📋 订单管理</router-link>
+          <router-link to="/admin/classic/config" class="menu-link" @click="closeMobileMenu">全局配置</router-link>
         </li>
-        <li class="menu-item">
-          <router-link to="/admin/classic/config" class="menu-link" @click="closeMobileMenu">⚙️ 全局配置</router-link>
-        </li>
-        <li class="menu-item">
-          <router-link to="/admin/classic/effects" class="menu-link" @click="closeMobileMenu">✨ 特效管理</router-link>
-        </li>
-        <li class="menu-item hub-switch" @click="$router.push('/admin')">⚡ 切换枢纽视图</li>
+        <li class="menu-item hub-switch" @click="$router.push('/admin')">切换枢纽视图</li>
         <li class="logout-item" @click="showLogoutModal = true">退出登录</li>
       </ul>
     </div>
@@ -54,7 +62,7 @@
     
     <div v-if="showLogoutModal" class="modal-overlay" @click.self="showLogoutModal = false">
       <div class="modal-content">
-        <h3>🚪 退出登录</h3>
+        <h3>退出登录</h3>
         <p>确定要退出登录吗？</p>
         <div class="modal-actions">
           <button class="modal-btn cancel" @click="showLogoutModal = false">取消</button>
@@ -66,11 +74,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const userMenuOpen = ref(sessionStorage.getItem('userMenuOpen') === 'true')
+const petMenuOpen = ref(sessionStorage.getItem('petMenuOpen') === 'true')
 const showLogoutModal = ref(false)
 const mobileMenuOpen = ref(false)
 const isMobile = ref(false)
@@ -79,8 +88,16 @@ watch(userMenuOpen, (newValue) => {
   sessionStorage.setItem('userMenuOpen', newValue)
 })
 
+watch(petMenuOpen, (newValue) => {
+  sessionStorage.setItem('petMenuOpen', newValue)
+})
+
 function toggleUserMenu() {
   userMenuOpen.value = !userMenuOpen.value
+}
+
+function togglePetMenu() {
+  petMenuOpen.value = !petMenuOpen.value
 }
 
 function toggleMobileMenu() {
@@ -97,8 +114,9 @@ function handleLogout() {
   localStorage.removeItem('auth_token')
   localStorage.removeItem('user_role')
   sessionStorage.removeItem('userMenuOpen')
+  sessionStorage.removeItem('petMenuOpen')
   showLogoutModal.value = false
-  router.push('/admin/login')
+  router.push('/')
 }
 
 function checkMobile() {
@@ -106,9 +124,13 @@ function checkMobile() {
 }
 
 onMounted(() => {
-  const savedState = sessionStorage.getItem('userMenuOpen')
-  if (savedState !== null) {
-    userMenuOpen.value = savedState === 'true'
+  const savedUserMenu = sessionStorage.getItem('userMenuOpen')
+  if (savedUserMenu !== null) {
+    userMenuOpen.value = savedUserMenu === 'true'
+  }
+  const savedPetMenu = sessionStorage.getItem('petMenuOpen')
+  if (savedPetMenu !== null) {
+    petMenuOpen.value = savedPetMenu === 'true'
   }
   checkMobile()
   window.addEventListener('resize', checkMobile)
@@ -123,6 +145,7 @@ onUnmounted(() => {
 .admin-sidebar-container {
   position: relative;
   flex-shrink: 0;
+  width: 200px;
 }
 
 .mobile-menu-toggle {
@@ -134,27 +157,29 @@ onUnmounted(() => {
   height: 48px;
   border: none;
   border-radius: 12px;
-  background: #1e40af;
+  background: #f59e0b;
   color: white;
   font-size: 1.5rem;
   cursor: pointer;
   display: none;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }
 
 .admin-sidebar {
   width: 200px;
-  background: #1e40af;
+  background: #f59e0b;
   color: white;
   padding: 20px;
-  min-height: 100vh;
-  height: 100%;
+  height: 100vh;
   overflow-y: auto;
-  position: relative;
+  position: fixed;
+  left: 0;
+  top: 0;
   z-index: 1000;
   transition: transform 0.3s ease;
+  box-sizing: border-box;
 }
 
 .sidebar-header {
@@ -200,7 +225,13 @@ onUnmounted(() => {
 }
 
 .menu-link:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* 当前激活的路由链接 */
+.menu-link.router-link-active {
+  background: rgba(255, 255, 255, 0.25);
+  font-weight: 600;
 }
 
 .menu-title {
@@ -213,7 +244,7 @@ onUnmounted(() => {
 }
 
 .menu-title:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .menu-arrow {
@@ -229,7 +260,7 @@ onUnmounted(() => {
   list-style: none;
   padding: 0;
   margin: 4px 0 0 0;
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -252,14 +283,13 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: center;
-  color: #00ff88;
-  background: rgba(0,255,136,0.08);
-  border: 1px solid rgba(0,255,136,0.2);
+  color: #065f46;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   font-weight: 600;
 }
 .hub-switch:hover {
-  background: rgba(0,255,136,0.15);
-  border-color: rgba(0,255,136,0.4);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .logout-item {
@@ -269,14 +299,13 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: center;
-  color: #dc2626;
-  background: rgba(220, 38, 38, 0.1);
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.15);
   border: 1px solid rgba(220, 38, 38, 0.3);
 }
 
 .logout-item:hover {
-  background: rgba(220, 38, 38, 0.2);
-  border-color: rgba(220, 38, 38, 0.5);
+  background: rgba(220, 38, 38, 0.25);
 }
 
 .overlay {
@@ -314,7 +343,7 @@ onUnmounted(() => {
 
 .modal-content h3 {
   margin: 0 0 16px 0;
-  color: #1d6ed7;
+  color: #f59e0b;
 }
 
 .modal-content p {
@@ -348,43 +377,55 @@ onUnmounted(() => {
 }
 
 .modal-btn.confirm {
-  background: #f44336;
+  background: #dc2626;
   color: white;
 }
 
 .modal-btn.confirm:hover {
-  background: #d32f2f;
+  background: #b91c1c;
 }
 
-@media (prefers-color-scheme: dark) {
-  .admin-sidebar {
-    background: #1e3a5f;
-  }
-  
-  .sub-menu {
-    background: rgba(0, 0, 0, 0.2);
-  }
-  
-  .modal-content {
-    background: #333;
-  }
-  
-  .modal-content h3 {
-    color: #1d6ed7;
+/* 深色模式下的侧边栏和弹窗 */
+[data-theme="dark"] .admin-sidebar {
+  background: #b45309;
+}
 
-  }
-  
-  .modal-content p {
-    color: #ddd;
-  }
-  
-  .modal-btn.cancel {
-    background: #555;
-  }
-  
-  .modal-btn.cancel:hover {
-    background: #444;
-  }
+[data-theme="dark"] .sub-menu {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .modal-content {
+  background: #1e293b;
+  border: 1px solid #334155;
+}
+
+[data-theme="dark"] .modal-content h3 {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .modal-content p {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .modal-btn.cancel {
+  background: #475569;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .modal-btn.cancel:hover {
+  background: #334155;
+}
+
+[data-theme="dark"] .hub-switch {
+  color: #00ff88;
+  background: rgba(0,255,136,0.08);
+  border-color: rgba(0,255,136,0.2);
+}
+
+[data-theme="dark"] .logout-item {
+  color: #fb9696;
+  background: rgba(207, 47, 47, 0.808);
+  border-color: rgba(255, 0, 0, 0.83);
 }
 
 @media (max-width: 767px) {
@@ -397,9 +438,6 @@ onUnmounted(() => {
     transform: translateX(-100%);
     height: 100vh;
     padding: 24px;
-    position: fixed;
-    left: 0;
-    top: 0;
   }
   
   .admin-sidebar.mobile-open {
@@ -417,13 +455,6 @@ onUnmounted(() => {
   
   .logout-item {
     margin-top: 32px;
-  }
-}
-
-@media (min-width: 768px) {
-  .admin-sidebar {
-    transform: translateX(0);
-    position: relative;
   }
 }
 </style>

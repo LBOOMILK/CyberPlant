@@ -11,6 +11,7 @@ export const useShopStore = defineStore('shop', () => {
   const currentTab = ref('seeds')
   const backpack = ref({}) // { seed: [...], fertilizer: [...], ... }
   const loading = ref(false)
+  const globalConfig = ref({})
 
   // Tab 配置
   const tabs = [
@@ -63,6 +64,7 @@ export const useShopStore = defineStore('shop', () => {
   }
 
   // ========== 加载商店物品 ==========
+  const rarityOrder = { C: 1, B: 2, A: 3, S: 4, SSS: 5 }
   async function loadShop(tab) {
     loading.value = true
     try {
@@ -74,9 +76,10 @@ export const useShopStore = defineStore('shop', () => {
         throw new Error(err.error || '获取商店物品失败')
       }
       const data = await response.json()
-      shopItems.value = data
+      const sorted = [...data].sort((a, b) => (rarityOrder[a.rarity] || 0) - (rarityOrder[b.rarity] || 0))
+      shopItems.value = sorted
       currentTab.value = tab
-      return data
+      return sorted
     } catch (error) {
       console.error('loadShop error:', error)
       throw error
@@ -179,6 +182,28 @@ export const useShopStore = defineStore('shop', () => {
     }
   }
 
+  // ========== 加载全局配置 ==========
+  async function loadGlobalConfig() {
+    try {
+      const response = await fetch(`${API_URL}/config`, {
+        headers: getAuthHeaders()
+      })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || '获取全局配置失败')
+      }
+      const data = await response.json()
+      globalConfig.value = {}
+      for (const [key, val] of Object.entries(data)) {
+        globalConfig.value[key] = val.value
+      }
+      return globalConfig.value
+    } catch (error) {
+      console.error('loadGlobalConfig error:', error)
+      return {}
+    }
+  }
+
   // ========== 查询背包中某物品数量 ==========
   function getItemCount(itemId, itemType) {
     if (itemType && backpack.value[itemType]) {
@@ -199,6 +224,7 @@ export const useShopStore = defineStore('shop', () => {
     currentTab,
     backpack,
     loading,
+    globalConfig,
     // 配置
     tabs,
     currencyIcons,
@@ -208,6 +234,7 @@ export const useShopStore = defineStore('shop', () => {
     backpackTotal,
     // 方法
     loadShop,
+    loadGlobalConfig,
     purchase,
     sell,
     loadBackpack,

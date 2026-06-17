@@ -84,3 +84,138 @@ select option {
   background: var(--bg-secondary, #1e293b);
   color: var(--text-primary, #f1f5f9);
 }
+
+/* ========== 全局 Checkbox 样式 ========== */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-color, #334155);
+  border-radius: 4px;
+  background: var(--bg-secondary, #1e293b);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+input[type="checkbox"]:hover {
+  border-color: var(--accent-primary, #f59e0b);
+}
+input[type="checkbox"]:checked {
+  background: var(--accent-primary, #f59e0b);
+  border-color: var(--accent-primary, #f59e0b);
+}
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.2);
+}
+
+/* ========== 全局 Number Input 样式 ========== */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* 数字输入框容器 */
+.number-input-group {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-secondary, #1e293b);
+  transition: border-color 0.2s;
+}
+.number-input-group:focus-within {
+  border-color: var(--accent-primary, #f59e0b);
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.15);
+}
+.number-input-group input[type="number"] {
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  min-width: 60px;
+  text-align: center;
+  color: var(--text-primary, #f1f5f9);
+  font-size: 13px;
+  outline: none;
+}
+.number-input-group .num-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--bg-tertiary, #21262d);
+  color: var(--text-secondary, #8b949e);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  user-select: none;
+}
+.number-input-group .num-btn:hover {
+  background: rgba(245,158,11,0.15);
+  color: #f59e0b;
+}
+.number-input-group .num-btn:active {
+  transform: scale(0.9);
+}
+
+/* 普通 input 也统一一下 */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="url"] {
+  background: var(--bg-secondary, #1e293b);
+  border: 1px solid var(--border-color, #334155);
+  color: var(--text-primary, #f1f5f9);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+input[type="text"]:hover,
+input[type="email"]:hover,
+input[type="password"]:hover {
+  border-color: rgba(245,158,11,0.4);
+}
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent-primary, #f59e0b);
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.15);
+}
+
+/* 深色模式下 input 的 number-btn 颜色会由 CSS 变量自动适配 */
+[data-theme="light"] input[type="checkbox"] {
+  background: #ffffff;
+  border-color: #d1d5db;
+}
+[data-theme="light"] input[type="checkbox"]:checked {
+  background: #f59e0b;
+  border-color: #f59e0b;
+}
+[data-theme="light"] input[type="checkbox"]:checked::after {
+  border-color: #fff;
+}
