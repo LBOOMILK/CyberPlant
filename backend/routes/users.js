@@ -118,7 +118,7 @@ router.get('/user/backpack', authenticateToken, async (req, res) => {
     const grouped = { seed: [], fertilizer: [], crop: [], pet_food: [], decoration: [] };
     for (const row of result.rows) { const type = row.item_type; if (!grouped[type]) grouped[type] = []; grouped[type].push({ item_id: row.item_id, quantity: row.quantity, name: row.name, icon: row.icon, rarity: row.rarity, item_type: row.item_type, base_yield: row.base_yield, buy_price: Number(row.buy_price), sell_price: Number(row.sell_price), currency_type: row.currency_type, water_cd: row.water_cd || 5, grow_time: (row.water_cd || 5) * 5 }); }
     const decResult = await client.query('SELECT ud.decoration_id, ud.quantity, d.name, d.icon, d.quality, d.slot_type, d.bonus FROM user_decorations ud JOIN decorations d ON ud.decoration_id = d.id WHERE ud.user_id = $1 AND ud.quantity > 0 ORDER BY d.quality, d.id', [req.user.id]);
-    for (const row of decResult.rows) grouped.decoration.push({ item_id: row.decoration_id, quantity: row.quantity, name: row.name, icon: row.icon, rarity: row.quality, item_type: 'decoration', bonus_type: row.slot_type, bonus_value: Number(row.bonus) });
+    for (const row of decResult.rows) grouped.decoration.push({ item_id: row.decoration_id, quantity: row.quantity, name: row.name, icon: row.icon, rarity: row.quality, item_type: 'decoration', slot_type: row.slot_type, bonus: Number(row.bonus) });
     res.json({ groups: grouped });
   } catch (error) { logger.error('Get backpack error:', { error: error.message }); res.status(500).json({ error: '获取背包物品失败' }); }
 });
