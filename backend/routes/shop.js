@@ -14,8 +14,8 @@ router.get('/shop', authenticateToken, async (req, res) => {
     const ownedDecResult = await client.query('SELECT decoration_id FROM user_decorations WHERE user_id = $1 AND quantity > 0', [userId]);
     const ownedDecIds = ownedDecResult.rows.map(r => r.decoration_id);
     if (tab === 'pets') {
-      const result = await client.query('SELECT id, name, icon, rarity, base_bonus, price_type, price_amount, is_test FROM pets ORDER BY rarity, id');
-      return res.json(result.rows.map(r => ({ id: r.id, name: r.name, icon: r.icon, rarity: r.rarity, item_type: 'pet', buy_price: Number(r.price_amount), sell_price: 0, currency_type: r.price_type, base_yield: Number(r.base_bonus), purchasable: true, sold_out: false })));
+      const result = await client.query('SELECT id, name, icon, rarity, base_bonus, price_type, price_amount, is_test, purchasable FROM pets WHERE is_shop = true ORDER BY rarity, id');
+      return res.json(result.rows.map(r => ({ id: r.id, name: r.name, icon: r.icon, rarity: r.rarity, item_type: 'pet', buy_price: Number(r.price_amount), sell_price: 0, currency_type: r.price_type, base_yield: Number(r.base_bonus), purchasable: r.purchasable !== false, sold_out: r.purchasable === false ? '售罄' : false, is_test: r.is_test || false })));
     }
     if (tab === 'decorations') {
       const result = await client.query(`SELECT d.id, d.name, d.icon, d.slot_type, d.quality, d.bonus, d.price_type, d.price_amount, d.pet_id, p.name as pet_name FROM decorations d LEFT JOIN pets p ON d.pet_id = p.id ORDER BY d.quality DESC, d.id`);

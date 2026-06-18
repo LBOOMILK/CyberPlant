@@ -35,7 +35,7 @@ router.post('/user/pets/purchase', authenticateToken, async (req, res) => {
     const petTemplate = await client.query('SELECT * FROM pets WHERE id = $1', [pet_id]);
     if (petTemplate.rowCount === 0) return res.status(404).json({ error: '宠物不存在' });
     const pet = petTemplate.rows[0];
-    if (pet.is_test) return res.status(400).json({ error: '该宠物不可购买' });
+    if (pet.is_test || pet.purchasable === false) return res.status(400).json({ error: '该宠物不可购买' });
     const existing = await client.query('SELECT * FROM user_pets WHERE user_id = $1 AND pet_id = $2', [userId, pet_id]);
     if (existing.rowCount > 0) return res.status(400).json({ error: '您已拥有该宠物' });
     const { deductCurrency, createOrder } = require('../db');

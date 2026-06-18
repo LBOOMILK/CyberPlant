@@ -739,8 +739,8 @@ async function initDatabase() {
         ['西瓜种子', '🍉', 'A', 'seed', 18, 105, 38, 'gold_coin', true],
         ['玫瑰种子', '🌹', 'S', 'seed', 22, 350, 75, 'gold_coin', true],
         ['兰花种子', '🌸', 'S', 'seed', 16, 400, 100, 'gold_coin', true],
-        ['金盏花种子', '🌟', 'SSS', 'seed', 2, 0, 1, 'diamond', false],
-        ['星尘花种子', '✨', 'SSS', 'seed', 1, 0, 2, 'diamond', false],
+        ['金盏花种子', '🌟', 'SSS', 'seed', 2, 0, 1, 'diamond', true],
+        ['星尘花种子', '✨', 'SSS', 'seed', 1, 0, 2, 'diamond', true],
       ];
 
       for (const seed of cropSeeds) {
