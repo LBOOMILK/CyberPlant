@@ -53,8 +53,8 @@
         <span class="bonus-display" :class="{ paused: selectedPet.hunger <= 0, 'test-bonus': isTestPet }">
           {{ selectedPet.hunger > 0 ? '+' + selectedPet.current_bonus + '%' : '暂停' }}
         </span>
-        <span v-if="selectedPet.base_bonus" class="base-bonus-tag">
-          基础{{ selectedPet.base_bonus }}%/级
+        <span v-if="selectedPet.level_bonus" class="base-bonus-tag">
+          基础+{{ selectedPet.level_bonus }}%
         </span>
       </div>
       <div class="control-right">
@@ -87,25 +87,24 @@
             :class="{ active: selectedPet.is_active }"
             @click="handleActivate"
             :disabled="actionLoading"
-          >{{ selectedPet.is_active ? '⏸️' : '⚡' }}</button>
+          >{{ selectedPet.is_active ? '⏸️' : '⚡' }}<span class="btn-text">{{ selectedPet.is_active ? '休息' : '出战' }}</span></button>
           <button
             class="btn btn-feed"
             @click="showFeedModal = true"
             :disabled="actionLoading || isTestPet"
             :title="isTestPet ? '测试宠物不可喂食' : ''"
-          >🍖</button>
+          >🍖<span class="btn-text">喂食</span></button>
           <button
-            v-if="canLevelUp"
             class="btn btn-upgrade"
-            @click="showUpgradeModal = true"
-            :disabled="actionLoading || isTestPet"
-            :title="isTestPet ? '测试宠物不可升级' : `需要 ${selectedPet.next_level_threshold} 成长值`"
-          >⬆️</button>
+            @click="canLevelUp ? showUpgradeModal = true : null"
+            :disabled="!canLevelUp || actionLoading || isTestPet"
+            :title="!canLevelUp ? `成长值不足，需要 ${selectedPet.next_level_threshold} 点` : isTestPet ? '测试宠物不可升级' : `点击升级`"
+          >⬆️<span class="btn-text">升级</span></button>
           <button
             class="btn btn-equip"
             @click="openEquipModal()"
             :disabled="actionLoading"
-          >💎</button>
+          >💎<span class="btn-text">饰品</span></button>
         </div>
 
       </div>
@@ -159,9 +158,7 @@
             <div class="food-info">
               <div class="food-name">{{ food.name }}</div>
               <div class="food-effects">
-                <span>成长 +{{ petStore.foodEffects[food.name]?.growth }}</span>
-                <span>饱食 +{{ petStore.foodEffects[food.name]?.hunger }}</span>
-
+                <span>饱食 +{{ food.hunger !== undefined ? food.hunger : petStore.foodEffects[food.name]?.hunger }}</span>
               </div>
             </div>
             <span class="food-count">×{{ food.quantity }}</span>
@@ -651,8 +648,8 @@ async function handleEquip(dec) {
     targetSlot = dec.slot_type || dec.bonus_type
   }
   
-  if (selectedSlot.value && dec.slot_type !== selectedSlot.value) {
-    showToast(`该饰品只能装备到${petStore.slotConfig[dec.slot_type]?.label}槽位！`, 'error')
+  if (selectedSlot.value && (dec.slot_type || dec.bonus_type) !== selectedSlot.value) {
+    showToast(`该饰品只能装备到${petStore.slotConfig[dec.slot_type || dec.bonus_type]?.label}槽位！`, 'error')
     return
   }
   
@@ -824,12 +821,12 @@ async function handleUnequip(slotType) {
 /* ========== 宠物控制面板（贴近宠物栏上方） ========== */
 .pet-control-panel {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   padding: 10px 16px;
   background: rgba(255, 255, 255, 0.95);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  gap: 12px;
+  gap: 8px;
 }
 
 .control-left {
@@ -837,6 +834,8 @@ async function handleUnequip(slotType) {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  flex-direction: row;
+  width: 100%;
 }
 
 .control-left .pet-name {
@@ -932,6 +931,9 @@ async function handleUnequip(slotType) {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .bars-row {
@@ -994,14 +996,23 @@ async function handleUnequip(slotType) {
 }
 
 .action-btns .btn {
-  width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   height: 36px;
-  padding: 6px;
+  padding: 6px 12px;
   border: none;
   border-radius: 10px;
   font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-text {
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .action-btns .btn:disabled {
@@ -1093,7 +1104,7 @@ async function handleUnequip(slotType) {
 
 /* ========== 下方30%：宠物列表 ========== */
 .pet-list-area {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   max-height: 30vh;
   min-height: 120px;
   background: rgba(255, 255, 255, 0.95);
@@ -1413,16 +1424,15 @@ async function handleUnequip(slotType) {
 /* 响应式 */
 @media (max-width: 600px) {
   .pet-panel {
+    height: calc(100vh - 48px - 70px);
     min-height: auto;
-    height: auto;
   }
 
-  /* 展示区固定高度，不吃剩余空间 */
+  /* 展示区占据剩余空间 */
   .pet-display-area {
+    flex: 1;
+    min-height: 0;
     padding: 8px;
-    min-height: unset;
-    flex: 0 0 auto;
-    height: auto;
   }
 
   .pet-big-container {
@@ -1527,7 +1537,9 @@ async function handleUnequip(slotType) {
 
   /* 宠物列表 */
   .pet-list-area {
-    min-height: 100px;
+    flex: 0 0 auto;
+    max-height: 30vh;
+    min-height: 120px;
   }
 
   .pet-list-item {
@@ -1540,6 +1552,11 @@ async function handleUnequip(slotType) {
 
   .list-pet-name {
     font-size: 0.8rem;
+  }
+
+  /* 移动端隐藏按钮文字 */
+  .btn-text {
+    display: none;
   }
 }
 
