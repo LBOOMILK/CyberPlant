@@ -79,7 +79,7 @@
     <!-- ============================================
          管理员考验门（在真正登录表单之前）
          ============================================ -->
-    <div v-if="showGate" class="gate-overlay">
+    <div class="login-overlay" id="loginGate">
       <div class="gate-card">
         <h2>🔐 管理员验证</h2>
         <div class="gate-sub">请输入管理员凭证</div>
@@ -106,7 +106,7 @@
           </div>
           <button type="submit" class="login-btn gate-btn">验 证</button>
         </form>
-        <button class="back-btn" @click="showGate = false">← 返回选择身份</button>
+        <button class="back-btn" id="backGate">← 返回选择身份</button>
       </div>
     </div>
 
@@ -255,7 +255,7 @@ const adminForm = ref({
 const adminShowPassword = ref(false)
 
 // 管理员考验门
-const showGate = ref(false)
+const loginGate = ref(null)
 const gateForm = ref({ email: '', password: '' })
 const gatePassed = ref(false)
 const gateToasts = [
@@ -272,8 +272,8 @@ function checkGate() {
     gateForm.value.password === "1"
   ) {
     gatePassed.value = true
-    showGate.value = false
-    loginAdmin.value.classList.add('active')
+    loginGate.value.classList.remove('active')
+    setTimeout(() => { loginAdmin.value.classList.add('active') }, 600)
   } else {
     const msg = gateToasts[Math.floor(Math.random() * gateToasts.length)]
     if (toastRef.value) toastRef.value.addToast(msg, 'error')
@@ -442,6 +442,7 @@ onMounted(() => {
   loginUser.value = document.getElementById('loginUser')
   loginAdmin.value = document.getElementById('loginAdmin')
   loginRegister.value = document.getElementById('loginRegister')
+  loginGate.value = document.getElementById('loginGate')
   registerBtnWrapper.value = document.getElementById('registerBtnWrapper')
 
   // 加载背景树SVG
@@ -477,7 +478,7 @@ onMounted(() => {
     if (gatePassed.value) {
       setTimeout(() => { loginAdmin.value.classList.add('active') }, 600)
     } else {
-      setTimeout(() => { showGate.value = true }, 600)
+      setTimeout(() => { loginGate.value.classList.add('active') }, 600)
     }
   })
 
@@ -492,8 +493,10 @@ onMounted(() => {
 
   // 返回按钮事件
   document.getElementById('backUser').addEventListener('click', () => goBack(loginUser.value, true, false))
+  document.getElementById('backGate').addEventListener('click', () => {
+    goBack(loginGate.value, false, false)
+  })
   document.getElementById('backAdmin').addEventListener('click', () => {
-    showGate.value = false
     goBack(loginAdmin.value, false, false)
   })
   document.getElementById('backRegister').addEventListener('click', () => goBack(loginRegister.value, false, true))
@@ -524,16 +527,25 @@ function resetPanels() {
 function goBack(overlay, isUser, isRegister) {
   overlay.classList.remove('active')
   setTimeout(() => {
-    panelUser.value.style.transform = 'translateX(-100vw) scale(0.8)'
-    panelUser.value.style.opacity = '0'
-    panelAdmin.value.style.transform = 'translateX(100vw) scale(0.8)'
-    panelAdmin.value.style.opacity = '0'
+    // 先清除内联样式，避免和动画冲突
+    panelUser.value.style.removeProperty('transform')
+    panelUser.value.style.removeProperty('opacity')
+    panelAdmin.value.style.removeProperty('transform')
+    panelAdmin.value.style.removeProperty('opacity')
     panelUser.value.style.animation = 'none'
     panelAdmin.value.style.animation = 'none'
     void panelUser.value.offsetWidth
     void panelAdmin.value.offsetWidth
     panelUser.value.style.animation = 'panelSlideInLeft 0.6s cubic-bezier(0.16,1,0.3,1) forwards'
     panelAdmin.value.style.animation = 'panelSlideInRight 0.6s cubic-bezier(0.16,1,0.3,1) forwards'
+    
+    // 动画结束后确保最终状态正确
+    setTimeout(() => {
+      panelUser.value.style.opacity = '1'
+      panelUser.value.style.transform = 'translateX(0) scale(1)'
+      panelAdmin.value.style.opacity = '1'
+      panelAdmin.value.style.transform = 'translateX(0) scale(1)'
+    }, 650)
     
     // 移除标签的动画效果
     if (isUser) {
@@ -1227,22 +1239,18 @@ async function handleRegister() {
 /* ============================================
    管理员考验门样式
    ============================================ */
-.gate-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 60; display: flex; align-items: center; justify-content: center;
-}
-.gate-card {
+#loginGate .gate-card {
   background: rgba(10, 5, 5, 0.95);
   border: 2px solid rgba(255, 60, 60, 0.4);
   border-radius: 20px;
   padding: 40px 36px;
   width: 380px; max-width: 90vw;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(255,60,60,0.1);
-  animation: gateSlideIn 0.4s cubic-bezier(0.16,1,0.3,1);
+  transform: translateY(100vh);
+  transition: transform 0.6s cubic-bezier(0.16,1,0.3,1);
 }
-@keyframes gateSlideIn {
-  from { opacity: 0; transform: scale(0.9) translateY(20px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+#loginGate.active .gate-card {
+  transform: translateY(0);
 }
 .gate-card h2 {
   text-align: center; font-size: 1.5rem; font-weight: 800;
