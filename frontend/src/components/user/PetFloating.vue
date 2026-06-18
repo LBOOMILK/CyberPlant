@@ -1,49 +1,83 @@
 <template>
   <!-- 移动端顶部状态栏（窄屏显示，宽屏隐藏） -->
-  <div v-if="visible" class="pet-topbar" @click="handleClick">
-    <!-- 左侧：宠物信息 -->
-    <div v-if="petStore.hasActivePet" class="topbar-left">
-      <div class="topbar-pet">
-        <span class="topbar-pet-icon">{{ petStore.activePet?.icon || '🐾' }}</span>
-        <span class="topbar-pet-bonus" :class="{ paused: hunger <= 0 }">
-          {{ hunger > 0 ? '+' + petStore.activeBonus + '%' : '暂停' }}
-        </span>
+  <!-- 收起状态：宠物图标+加成+银币 -->
+  <div v-if="visible && !topbarExpanded" class="pet-topbar pet-topbar-collapsed" @click.stop="topbarExpanded = true">
+    <div class="topbar-collapsed-currencies">
+      <div class="topbar-collapsed-coin-item" @click.stop="openExchange">
+        <img src="/silver_icon.png" alt="银币" class="topbar-collapsed-coin" />
+        <span class="topbar-collapsed-value">{{ formatNumber(userStore.currencies.silver_coin) }}</span>
+      </div>
+      <div class="topbar-collapsed-coin-item" @click.stop="openExchange">
+        <img src="/gold_icon.png" alt="金币" class="topbar-collapsed-coin" />
+        <span class="topbar-collapsed-value">{{ formatNumber(userStore.currencies.gold_coin) }}</span>
+      </div>
+      <div class="topbar-collapsed-coin-item" @click.stop="openExchange">
+        <img src="/diamond.png" alt="钻石" class="topbar-collapsed-coin" />
+        <span class="topbar-collapsed-value">{{ formatNumber(userStore.currencies.diamond) }}</span>
       </div>
     </div>
-    <div v-else class="topbar-left">
-      <div class="topbar-pet" @click.stop="goToPetPage">
-        <span class="topbar-pet-icon">🐾</span>
-        <span class="topbar-pet-bonus">激活</span>
-      </div>
+    <div class="topbar-collapsed-right">
+      <span class="topbar-collapsed-icon">{{ petStore.activePet?.icon || '🐾' }}</span>
+      <span v-if="petStore.hasActivePet" class="topbar-collapsed-bonus" :class="{ paused: hunger <= 0 }">
+        {{ hunger > 0 ? '+' + petStore.activeBonus + '%' : '暂停' }}
+      </span>
+      <span v-else class="topbar-collapsed-bonus">激活</span>
     </div>
-
-    <!-- 中间：货币信息 -->
-    <div class="topbar-currencies">
-      <div class="topbar-currency" @click.stop="openExchange">
-        <img src="/silver_icon.png" alt="银币" class="topbar-currency-icon" />
-        <span class="topbar-currency-value">{{ formatNumber(userStore.currencies.silver_coin) }}</span>
-      </div>
-      <div class="topbar-currency" @click.stop="openExchange">
-        <img src="/gold_icon.png" alt="金币" class="topbar-currency-icon" />
-        <span class="topbar-currency-value">{{ formatNumber(userStore.currencies.gold_coin) }}</span>
-      </div>
-      <div class="topbar-currency" @click.stop="openExchange">
-        <img src="/diamond.png" alt="钻石" class="topbar-currency-icon" />
-        <span class="topbar-currency-value">{{ formatNumber(userStore.currencies.diamond) }}</span>
-      </div>
-    </div>
-
-    <!-- 右侧：宠物饥饿条 -->
-    <div v-if="petStore.hasActivePet" class="topbar-right">
-      <div class="topbar-hunger" :title="'饥饿度 ' + hunger + '%'">
-        <div
-          class="topbar-hunger-fill"
-          :class="{ low: hunger < 20 }"
-          :style="{ width: hunger + '%' }"
-        ></div>
-      </div>
-    </div>
+    <span class="topbar-expand-arrow" @click.stop="topbarExpanded = true">⬇</span>
   </div>
+
+  <!-- 展开状态：完整信息 -->
+  <teleport to="body">
+    <transition name="topbar-slide">
+      <div v-if="visible && topbarExpanded" class="pet-topbar pet-topbar-expanded">
+        <!-- 关闭按钮 -->
+        <button class="topbar-close" @click.stop="topbarExpanded = false">⬆</button>
+
+        <!-- 宠物信息区 -->
+        <div class="topbar-pet-row">
+          <div v-if="petStore.hasActivePet" class="topbar-pet-info">
+            <div ref="topbarEffectContainer" class="topbar-effect-container"></div>
+            <span class="topbar-pet-icon-lg">{{ petStore.activePet?.icon || '🐾' }}</span>
+            <div class="topbar-pet-detail">
+              <span class="topbar-pet-name">{{ petStore.activePet?.name || '宠物' }} Lv.{{ petStore.activePet?.level }}</span>
+              <span class="topbar-pet-bonus-text" :class="{ paused: hunger <= 0 }">
+                {{ hunger > 0 ? '加成 +' + petStore.activeBonus + '%' : '已暂停' }}
+              </span>
+            </div>
+          </div>
+          <div v-else class="topbar-pet-info" @click.stop="goToPetPage">
+            <span class="topbar-pet-icon-lg">🐾</span>
+            <span class="topbar-pet-name">点击激活宠物</span>
+          </div>
+          <!-- 饥饿条 -->
+          <div v-if="petStore.hasActivePet" class="topbar-hunger-bar">
+            <div class="topbar-hunger-label">饱食 {{ hunger }}%</div>
+            <div class="topbar-hunger-track">
+              <div class="topbar-hunger-fill" :class="{ low: hunger < 20 }" :style="{ width: hunger + '%' }"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 货币区 -->
+        <div class="topbar-currencies-row">
+          <div class="topbar-currency-chip" @click.stop="openExchange">
+            <img src="/silver_icon.png" alt="银币" class="topbar-chip-icon" />
+            <span class="topbar-chip-value">{{ formatNumber(userStore.currencies.silver_coin) }}</span>
+          </div>
+          <div class="topbar-currency-chip" @click.stop="openExchange">
+            <img src="/gold_icon.png" alt="金币" class="topbar-chip-icon" />
+            <span class="topbar-chip-value">{{ formatNumber(userStore.currencies.gold_coin) }}</span>
+          </div>
+          <div class="topbar-currency-chip" @click.stop="openExchange">
+            <img src="/diamond.png" alt="钻石" class="topbar-chip-icon" />
+            <span class="topbar-chip-value">{{ formatNumber(userStore.currencies.diamond) }}</span>
+          </div>
+        </div>
+      </div>
+    </transition>
+    <!-- 遮罩层 -->
+    <div v-if="visible && topbarExpanded" class="topbar-overlay" @click.stop="topbarExpanded = false"></div>
+  </teleport>
 
   <div
     v-if="visible"
@@ -187,7 +221,10 @@ const position = ref({ x: 20, y: 20 })
 const dragOffset = ref({ x: 0, y: 0 })
 const hunger = ref(100)
 const effectContainer = ref(null)
+const topbarEffectContainer = ref(null)
+const topbarExpanded = ref(false)
 let currentEffectInstance = null
+let topbarEffectInstance = null
 
 // 宠物名到特效名的映射
 const petEffectMap = {
@@ -211,9 +248,7 @@ function loadPetEffect() {
     currentEffectInstance = null
   }
   if (!effectContainer.value || !petStore.activePet) return
-  // 清空容器
   effectContainer.value.innerHTML = ''
-  // 只有装备了特殊槽位饰品才显示特效
   const equippedSpecial = petStore.activePet.equipped_decorations?.special
   if (!equippedSpecial) return
   const effectName = getEffectName(petStore.activePet)
@@ -221,6 +256,26 @@ function loadPetEffect() {
   const effect = loadEffect(effectName)
   if (effect) {
     currentEffectInstance = effect.init(effectContainer.value, {
+      level: petStore.activePet.level,
+      bonus: petStore.activePet.current_bonus
+    })
+  }
+}
+
+function loadTopbarEffect() {
+  if (topbarEffectInstance) {
+    topbarEffectInstance.destroy()
+    topbarEffectInstance = null
+  }
+  if (!topbarEffectContainer.value || !petStore.activePet) return
+  topbarEffectContainer.value.innerHTML = ''
+  const equippedSpecial = petStore.activePet.equipped_decorations?.special
+  if (!equippedSpecial) return
+  const effectName = getEffectName(petStore.activePet)
+  if (!effectName) return
+  const effect = loadEffect(effectName)
+  if (effect) {
+    topbarEffectInstance = effect.init(topbarEffectContainer.value, {
       level: petStore.activePet.level,
       bonus: petStore.activePet.current_bonus
     })
@@ -413,6 +468,10 @@ onUnmounted(() => {
     currentEffectInstance.destroy()
     currentEffectInstance = null
   }
+  if (topbarEffectInstance) {
+    topbarEffectInstance.destroy()
+    topbarEffectInstance = null
+  }
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('touchmove', onDrag)
@@ -435,6 +494,19 @@ watch(() => petStore.activePet?.equipped_decorations, async () => {
   await nextTick()
   loadPetEffect()
 }, { deep: true })
+
+// topbar 展开时加载特效
+watch(topbarExpanded, async (val) => {
+  if (val) {
+    await nextTick()
+    loadTopbarEffect()
+  } else {
+    if (topbarEffectInstance) {
+      topbarEffectInstance.destroy()
+      topbarEffectInstance = null
+    }
+  }
+})
 </script>
 
 <style scoped>
@@ -703,103 +775,218 @@ watch(() => petStore.activePet?.equipped_decorations, async () => {
   top: 0;
   left: 0;
   right: 0;
-  height: 44px;
+  z-index: 999;
+  align-items: center;
+}
+
+/* 收起状态 */
+.pet-topbar-collapsed {
+  display: none;
+  height: 40px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 248, 0.95));
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(76, 175, 80, 0.2);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  z-index: 999;
-  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
   justify-content: space-between;
-  padding: 0 10px;
-  gap: 6px;
+  cursor: pointer;
 }
 
-.topbar-left {
+.topbar-collapsed-right {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
 }
 
-.topbar-pet {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px;
-  background: rgba(76, 175, 80, 0.08);
-  border-radius: 14px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #2e7d32;
-}
-
-.topbar-pet-icon {
+.topbar-collapsed-icon {
   font-size: 1.1rem;
-  line-height: 1;
 }
 
-.topbar-pet-bonus {
+.topbar-collapsed-bonus {
   font-size: 0.7rem;
-  color: #4caf50;
   font-weight: 700;
+  color: #4caf50;
 }
 
-.topbar-pet-bonus.paused {
+.topbar-collapsed-bonus.paused {
   color: #f44336;
 }
 
-.topbar-currencies {
+.topbar-collapsed-currencies {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex: 1;
-  justify-content: center;
   min-width: 0;
 }
 
-.topbar-currency {
+.topbar-collapsed-coin-item {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 3px 5px;
-  background: rgba(255, 255, 255, 0.7);
+  gap: 3px;
+  padding: 2px 6px;
+  background: rgba(76, 175, 80, 0.08);
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  white-space: nowrap;
+  cursor: pointer;
 }
 
-.topbar-currency-icon {
+.topbar-collapsed-coin {
   width: 14px;
   height: 14px;
   object-fit: contain;
 }
 
-.topbar-currency-value {
+.topbar-collapsed-value {
   font-size: 0.7rem;
   font-weight: 700;
   color: #333;
 }
 
-.topbar-right {
+.topbar-expand-arrow {
+  font-size: 0.85rem;
+  color: #484848;
+  font-weight: 700;
+  margin-left: 10px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  background: rgba(76, 175, 80, 0.08);
+  border-radius: 50%;
+  cursor: pointer;
   flex-shrink: 0;
 }
 
-.topbar-hunger {
-  width: 36px;
-  height: 6px;
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
+/* 展开状态 */
+.pet-topbar-expanded {
+  display: none;
+  flex-direction: column;
+  padding: 12px 16px 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 248, 0.98));
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(76, 175, 80, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  gap: 12px;
+}
+
+.topbar-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(76, 175, 80, 0.1);
+  border-radius: 50%;
+  font-size: 1rem;
+  color: #4caf50;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 998;
+}
+
+/* 展开动画 */
+.topbar-slide-enter-active,
+.topbar-slide-leave-active {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.topbar-slide-enter-from,
+.topbar-slide-leave-to {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+/* 宠物信息行 */
+.topbar-pet-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.topbar-pet-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.topbar-effect-container {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.topbar-pet-icon-lg {
+  font-size: 2rem;
+  line-height: 1;
+  position: relative;
+}
+
+.topbar-pet-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.topbar-pet-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.topbar-pet-bonus-text {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4caf50;
+}
+
+.topbar-pet-bonus-text.paused {
+  color: #f44336;
+}
+
+/* 饥饿条 */
+.topbar-hunger-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topbar-hunger-label {
+  font-size: 0.7rem;
+  color: #888;
+}
+
+.topbar-hunger-track {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .topbar-hunger-fill {
   height: 100%;
   background: linear-gradient(90deg, #ff9800, #4caf50);
-  border-radius: 3px;
+  border-radius: 4px;
   transition: width 0.3s ease;
 }
 
@@ -807,11 +994,49 @@ watch(() => petStore.activePet?.equipped_decorations, async () => {
   background: #f44336;
 }
 
+/* 货币行 */
+.topbar-currencies-row {
+  display: flex;
+  gap: 8px;
+}
+
+.topbar-currency-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+  justify-content: center;
+}
+
+.topbar-currency-chip:active {
+  background: rgba(76, 175, 80, 0.12);
+  transform: scale(0.97);
+}
+
+.topbar-chip-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.topbar-chip-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #333;
+}
+
 @media (max-width: 767px) {
   .pet-floating {
     display: none;
   }
-  .pet-topbar {
+  .pet-topbar-collapsed,
+  .pet-topbar-expanded {
     display: flex;
   }
 }
@@ -1186,19 +1411,43 @@ watch(() => petStore.activePet?.equipped_decorations, async () => {
 }
 
 @media (prefers-color-scheme: dark) {
-  .pet-topbar {
+  .pet-topbar-collapsed {
     background: linear-gradient(135deg, rgba(40, 40, 40, 0.95), rgba(50, 50, 50, 0.95));
     border-bottom: 1px solid rgba(76, 175, 80, 0.3);
   }
-  .topbar-currency {
+  .pet-topbar-expanded {
+    background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(40, 40, 40, 0.98));
+    border-bottom: 1px solid rgba(76, 175, 80, 0.3);
+  }
+  .topbar-collapsed-coin-item {
+    background: rgba(76, 175, 80, 0.15);
+  }
+  .topbar-collapsed-value {
+    color: #eee;
+  }
+  .topbar-pet-name {
+    color: #eee;
+  }
+  .topbar-hunger-label {
+    color: #aaa;
+  }
+  .topbar-hunger-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .topbar-currency-chip {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.1);
   }
-  .topbar-currency-value {
+  .topbar-chip-value {
     color: #eee;
   }
-  .topbar-pet {
+  .topbar-close {
     background: rgba(76, 175, 80, 0.15);
+    color: #81c784;
+  }
+  .topbar-expand-arrow {
+    background: rgba(76, 175, 80, 0.15);
+    color: #81c784;
   }
 }
 </style>
