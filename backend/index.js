@@ -709,22 +709,9 @@ async function initDatabase() {
       logger.info('Crop data inserted with v6 values');
     }
 
-    // 更新 crop_id 关联
-    const cropItems = await client.query("SELECT id, name FROM items WHERE item_type = 'crop'");
-    const cropIdByName = {};
-    for (const crop of cropItems.rows) cropIdByName[crop.name] = crop.id;
-
-    const seedItems = await client.query("SELECT id, name FROM items WHERE item_type = 'seed'");
-    for (const seed of seedItems.rows) {
-      const cropName = seedCropMapping[seed.name];
-      if (cropName && cropIdByName[cropName]) {
-        await client.query('UPDATE items SET crop_id = $1 WHERE id = $2', [cropIdByName[cropName], seed.id]);
-      }
-    }
-
-    // 如果 items 表完全为空，插入种子和其他物品
-    const itemsCheck = await client.query('SELECT COUNT(*) as count FROM items');
-    if (parseInt(itemsCheck.rows[0].count) === 0) {
+    // 检查种子是否存在，不存在则插入全部物品
+    const seedCheck = await client.query("SELECT COUNT(*) as count FROM items WHERE item_type = 'seed'");
+    if (parseInt(seedCheck.rows[0].count) === 0) {
       const cropSeeds = [
         ['白菜种子', '🥬', 'C', 'seed', 48, 12, 3, 'silver_coin', true],
         ['土豆种子', '🥔', 'C', 'seed', 36, 14, 4, 'silver_coin', true],
@@ -742,19 +729,14 @@ async function initDatabase() {
         ['金盏花种子', '🌟', 'SSS', 'seed', 2, 0, 1, 'diamond', true],
         ['星尘花种子', '✨', 'SSS', 'seed', 1, 0, 2, 'diamond', true],
       ];
-
       for (const seed of cropSeeds) {
-        const result = await client.query(
-          'INSERT INTO items (name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+        await client.query(
+          'INSERT INTO items (name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
           seed
         );
-        const cropName = seedCropMapping[seed[0]];
-        if (cropName && cropIdByName[cropName]) {
-          await client.query('UPDATE items SET crop_id = $1 WHERE id = $2', [cropIdByName[cropName], result.rows[0].id]);
-        }
       }
 
-      // 肥料 (1.9 stage_skip)
+      // 肥料
       const fertilizers = [
         ['普通肥料', '🧪', 'C', 'fertilizer', 0, 500, 15, 'silver_coin', true, 1],
         ['高级肥料', '⚗️', 'A', 'fertilizer', 0, 50, 25, 'gold_coin', true, 2],
@@ -779,16 +761,28 @@ async function initDatabase() {
           pf
         );
       }
-
-      logger.info('Item seed data inserted for v6');
-    } else {
-      // 更新已有肥料的 stage_skip (1.9)
-      await client.query("UPDATE items SET stage_skip = 1, buy_price = 500, currency_type = 'silver_coin' WHERE name = '普通肥料' AND stage_skip IS NULL");
-      await client.query("UPDATE items SET stage_skip = 2, buy_price = 50, sell_price = 25, currency_type = 'gold_coin' WHERE name = '高级肥料'");
-      // 更新已有作物的 purchasable (1.11)
-      await client.query("UPDATE items SET purchasable = false WHERE item_type = 'crop' AND rarity = 'SSS'");
-      await client.query("UPDATE items SET is_shop = true, purchasable = false WHERE item_type = 'seed' AND rarity = 'SSS'");
+      logger.info('All item data inserted (seeds + fertilizers + pet_food)');
     }
+
+    // 更新 crop_id 关联
+    const cropItems = await client.query("SELECT id, name FROM items WHERE item_type = 'crop'");
+    const cropIdByName = {};
+    for (const crop of cropItems.rows) cropIdByName[crop.name] = crop.id;
+
+    const seedItems = await client.query("SELECT id, name FROM items WHERE item_type = 'seed'");
+    for (const seed of seedItems.rows) {
+      const cropName = seedCropMapping[seed.name];
+      if (cropName && cropIdByName[cropName]) {
+        await client.query('UPDATE items SET crop_id = $1 WHERE id = $2', [cropIdByName[cropName], seed.id]);
+      }
+    }
+
+    // 更新已有肥料的 stage_skip (1.9)
+    await client.query("UPDATE items SET stage_skip = 1, buy_price = 500, currency_type = 'silver_coin' WHERE name = '普通肥料' AND stage_skip IS NULL");
+    await client.query("UPDATE items SET stage_skip = 2, buy_price = 50, sell_price = 25, currency_type = 'gold_coin' WHERE name = '高级肥料'");
+    // 更新已有作物的 purchasable (1.11)
+    await client.query("UPDATE items SET purchasable = false WHERE item_type = 'crop' AND rarity = 'SSS'");
+    await client.query("UPDATE items SET is_shop = true, purchasable = false WHERE item_type = 'seed' AND rarity = 'SSS'");
 
     // 更新宠物粮价格（v6新数值）
     await client.query("UPDATE items SET buy_price = 1200, currency_type = 'gold_coin' WHERE name = '普通粮' AND item_type = 'pet_food'");
