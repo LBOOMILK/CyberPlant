@@ -279,7 +279,7 @@ const PET_FOOD_EFFECTS = {
 // 初始化数据库
 async function initDatabase() {
   try {
-    await client.connect();
+    try { await client.connect(); } catch(e) { /* already connected */ }
     logger.info('Connected to PostgreSQL database');
 
     // ========== 创建 users 表（如果不存在） ==========
@@ -579,8 +579,8 @@ async function initDatabase() {
       for (const p of petTemplates) {
         await client.query(
           `INSERT INTO pets (name, icon, pixel_art, rarity, base_bonus, price_type, price_amount, is_test, bonus_curve, growth_curve, effect_file)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          p
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11)`,
+          [p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], JSON.stringify(p[8]), JSON.stringify(p[9]), p[10]]
         );
       }
       // LBOOKTest 不可购买
