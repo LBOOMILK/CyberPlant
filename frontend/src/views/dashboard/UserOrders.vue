@@ -7,10 +7,11 @@
       <p>加载中...</p>
     </div>
 
+    <div v-else-if="computedOrders.length === 0" class="empty-msg">
+      <p>暂无订单记录</p>
+    </div>
+
     <div v-else class="orders-list">
-      <div v-if="computedOrders.length === 0" class="empty-msg">
-        <p>暂无订单记录</p>
-      </div>
       <div v-for="(order, index) in computedOrders" :key="order.id || index" class="order-item">
         <div class="order-header">
           <div class="order-type" :class="orderTypeClass(order.type)">
@@ -29,12 +30,20 @@
           </span>
         </div>
       </div>
-      <div v-if="loadingMore" class="loading-more">
-        <div class="loading-spinner small"></div>
-        <p>加载更多...</p>
-      </div>
-      <div v-if="!hasMore && computedOrders.length > 0" class="end-msg">
-        <p>没有更多订单了</p>
+
+      <!-- 分页 -->
+      <div class="pagination">
+        <button class="page-btn" :disabled="currentPage <= 1" @click="goPage(currentPage - 1)">‹ 上一页</button>
+        <div class="page-numbers">
+          <button
+            v-for="p in visiblePages"
+            :key="p"
+            :class="['page-num', { active: p === currentPage, ellipsis: p === '...' }]"
+            :disabled="p === '...'"
+            @click="p !== '...' && goPage(p)"
+          >{{ p }}</button>
+        </div>
+        <button class="page-btn" :disabled="currentPage >= totalPages" @click="goPage(currentPage + 1)">下一页 ›</button>
       </div>
     </div>
   </div>
@@ -47,15 +56,38 @@ import { useUserStore } from '@/stores/userStore'
 const userStore = useUserStore()
 const orders = ref([])
 const loading = ref(true)
-const loadingMore = ref(false)
-const hasMore = ref(true)
-const page = ref(1)
-const limit = ref(10)
+const currentPage = ref(1)
+const totalPages = ref(1)
+
+// 响应式 limit：PC 20条，移动端 10条
+const limit = ref(window.innerWidth >= 768 ? 20 : 10)
+
+function updateLimit() {
+  const newLimit = window.innerWidth >= 768 ? 20 : 10
+  if (newLimit !== limit.value) {
+    limit.value = newLimit
+    // 重新加载当前页
+    loadOrders(currentPage.value)
+  }
+}
 
 // 计算属性，确保订单数据是数组
 const computedOrders = computed(() => {
-  console.log('Computed orders:', orders.value)
   return Array.isArray(orders.value) ? orders.value : []
+})
+
+// 分页可见页码
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const cur = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = []
+  pages.push(1)
+  if (cur > 3) pages.push('...')
+  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i)
+  if (cur < total - 2) pages.push('...')
+  pages.push(total)
+  return pages
 })
 
 // 货币配置
@@ -93,12 +125,10 @@ const orderTypeMap = {
   HARVEST: '收获作物'
 }
 
-// 获取订单类型文本
 function orderTypeText(type) {
   return orderTypeMap[type] || type
 }
 
-// 获取订单类型样式类
 function orderTypeClass(type) {
   if (type.includes('SELL') || type === 'HARVEST') return 'type-sell'
   if (type.includes('PURCHASE') || type.includes('UNLOCK') || type.includes('UPGRADE')) return 'type-purchase'
@@ -107,7 +137,6 @@ function orderTypeClass(type) {
   return ''
 }
 
-// 格式化时间
 function formatTime(timeString) {
   if (!timeString) return ''
   const date = new Date(timeString)
@@ -121,7 +150,6 @@ function formatTime(timeString) {
   })
 }
 
-// 格式化金额
 function formatAmount(amount) {
   const sign = amount > 0 ? '+' : ''
   return `${sign}${amount}`
@@ -132,94 +160,47 @@ function formatCurrencyType(type) {
   return c.name
 }
 
-// 获取金额样式类
 function amountClass(amount) {
   return amount > 0 ? 'amount-positive' : 'amount-negative'
 }
 
 // 加载订单
-async function loadOrders(isLoadMore = false) {
-  if (isLoadMore && (loadingMore.value || !hasMore.value)) return
-
+async function loadOrders(page = 1) {
+  loading.value = true
   try {
-    if (isLoadMore) {
-      loadingMore.value = true
-    } else {
-      loading.value = true
-    }
-
     const token = localStorage.getItem('auth_token')
-    console.log('Token:', token)
-    if (!token) {
-      throw new Error('未登录')
-    }
+    if (!token) throw new Error('未登录')
 
-    const url = `${import.meta.env.VITE_API_URL}/orders?page=${isLoadMore ? page.value + 1 : 1}&limit=${limit.value}`
-    console.log('Fetching orders from:', url)
+    const url = `${import.meta.env.VITE_API_URL}/orders?page=${page}&limit=${limit.value}`
     const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     })
 
-    console.log('Response status:', response.status)
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Error response:', errorText)
-      throw new Error('获取订单失败')
-    }
+    if (!response.ok) throw new Error('获取订单失败')
 
     const data = await response.json()
-    console.log('Order data:', data)
-    console.log('Order data type:', typeof data)
-    console.log('Orders array:', data.orders)
-    console.log('Orders array length:', data.orders.length)
-    
-    if (isLoadMore) {
-      orders.value = [...orders.value, ...data.orders]
-      page.value++
-    } else {
-      orders.value = data.orders
-      page.value = 1
-    }
-
-    hasMore.value = data.pagination.page < data.pagination.totalPages
-    console.log('Orders:', orders.value)
-    console.log('Orders length:', orders.value.length)
+    orders.value = data.orders || []
+    totalPages.value = data.pagination?.totalPages || 1
+    currentPage.value = data.pagination?.page || page
   } catch (error) {
     console.error('Failed to load orders:', error)
   } finally {
     loading.value = false
-    loadingMore.value = false
   }
 }
 
-// 滚动事件处理
-function handleScroll() {
-  const scrollTop = document.documentElement.scrollTop || document.body.scrollTop
-  const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight
-  const clientHeight = document.documentElement.clientHeight
-
-  if (scrollTop + clientHeight >= scrollHeight - 100) {
-    loadOrders(true)
-  }
+function goPage(p) {
+  if (p < 1 || p > totalPages.value) return
+  loadOrders(p)
 }
 
-// 生命周期
-onMounted(async () => {
-  try {
-    await userStore.loadFromLocal()
-    await loadOrders()
-    window.addEventListener('scroll', handleScroll)
-  } catch (error) {
-    console.error('Failed to load user data:', error)
-    // 即使loadFromLocal失败，也要尝试加载订单
-    await loadOrders()
-  }
+onMounted(() => {
+  loadOrders()
+  window.addEventListener('resize', updateLimit)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('resize', updateLimit)
 })
 </script>
 
@@ -252,12 +233,6 @@ onUnmounted(() => {
   border-top-color: #2c5a2a;
   animation: spin 1s ease-in-out infinite;
   margin-bottom: 16px;
-}
-
-.loading-spinner.small {
-  width: 20px;
-  height: 20px;
-  border-width: 2px;
 }
 
 @keyframes spin {
@@ -362,24 +337,70 @@ onUnmounted(() => {
   color: #d32f2f;
 }
 
-.loading-more {
+/* 分页 */
+.pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px 0;
-  color: #666;
+  gap: 8px;
+  padding: 24px 0 8px;
 }
 
-.loading-more .loading-spinner {
-  margin-right: 12px;
-  margin-bottom: 0;
+.page-btn {
+  padding: 8px 16px;
+  border: 1px solid rgba(44, 90, 42, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #2c5a2a;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.end-msg {
-  text-align: center;
-  padding: 20px 0;
+.page-btn:hover:not(:disabled) {
+  background: rgba(76, 175, 80, 0.15);
+  border-color: #4caf50;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 4px;
+}
+
+.page-num {
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
   color: #666;
-  font-size: 0.875rem;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-num:hover:not(.active):not(.ellipsis) {
+  background: rgba(76, 175, 80, 0.1);
+  color: #2c5a2a;
+}
+
+.page-num.active {
+  background: #4caf50;
+  color: #fff;
+  font-weight: 600;
+}
+
+.page-num.ellipsis {
+  cursor: default;
+  color: #999;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -400,9 +421,7 @@ onUnmounted(() => {
     color: #aaa;
   }
 
-  .empty-msg,
-  .loading-more,
-  .end-msg {
+  .empty-msg {
     color: #aaa;
   }
 
@@ -436,6 +455,31 @@ onUnmounted(() => {
 
   .order-currency {
     color: #aaa;
+  }
+
+  .page-btn {
+    background: rgba(30, 30, 25, 0.8);
+    border-color: rgba(139, 195, 74, 0.3);
+    color: #8bc34a;
+  }
+
+  .page-btn:hover:not(:disabled) {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: #4caf50;
+  }
+
+  .page-num {
+    color: #aaa;
+  }
+
+  .page-num:hover:not(.active):not(.ellipsis) {
+    background: rgba(76, 175, 80, 0.15);
+    color: #8bc34a;
+  }
+
+  .page-num.active {
+    background: #4caf50;
+    color: #000;
   }
 }
 </style>
