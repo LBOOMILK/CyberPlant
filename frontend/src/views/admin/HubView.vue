@@ -272,6 +272,12 @@
                 </tr>
               </tbody>
             </table>
+            <!-- 分页 -->
+            <div class="hub-pagination">
+              <button class="page-btn" :disabled="orderPage <= 1" @click="goOrderPage(orderPage - 1)">‹ 上一页</button>
+              <span class="page-info">{{ orderPage }} / {{ orderTotalPages }}</span>
+              <button class="page-btn" :disabled="orderPage >= orderTotalPages" @click="goOrderPage(orderPage + 1)">下一页 ›</button>
+            </div>
           </div>
 
           <!-- 宠物管理 -->
@@ -364,6 +370,8 @@ const loadingEffects = ref(false)
 const hubItems = ref([])
 const hubUsers = ref([])
 const hubOrders = ref([])
+const orderPage = ref(1)
+const orderTotalPages = ref(1)
 const hubAdmins = ref([])
 const hubEffects = ref([])
 
@@ -590,10 +598,8 @@ async function openModule(id) {
         hubUsers.value = all.filter(u => u.role !== 'admin')
       }
     }
-    if (id === 'orders' && hubOrders.value.length === 0) {
-      const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders?page=1&limit=20`, { headers: { Authorization: `Bearer ${token}` } })
-      const data = await r.json()
-      hubOrders.value = data.orders || []
+    if (id === 'orders') {
+      await loadOrders(1)
     }
     if (id === 'effects' && hubEffects.value.length === 0) {
       await loadEffects()
@@ -721,6 +727,22 @@ async function deleteAdmin(id) {
   const token = localStorage.getItem('auth_token')
   await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
   hubAdmins.value = hubAdmins.value.filter(a => a.id !== id)
+}
+
+// ========== 订单分页 ==========
+async function loadOrders(page = 1) {
+  const token = localStorage.getItem('auth_token')
+  const limit = window.innerWidth >= 768 ? 20 : 10
+  const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders?page=${page}&limit=${limit}`, { headers: { Authorization: `Bearer ${token}` } })
+  const data = await r.json()
+  hubOrders.value = data.orders || []
+  orderTotalPages.value = data.pagination?.totalPages || 1
+  orderPage.value = data.pagination?.page || page
+}
+
+function goOrderPage(p) {
+  if (p < 1 || p > orderTotalPages.value) return
+  loadOrders(p)
 }
 
 // ========== 订单删除 ==========
@@ -1153,4 +1175,36 @@ async function deleteOrder(id) {
   background: rgba(0,255,136,0.15); border-color: #00ff88; color: #00ff88;
 }
 .modal-actions button:hover { opacity: 0.8; }
+
+/* 订单分页 */
+.hub-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--border-color, #334155);
+}
+.page-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 6px;
+  background: var(--bg-primary, #0f172a);
+  color: var(--text-primary, #f1f5f9);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.page-btn:hover:not(:disabled) {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.page-info {
+  font-size: 13px;
+  color: var(--text-muted, #8b949e);
+}
 </style>
