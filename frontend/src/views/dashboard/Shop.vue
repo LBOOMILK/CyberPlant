@@ -102,12 +102,7 @@ function addToast(message, type = 'info') {
 
 // 过滤掉测试宠物（不可购买且标记为测试的宠物不在商店显示）
 const visibleShopItems = computed(() => {
-  return shopStore.shopItems.filter(item => {
-    if (item.item_type === 'pet' && item.is_test && item.purchasable === false) {
-      return false
-    }
-    return true
-  })
+  return shopStore.shopItems
 })
 
 // 获取背包中某物品的拥有数量（按 item_type 精确匹配）
