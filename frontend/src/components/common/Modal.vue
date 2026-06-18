@@ -237,6 +237,7 @@ function handleCancel() {
   margin: 0 0 12px 0;
   line-height: 1.6;
   text-align: center;
+  white-space: pre-line;
 }
 
 .modal-footer {
