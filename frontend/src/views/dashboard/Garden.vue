@@ -542,13 +542,6 @@ h1 {
   margin-bottom: 16px;
 }
 
-@media (max-width: 767px) {
-  .plots-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-}
-
 @media (min-width: 900px) {
   .plots-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -1022,6 +1015,95 @@ footer {
 
 .handbook-btn:active {
   transform: scale(0.95);
+}
+
+/* 移动端响应式 */
+@media (max-width: 767px) {
+  .plots-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .plot-card {
+    padding: 8px;
+    min-height: 110px;
+    min-width: 100px;
+    aspect-ratio: auto;
+  }
+
+  .locked-body .lock-icon {
+    font-size: 1.5rem;
+    margin-bottom: 3px;
+  }
+
+  .unlock-cost {
+    font-size: 0.65rem;
+    margin-bottom: 3px;
+  }
+
+  .price-icon {
+    width: 11px;
+    height: 11px;
+  }
+
+  .unlock-btn {
+    padding: 5px 10px;
+    font-size: 0.65rem;
+  }
+
+  .empty-body .empty-icon {
+    font-size: 1.6rem;
+    margin-bottom: 3px;
+  }
+
+  .empty-body .empty-text {
+    font-size: 0.7rem;
+  }
+
+  .plant-body .plant-icon {
+    font-size: 1.5rem;
+    margin-bottom: 3px;
+  }
+
+  .plant-body .plant-name {
+    font-size: 0.7rem;
+    margin-bottom: 3px;
+  }
+
+  .dead-indicator {
+    font-size: 0.65rem;
+    margin-bottom: 2px;
+  }
+
+  .progress-bar {
+    height: 5px;
+    margin-bottom: 2px;
+  }
+
+  .time-info {
+    font-size: 0.55rem;
+    gap: 1px;
+  }
+
+  .plot-tags {
+    bottom: 3px;
+    right: 3px;
+    gap: 2px;
+  }
+
+  .level-tag,
+  .multiplier-tag {
+    font-size: 0.55rem;
+    padding: 1px 3px;
+  }
+
+  .plot-header {
+    margin-bottom: 4px;
+  }
+
+  .plot-index {
+    font-size: 0.65rem;
+  }
 }
 
 /* 深色模式 */
