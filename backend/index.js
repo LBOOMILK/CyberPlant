@@ -537,12 +537,6 @@ async function initDatabase() {
     for (const [name, yld, buy, sell] of cropYieldFixes) {
       await client.query('UPDATE items SET base_yield = $1, buy_price = $2, sell_price = $3 WHERE name = $4 AND item_type = $5', [yld, buy, sell, name, 'crop']);
     }
-    // 补生菜（如果不存在）
-    const lettuceCheck = await client.query("SELECT id FROM items WHERE name = '生菜种子' AND item_type = 'seed'");
-    if (lettuceCheck.rowCount === 0) {
-      const lr = await client.query("INSERT INTO items (name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop, water_cd) VALUES ('生菜', '🥬', 'C', 'crop', 1, 50, 5, 'silver_coin', true, 5) RETURNING id");
-      await client.query("INSERT INTO items (name, icon, rarity, item_type, base_yield, buy_price, sell_price, currency_type, is_shop, water_cd, crop_id) VALUES ('生菜种子', '🥬', 'C', 'seed', 1, 50, 5, 'silver_coin', true, 5, $1)", [lr.rows[0].id]);
-    }
     // 所有种子浇水CD统一为5秒
     await client.query("UPDATE items SET water_cd = 5 WHERE item_type = 'seed'");
     logger.info('Seed/crop data synced with v6.0 design doc');
@@ -674,6 +668,7 @@ async function initDatabase() {
     const hasCrops = parseInt(cropCheck.rows[0].count) > 0;
 
     const crops = [
+      ['生菜', '🥬', 'C', 'crop', 1, 50, 5, 'silver_coin', true],
       ['白菜', '🥬', 'C', 'crop', 48, 12, 3, 'silver_coin', true],
       ['土豆', '🥔', 'C', 'crop', 36, 14, 4, 'silver_coin', true],
       ['黄瓜', '🥒', 'C', 'crop', 24, 16, 6, 'silver_coin', true],
@@ -692,7 +687,7 @@ async function initDatabase() {
     ];
 
     const seedCropMapping = {
-      '土豆种子': '土豆', '胡萝卜种子': '胡萝卜', '白菜种子': '白菜', '黄瓜种子': '黄瓜',
+      '生菜种子': '生菜', '土豆种子': '土豆', '胡萝卜种子': '胡萝卜', '白菜种子': '白菜', '黄瓜种子': '黄瓜',
       '番茄种子': '番茄', '蓝莓种子': '蓝莓', '玉米种子': '玉米', '南瓜种子': '南瓜',
       '草莓种子': '草莓', '西瓜种子': '西瓜', '葡萄种子': '葡萄',
       '玫瑰种子': '玫瑰', '兰花种子': '兰花',
@@ -713,6 +708,7 @@ async function initDatabase() {
     const seedCheck = await client.query("SELECT COUNT(*) as count FROM items WHERE item_type = 'seed'");
     if (parseInt(seedCheck.rows[0].count) === 0) {
       const cropSeeds = [
+        ['生菜种子', '🥬', 'C', 'seed', 1, 50, 5, 'silver_coin', true],
         ['白菜种子', '🥬', 'C', 'seed', 48, 12, 3, 'silver_coin', true],
         ['土豆种子', '🥔', 'C', 'seed', 36, 14, 4, 'silver_coin', true],
         ['黄瓜种子', '🥒', 'C', 'seed', 24, 16, 6, 'silver_coin', true],
