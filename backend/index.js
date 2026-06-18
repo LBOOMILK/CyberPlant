@@ -2877,46 +2877,15 @@ app.post('/api/admin/reset', authenticateToken, requireAdmin, async (req, res) =
     // DROP 所有表
     await client.query('DROP TABLE IF EXISTS orders, gifts, friendships, user_decorations, user_pets, user_items, garden_plots, currencies, users, items, pets, decorations, global_config CASCADE');
 
-    // 重新初始化（建表 + 插入默认数据）
+    // 重新初始化（建表 + 插入默认数据，含 admin + test1 + test2 账号）
     await initDatabase();
 
-    // 创建两个演示账号
-    const demoAccounts = [
-      { name: '演示用户A', email: 'demo_a@test.com', password: '123456' },
-      { name: '演示用户B', email: 'demo_b@test.com', password: '123456' }
-    ];
-
-    for (const demo of demoAccounts) {
-      const hashedPw = await bcrypt.hash(demo.password, 10);
-      const nextId = await generateUserId('user');
-
-      await client.query(
-        'INSERT INTO users (id, name, email, password, role, is_new_user) VALUES ($1, $2, $3, $4, $5, $6)',
-        [nextId, demo.name, demo.email, hashedPw, 'user', true]
-      );
-
-      await client.query(
-        'INSERT INTO currencies (user_id, silver_coin, gold_coin, diamond) VALUES ($1, 10000, 10000, 10000)',
-        [nextId]
-      );
-
-      for (let i = 1; i <= 6; i++) {
-        await client.query(
-          'INSERT INTO garden_plots (user_id, plot_index, is_unlocked) VALUES ($1, $2, $3)',
-          [nextId, i, i === 1]
-        );
-      }
-
-      const cSeeds = await client.query("SELECT id FROM items WHERE item_type = 'seed' AND rarity = 'C'");
-      for (const seed of cSeeds.rows) {
-        await client.query('INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1, $2, 2)', [nextId, seed.id]);
-      }
-
-      logger.info('Demo account created', { email: demo.email, id: nextId });
-    }
-
     logger.info('Full database reset completed');
-    res.json({ message: '重置成功', accounts: demoAccounts.map(a => ({ name: a.name, email: a.email, password: a.password })) });
+    res.json({ message: '重置成功', accounts: [
+      { name: 'Admin', email: 'admin@cyberplant.com', password: 'admin123' },
+      { name: 'TestUser1', email: 'test1@cyberplant.com', password: 'test123' },
+      { name: 'TestUser2', email: 'test2@cyberplant.com', password: 'test123' }
+    ] });
   } catch (error) {
     logger.error('Reset error:', { error: error.message });
     res.status(500).json({ error: '重置失败: ' + error.message });
