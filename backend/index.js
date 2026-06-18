@@ -584,7 +584,7 @@ async function initDatabase() {
         );
       }
       // LBOOKTest 不可购买
-      await client.query("UPDATE pets SET is_shop = false, purchasable = false WHERE name = 'LBOOKTest'");
+      await client.query("UPDATE pets SET is_shop = true, purchasable = false WHERE name = 'LBOOKTest'");
       logger.info('Pet template data inserted with v6 curves');
     } else {
       // 已有数据：更新 bonus_curve, growth_curve, is_test, effect_file (1.3)
@@ -787,7 +787,7 @@ async function initDatabase() {
       await client.query("UPDATE items SET stage_skip = 2, buy_price = 50, sell_price = 25, currency_type = 'gold_coin' WHERE name = '高级肥料'");
       // 更新已有作物的 purchasable (1.11)
       await client.query("UPDATE items SET purchasable = false WHERE item_type = 'crop' AND rarity = 'SSS'");
-      await client.query("UPDATE items SET purchasable = false WHERE item_type = 'seed' AND rarity = 'SSS'");
+      await client.query("UPDATE items SET is_shop = true, purchasable = false WHERE item_type = 'seed' AND rarity = 'SSS'");
     }
 
     // 更新宠物粮价格（v6新数值）
