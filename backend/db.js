@@ -83,9 +83,10 @@ async function generateUserId(role) {
 
 // 饱食度懒计算
 async function calcCurrentHunger(pet) {
+  const maxHunger = await getConfig('hunger_max') || 100;
+  if (pet.is_test) return { currentHunger: maxHunger, growthGained: 0, maxHunger };
   if (!pet.last_fed_at) return { currentHunger: pet.hunger || 0, growthGained: 0 };
   const interval = await getConfig('hunger_decay_interval') || 5;
-  const maxHunger = await getConfig('hunger_max') || 100;
   const elapsed = Date.now() - new Date(pet.last_fed_at).getTime();
   const decay = Math.floor(elapsed / (interval * 1000));
   const currentHunger = Math.max(0, (pet.hunger || 0) - decay);
@@ -152,18 +153,16 @@ async function formatPetData(pet, petTemplate) {
     level_bonus: Math.round(bonus * 100) / 100,
     current_bonus: Math.round(totalBonus * 100) / 100,
     equipped_decorations: pet.equipped_decorations || {}, last_fed_at: pet.last_fed_at,
-    feeding_end_at: pet.feeding_end_at,
-    is_digesting: pet.feeding_end_at ? new Date(pet.feeding_end_at).getTime() > Date.now() : false,
     is_test: petTemplate.is_test || false, effect_file: petTemplate.effect_file || null,
     created_at: pet.created_at
   };
 }
 
 const PET_FOOD_EFFECTS = {
-  '普通粮': { growth: 30, hunger: 20, digest_hours: 4 },
-  '精良粮': { growth: 60, hunger: 40, digest_hours: 8 },
-  '高级粮': { growth: 100, hunger: 60, digest_hours: 12 },
-  '稀有粮': { growth: 200, hunger: 100, digest_hours: 24 }
+  '普通粮': { growth: 30, hunger: 20 },
+  '精良粮': { growth: 60, hunger: 40 },
+  '高级粮': { growth: 100, hunger: 60 },
+  '稀有粮': { growth: 200, hunger: 100 }
 };
 
 module.exports = {

@@ -78,7 +78,6 @@ const GLOBAL_CONFIG_DEFAULTS = [
   ['plot_upgrade_4_5_type', 'diamond', 'Lv4→5升级货币类型'],
   ['hunger_max', 100, '饱食度上限'],
   ['hunger_decay_interval', 5, '饱食度衰减间隔（秒）'],
-  ['pet_deco_bonus_cap', 120, '宠物+饰品加成上限%'],
   ['sss_drop_base', 0.33, 'SSS 基础掉落率'],
   ['sss_drop_cap', 1.0, 'SSS 掉落率上限'],
   ['yield_accumulator_threshold', 10, '累加值触发阈值'],
@@ -157,9 +156,10 @@ async function getUserItemCount(userId, itemId) {
 
 // ========== 饱食度懒计算 (1.5) ==========
 async function calcCurrentHunger(pet) {
+  const maxHunger = await getConfig('hunger_max') || 100;
+  if (pet.is_test) return { currentHunger: maxHunger, growthGained: 0, maxHunger };
   if (!pet.last_fed_at) return { currentHunger: pet.hunger || 0, growthGained: 0 };
   const interval = await getConfig('hunger_decay_interval') || 5;
-  const maxHunger = await getConfig('hunger_max') || 100;
   const elapsed = Date.now() - new Date(pet.last_fed_at).getTime();
   const decay = Math.floor(elapsed / (interval * 1000));
   const currentHunger = Math.max(0, (pet.hunger || 0) - decay);
@@ -171,8 +171,6 @@ async function calcCurrentHunger(pet) {
 async function calcPetBonusFromCurve(pet, petTemplate) {
   const currentHunger = (await calcCurrentHunger(pet)).currentHunger;
   if (currentHunger <= 0) return 0;
-  // LBOOKTest 直接返回 1000%
-  if (petTemplate.is_test) return 1000;
   const bonusCurve = petTemplate.bonus_curve;
   if (bonusCurve && Array.isArray(bonusCurve)) {
     const idx = Math.min(pet.level - 1, bonusCurve.length - 1);
@@ -209,11 +207,6 @@ async function getPetBonus(userId) {
       }
     }
 
-    // 上限检查（测试宠物跳过上限）
-    if (!pet.is_test) {
-      const cap = await getConfig('pet_deco_bonus_cap') || 120;
-      bonus = Math.min(bonus, cap);
-    }
 
     return Math.round(bonus * 100) / 100;
   } catch (error) {
@@ -241,8 +234,7 @@ async function formatPetData(pet, petTemplate) {
     }
   }
 
-  const cap = await getConfig('pet_deco_bonus_cap') || 120;
-  const totalBonus = pet.is_test ? (bonus + decorationBonus) : Math.min(bonus + decorationBonus, cap);
+  const totalBonus = bonus + decorationBonus;
 
   return {
     user_pet_id: pet.id,
@@ -670,7 +662,6 @@ async function initDatabase() {
     const hasCrops = parseInt(cropCheck.rows[0].count) > 0;
 
     const crops = [
-      ['生菜', '🥬', 'C', 'crop', 1, 50, 5, 'silver_coin', true],
       ['白菜', '🥬', 'C', 'crop', 48, 12, 3, 'silver_coin', true],
       ['土豆', '🥔', 'C', 'crop', 36, 14, 4, 'silver_coin', true],
       ['黄瓜', '🥒', 'C', 'crop', 24, 16, 6, 'silver_coin', true],
@@ -689,7 +680,7 @@ async function initDatabase() {
     ];
 
     const seedCropMapping = {
-      '生菜种子': '生菜', '土豆种子': '土豆', '胡萝卜种子': '胡萝卜', '白菜种子': '白菜', '黄瓜种子': '黄瓜',
+      '土豆种子': '土豆', '胡萝卜种子': '胡萝卜', '白菜种子': '白菜', '黄瓜种子': '黄瓜',
       '番茄种子': '番茄', '蓝莓种子': '蓝莓', '玉米种子': '玉米', '南瓜种子': '南瓜',
       '草莓种子': '草莓', '西瓜种子': '西瓜', '葡萄种子': '葡萄',
       '玫瑰种子': '玫瑰', '兰花种子': '兰花',
@@ -710,7 +701,6 @@ async function initDatabase() {
     const seedCheck = await client.query("SELECT COUNT(*) as count FROM items WHERE item_type = 'seed'");
     if (parseInt(seedCheck.rows[0].count) === 0) {
       const cropSeeds = [
-        ['生菜种子', '🥬', 'C', 'seed', 1, 50, 5, 'silver_coin', true],
         ['白菜种子', '🥬', 'C', 'seed', 48, 12, 3, 'silver_coin', true],
         ['土豆种子', '🥔', 'C', 'seed', 36, 14, 4, 'silver_coin', true],
         ['黄瓜种子', '🥒', 'C', 'seed', 24, 16, 6, 'silver_coin', true],
@@ -779,8 +769,6 @@ async function initDatabase() {
     await client.query("UPDATE items SET stage_skip = 1, buy_price = 500, currency_type = 'silver_coin' WHERE name = '普通肥料' AND stage_skip IS NULL");
     await client.query("UPDATE items SET stage_skip = 2, buy_price = 50, sell_price = 25, currency_type = 'gold_coin' WHERE name = '高级肥料'");
     // 更新已有作物的 purchasable (1.11)
-    await client.query("UPDATE items SET purchasable = false WHERE item_type = 'crop' AND rarity = 'SSS'");
-    await client.query("UPDATE items SET is_shop = true, purchasable = false WHERE item_type = 'seed' AND rarity = 'SSS'");
 
     // 更新宠物粮价格（v6新数值）
     await client.query("UPDATE items SET buy_price = 1200, currency_type = 'gold_coin' WHERE name = '普通粮' AND item_type = 'pet_food'");
@@ -1306,7 +1294,7 @@ app.get('/api/user/backpack', authenticateToken, async (req, res) => {
       [userId]
     );
     for (const row of decorationsResult.rows) {
-      grouped.decoration.push({ item_id: row.decoration_id, quantity: row.quantity, name: row.name, icon: row.icon, rarity: row.quality, item_type: 'decoration', bonus_type: row.slot_type, bonus_value: Number(row.bonus) });
+      grouped.decoration.push({ item_id: row.decoration_id, quantity: row.quantity, name: row.name, icon: row.icon, rarity: row.quality, item_type: 'decoration', slot_type: row.slot_type, bonus: Number(row.bonus) });
     }
     res.json({ groups: grouped });
   } catch (error) {
@@ -1358,7 +1346,7 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
 
     const itemType = SHOP_TAB_MAP[tab];
     const result = await client.query(
-      'SELECT id, name, icon, rarity, item_type, buy_price, sell_price, currency_type, base_yield, water_cd, purchasable, stage_skip FROM items WHERE item_type = $1 AND is_shop = true ORDER BY rarity, id',
+      'SELECT id, name, icon, rarity, item_type, buy_price, sell_price, currency_type, base_yield, water_cd, purchasable, is_shop, stage_skip FROM items WHERE item_type = $1 AND (is_shop = true OR purchasable = false) ORDER BY rarity, id',
       [itemType]
     );
     res.json(result.rows.map(r => ({
@@ -1366,7 +1354,7 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
       buy_price: r.buy_price, sell_price: r.sell_price, currency_type: r.currency_type,
       base_yield: r.base_yield, water_cd: r.water_cd || 5, grow_time: (r.water_cd || 5) * 5, stage_skip: r.stage_skip || 1,
       purchasable: r.purchasable !== false,
-      sold_out: r.purchasable === false ? '售罄' : false
+      sold_out: (r.purchasable === false || r.is_shop === false) ? '售罄' : false
     })));
   } catch (error) {
     logger.error('Get shop items error:', { error: error.message });
@@ -1437,7 +1425,7 @@ app.post('/api/user/pets/purchase', authenticateToken, async (req, res) => {
     try {
       await deductCurrency(userId, pet.price_type, Number(pet.price_amount));
       const newUserPet = await client.query(
-        `INSERT INTO user_pets (user_id, pet_id, level, growth_points, hunger, is_active) VALUES ($1, $2, 1, 0, 20, false) RETURNING *`,
+        `INSERT INTO user_pets (user_id, pet_id, level, growth_points, hunger, is_active, last_fed_at) VALUES ($1, $2, 1, 0, 20, false, CURRENT_TIMESTAMP) RETURNING *`,
         [userId, pet_id]
       );
       await createOrder(userId, 'PET_PURCHASE', pet.price_type, -Number(pet.price_amount));
@@ -1740,13 +1728,12 @@ app.post('/api/user/plots/:plotIndex/water', authenticateToken, async (req, res)
     const userId = req.user.id;
     const plotIndex = parseInt(req.params.plotIndex);
     if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
-    const plotResult = await client.query('SELECT gp.*, i.water_cd, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
+    const plotResult = await client.query('SELECT gp.*, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
     if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
     const plot = plotResult.rows[0];
     if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
     if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
     if (plot.is_dead) return res.status(400).json({ error: '植物已死亡，请铲除后重新种植' });
-    const waterCd = Math.min(240, plot.water_cd || 5);
     const dryTime = 180;
     const plantedAt = new Date(plot.planted_at).getTime();
     const now = Date.now();
@@ -1759,14 +1746,10 @@ app.post('/api/user/plots/:plotIndex/water', authenticateToken, async (req, res)
       await client.query('UPDATE garden_plots SET planted_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
       return res.json({ message: '浇水成功', plot_index: plotIndex, stage: plot.stage, stage_icon: plot.crop_icon || '🌿', is_mature: true });
     }
-    if (elapsed < waterCd) {
-      const remaining = Math.ceil(waterCd - elapsed);
-      return res.status(400).json({ error: `浇水冷却中，还需 ${remaining} 秒` });
-    }
     const newStage = plot.stage + 1;
     await client.query('UPDATE garden_plots SET stage = $1, planted_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND plot_index = $3', [newStage, userId, plotIndex]);
     const isMature = newStage >= 4;
-    res.json({ message: isMature ? '🎉 植物成熟了！' : '💧 浇水成功', plot_index: plotIndex, stage: newStage, stage_icon: isMature ? (plot.crop_icon || '🌿') : STAGE_ICONS[newStage], is_mature: isMature, water_cd: waterCd });
+    res.json({ message: isMature ? '🎉 植物成熟了！' : '💧 浇水成功', plot_index: plotIndex, stage: newStage, stage_icon: isMature ? (plot.crop_icon || '🌿') : STAGE_ICONS[newStage], is_mature: isMature });
   } catch (error) {
     logger.error('Water error', { error: error.message });
     res.status(500).json({ error: '浇水失败' });
@@ -2108,7 +2091,7 @@ app.post('/api/user/pets/:userPetId/feed', authenticateToken, async (req, res) =
       const now = new Date();
 
       // 喂食只加饱食度，成长值由饱食度衰减自动转化，不自动升级
-      await client.query('UPDATE user_pets SET hunger = $1, last_fed_at = $2, feeding_end_at = NULL WHERE id = $3',
+      await client.query('UPDATE user_pets SET hunger = $1, last_fed_at = $2 WHERE id = $3',
         [newHunger, now, userPetId]);
       await client.query('COMMIT');
 
@@ -2669,7 +2652,7 @@ app.put('/api/admin/pets/:id', authenticateToken, requireAdmin, async (req, res)
     const e = existing.rows[0];
     const result = await client.query(
       `UPDATE pets SET name=$1, icon=$2, rarity=$3, base_bonus=$4, price_amount=$5, price_type=$6, is_shop=$7, purchasable=$8, bonus_curve=$9, growth_curve=$10, is_test=$11, effect_file=$12 WHERE id=$13 RETURNING *`,
-      [name||e.name, icon||e.icon, rarity||e.rarity, base_bonus!==undefined?base_bonus:e.base_bonus, price_amount!==undefined?price_amount:e.price_amount, price_type||e.price_type, is_shop!==undefined?is_shop:e.is_shop, purchasable!==undefined?purchasable:(e.purchasable!==false), bonus_curve?JSON.stringify(bonus_curve):e.bonus_curve, growth_curve?JSON.stringify(growth_curve):e.growth_curve, is_test!==undefined?is_test:e.is_test, effect_file!==undefined?effect_file:e.effect_file, id]
+      [name||e.name, icon||e.icon, rarity||e.rarity, base_bonus!==undefined?base_bonus:e.base_bonus, price_amount!==undefined?price_amount:e.price_amount, price_type||e.price_type, is_shop!==undefined?is_shop:e.is_shop, purchasable!==undefined?purchasable:(e.purchasable!==false), JSON.stringify(bonus_curve||e.bonus_curve), JSON.stringify(growth_curve||e.growth_curve), is_test!==undefined?is_test:e.is_test, effect_file!==undefined?effect_file:e.effect_file, id]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -3061,7 +3044,7 @@ app.post('/api/admin/effects/upload', authenticateToken, requireAdmin, upload.si
 
 app.get('/api/admin/effects', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const files = fs.existsSync(effectsDir) ? fs.readdirSync(effectsDir).filter(f => f.endsWith('.js')) : [];
+    const files = fs.existsSync(effectsDir) ? fs.readdirSync(effectsDir).filter(f => f.endsWith('.js') && f !== 'index.js') : [];
     res.json({ effects: files });
   } catch (error) {
     logger.error('Get effects error:', { error: error.message });
