@@ -723,6 +723,8 @@ async function initDatabase() {
           seed
         );
       }
+      // SSS 种子设为不可购买（在商店显示为售罄）
+      await client.query("UPDATE items SET purchasable = false WHERE item_type = 'seed' AND rarity = 'SSS'");
 
       // 肥料
       const fertilizers = [
