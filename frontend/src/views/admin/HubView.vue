@@ -439,7 +439,8 @@
                     <td>{{ a.id }}</td>
                     <td>{{ a.email }}</td>
                     <td>
-                      <button class="action-btn-sm" @click="openEditAdmin(a)">编辑</button>
+                      <button class="action-btn-sm" @click="openEditAdminEmail(a)">编辑邮箱</button>
+                      <button class="action-btn-sm" @click="openChangePassword(a)">修改密码</button>
                       <button class="action-btn-sm danger" @click="deleteAdmin(a.id)">删除</button>
                     </td>
                   </tr>
@@ -506,17 +507,31 @@
               </div>
             </div>
 
-            <!-- 编辑管理员弹窗 -->
-            <div v-if="showEditAdmin" class="modal-overlay" @mousedown.self="showEditAdmin = false">
+            <!-- 编辑管理员邮箱弹窗 -->
+            <div v-if="showEditAdminEmail" class="modal-overlay" @mousedown.self="showEditAdminEmail = false">
               <div class="modal-card">
-                <h3>编辑管理员</h3>
+                <h3>编辑邮箱</h3>
                 <div class="form-grid" style="grid-template-columns:1fr;">
-                  <label>邮箱 <input v-model="editAdminForm.email" type="email" /></label>
-                  <label>新密码 <input v-model="editAdminForm.password" type="password" placeholder="留空则不修改" /></label>
+                  <label>邮箱 <input v-model="editAdminEmailForm.email" type="email" /></label>
                 </div>
                 <div class="modal-actions">
-                  <button @click="showEditAdmin = false">取消</button>
-                  <button class="primary" @click="saveAdmin">保存</button>
+                  <button @click="showEditAdminEmail = false">取消</button>
+                  <button class="primary" @click="saveAdminEmail">保存</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 修改管理员密码弹窗 -->
+            <div v-if="showChangePasswordModal" class="modal-overlay" @mousedown.self="showChangePasswordModal = false">
+              <div class="modal-card">
+                <h3>修改密码</h3>
+                <div class="form-grid" style="grid-template-columns:1fr;">
+                  <label>新密码 <input v-model="changePasswordForm.newPassword" type="password" placeholder="请输入新密码" /></label>
+                  <label>确认新密码 <input v-model="changePasswordForm.confirmNewPassword" type="password" placeholder="请再次输入新密码" /></label>
+                </div>
+                <div class="modal-actions">
+                  <button @click="showChangePasswordModal = false">取消</button>
+                  <button class="primary" @click="saveChangePassword">保存</button>
                 </div>
               </div>
             </div>
@@ -828,8 +843,10 @@ const showAddItem = ref(false)
 const showEditItem = ref(false)
 const showEditUser = ref(false)
 const showAddAdmin = ref(false)
-const showEditAdmin = ref(false)
-const editAdminForm = ref({ id: null, email: '', password: '' })
+const showEditAdminEmail = ref(false)
+const editAdminEmailForm = ref({ id: null, email: '' })
+const showChangePasswordModal = ref(false)
+const changePasswordForm = ref({ id: null, email: '', newPassword: '', confirmNewPassword: '' })
 const editItemForm = ref({})
 const editUserForm = ref({})
 const newItemForm = ref({ name: '', icon: '', item_type: 'seed', rarity: 'C', buy_price: 0, sell_price: 0, base_yield: 0, currency_type: 'silver_coin', purchasable: true })
@@ -1624,32 +1641,61 @@ async function addAdmin() {
   }
 }
 
-function openEditAdmin(admin) {
-  editAdminForm.value = { id: admin.id, email: admin.email, password: '' }
-  showEditAdmin.value = true
+function openEditAdminEmail(admin) {
+  editAdminEmailForm.value = { id: admin.id, email: admin.email }
+  showEditAdminEmail.value = true
 }
 
-async function saveAdmin() {
+function openChangePassword(admin) {
+  changePasswordForm.value = { id: admin.id, email: admin.email, newPassword: '', confirmNewPassword: '' }
+  showChangePasswordModal.value = true
+}
+
+async function saveAdminEmail() {
   try {
     const token = localStorage.getItem('auth_token')
-    const { id, email, password } = editAdminForm.value
-    const body = { email, name: email.split('@')[0], role: 'admin' }
-    if (password) body.password = password
+    const { id, email } = editAdminEmailForm.value
     const r = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body)
+      body: JSON.stringify({ email, name: email.split('@')[0], role: 'admin' })
     })
     if (r.ok) {
-      showEditAdmin.value = false
-      // Reload admins list
+      showEditAdminEmail.value = false
       const adminsRes = await fetch(`${import.meta.env.VITE_API_URL}/admin/admins`, { headers: { Authorization: `Bearer ${token}` } })
       if (adminsRes.ok) hubAdmins.value = await adminsRes.json()
     } else {
       const err = await r.json()
       alert(err.error || '保存失败')
     }
-  } catch (e) { console.error('Failed to save admin:', e) }
+  } catch (e) { console.error('Failed to save admin email:', e) }
+}
+
+async function saveChangePassword() {
+  if (changePasswordForm.value.newPassword !== changePasswordForm.value.confirmNewPassword) {
+    alert('两次输入的密码不一致')
+    return
+  }
+  if (!changePasswordForm.value.newPassword || changePasswordForm.value.newPassword.length < 6) {
+    alert('密码长度至少6位')
+    return
+  }
+  try {
+    const token = localStorage.getItem('auth_token')
+    const { id, newPassword } = changePasswordForm.value
+    const r = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ password: newPassword })
+    })
+    if (r.ok) {
+      showChangePasswordModal.value = false
+      alert('密码修改成功')
+    } else {
+      const err = await r.json()
+      alert(err.error || '修改失败')
+    }
+  } catch (e) { console.error('Failed to change password:', e) }
 }
 
 async function deleteAdmin(id) {
