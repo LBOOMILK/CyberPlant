@@ -199,7 +199,7 @@
                       <option value="diamond">钻石</option>
                     </select>
                   </label>
-                  <label>商店显示<select v-model="editItemForm.is_shop"><option :value="true">是</option><option :value="false">否</option></select></label><label v-if="editItemForm.item_type !== 'crop'">可购买<select v-model="editItemForm.purchasable"><option :value="true">是</option><option :value="false">否（售罄）</option></select></label>
+                  <label v-if="editItemForm.item_type !== 'crop'">商店显示<select v-model="editItemForm.is_shop"><option :value="true">是</option><option :value="false">否</option></select></label><label v-if="editItemForm.item_type === 'seed'">可购买<select v-model="editItemForm.purchasable"><option :value="true">是</option><option :value="false">否（售罄）</option></select></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showEditItem = false">取消</button>
@@ -235,7 +235,7 @@
                   <label v-if="newItemForm.item_type === 'seed'">买价 <span class="number-input-group"><button class="num-btn" @click="newItemForm.buy_price = Math.max(0, newItemForm.buy_price - 100)" type="button">−</button><input v-model.number="newItemForm.buy_price" type="number" min="0" /><button class="num-btn" @click="newItemForm.buy_price += 100" type="button">+</button></span></label>
                   <label>卖价 <span class="number-input-group"><button class="num-btn" @click="newItemForm.sell_price = Math.max(0, newItemForm.sell_price - 100)" type="button">−</button><input v-model.number="newItemForm.sell_price" type="number" min="0" /><button class="num-btn" @click="newItemForm.sell_price += 100" type="button">+</button></span></label>
                   <label v-if="newItemForm.item_type === 'seed'">基础产出 <span class="number-input-group"><button class="num-btn" @click="newItemForm.base_yield = Math.max(0, newItemForm.base_yield - 1)" type="button">−</button><input v-model.number="newItemForm.base_yield" type="number" min="0" /><button class="num-btn" @click="newItemForm.base_yield++" type="button">+</button></span></label>
-                  <label>商店显示<select v-model="newItemForm.is_shop"><option :value="true">是</option><option :value="false">否</option></select></label><label v-if="newItemForm.item_type !== 'crop'">可购买<select v-model="newItemForm.purchasable"><option :value="true">是</option><option :value="false">否（售罄）</option></select></label>
+                  <label v-if="newItemForm.item_type !== 'crop'">商店显示<select v-model="newItemForm.is_shop"><option :value="true">是</option><option :value="false">否</option></select></label><label v-if="newItemForm.item_type === 'seed'">可购买<select v-model="newItemForm.purchasable"><option :value="true">是</option><option :value="false">否（售罄）</option></select></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showAddItem = false">取消</button>
@@ -267,7 +267,7 @@
                       <option value="diamond">钻石</option>
                     </select>
                   </label>
-                  <label>可售<select v-model="editPetForm.is_shop"><option :value="true">是</option><option :value="false">否</option></select></label>
+                  <label>可购买<select v-model="editPetForm.purchasable"><option :value="true">是</option><option :value="false">否</option></select></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showEditPet = false">取消</button>
@@ -297,7 +297,7 @@
                       <option value="diamond">钻石</option>
                     </select>
                   </label>
-                  <label>可售<select v-model="newPetForm.is_shop"><option :value="true">是</option><option :value="false">否</option></select></label>
+                  <label>可购买<select v-model="newPetForm.purchasable"><option :value="true">是</option><option :value="false">否</option></select></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showAddPet = false">取消</button>
@@ -867,7 +867,7 @@ const showEditPet = ref(false)
 const showAddDec = ref(false)
 const showEditDec = ref(false)
 const editPetForm = ref({})
-const newPetForm = ref({ name: '', icon: '🐾', rarity: 'C', base_bonus: 0, price_amount: 0, price_type: 'silver_coin', is_shop: true })
+const newPetForm = ref({ name: '', icon: '🐾', rarity: 'C', base_bonus: 0, price_amount: 0, price_type: 'silver_coin', purchasable: true })
 const editDecForm = ref({})
 const newDecForm = ref({ name: '', icon: '🎀', slot_type: 'head', quality: 'C', bonus: 0, price_type: 'silver_coin', price_amount: 0, pet_id: null })
 
@@ -1059,7 +1059,7 @@ async function loadHubDecorations() {
 
 // 宠物 CRUD
 function editPet(pet) {
-  editPetForm.value = { id: pet.id, name: pet.name, icon: pet.icon, rarity: pet.rarity, base_bonus: pet.base_bonus, price_amount: pet.price_amount, price_type: pet.price_type, is_shop: pet.is_shop }
+  editPetForm.value = { id: pet.id, name: pet.name, icon: pet.icon, rarity: pet.rarity, base_bonus: pet.base_bonus, price_amount: pet.price_amount, price_type: pet.price_type, purchasable: pet.purchasable }
   showEditPet.value = true
 }
 
@@ -1096,7 +1096,7 @@ async function addPet() {
       const data = await r.json()
       hubPets.value.push(data)
       showAddPet.value = false
-      newPetForm.value = { name: '', icon: '🐾', rarity: 'C', base_bonus: 0, price_amount: 0, price_type: 'silver_coin', is_shop: true }
+      newPetForm.value = { name: '', icon: '🐾', rarity: 'C', base_bonus: 0, price_amount: 0, price_type: 'silver_coin', purchasable: true }
     }
   } catch (e) { console.error('Failed to add pet:', e) }
 }
