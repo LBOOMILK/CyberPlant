@@ -1,1212 +1,621 @@
-# CyberPlant API 接口文档
+# API 文档
 
-## 基本信息
+## 基础信息
 
-- **基础URL**: `http://localhost:3000`
-- **认证方式**: JWT Bearer Token
-- **认证Header**: `Authorization: Bearer <token>`
-- **数据格式**: JSON
-- **物品数量上限**: `MAX_ITEM_COUNT = 999`
+- **Base URL:** `http://localhost:3000/api`
+- **认证方式:** JWT Bearer Token（`Authorization: Bearer <token>`）
+- **数据格式:** JSON
 
-***
+## 通用响应
 
-## 健康检查
-
-### 1. 健康检查
-
-**GET** `/`
-
-**响应** (200):
+### 成功
 ```json
-{ "message": "Backend API is running" }
+{ "message": "操作成功", ... }
 ```
 
-***
+### 错误
+```json
+{ "error": "错误描述" }
+```
 
-## 认证接口
+### HTTP 状态码
 
-### 2. 用户注册
+| 码 | 含义 |
+|----|------|
+| 200 | 成功 |
+| 201 | 创建成功 |
+| 400 | 请求参数错误 |
+| 401 | 未认证 |
+| 403 | 权限不足 |
+| 404 | 资源不存在 |
+| 500 | 服务器错误 |
 
-**POST** `/api/auth/register`
+---
 
-**请求体**:
+## 一、公共接口（无需认证）
+
+### 1.1 注册
+
+```
+POST /api/auth/register
+```
+
+**请求体：**
+```json
+{ "name": "用户名", "email": "邮箱", "password": "密码" }
+```
+
+**响应：**
+```json
+{ "message": "注册成功", "user": { "id", "name", "email", "role" } }
+```
+
+### 1.2 登录
+
+```
+POST /api/auth/login
+```
+
+**请求体：**
+```json
+{ "email": "邮箱", "password": "密码" }
+```
+
+**响应：**
 ```json
 {
-  "name": "用户名",
-  "email": "user@example.com",
-  "password": "password123"
+  "user": { "id", "name", "email", "role", "is_new_user" },
+  "currencies": { "silver_coin", "gold_coin", "diamond" },
+  "token": "jwt_token"
 }
 ```
 
-**参数说明**:
-- `name` (可选): 用户名，默认使用邮箱前缀
-- `email` (必填): 邮箱地址
-- `password` (必填): 密码
+### 1.3 商品列表（无需登录）
 
-**响应** (201):
-```json
-{
-  "user": {
-    "id": "2",
-    "name": "用户名",
-    "email": "user@example.com",
-    "role": "user",
-    "points": 100,
-    "created_at": "2026-04-28"
-  },
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
+```
+GET /api/items
 ```
 
-**错误响应**:
-- 400: `{ "error": "请求体不能为空" }`
-- 400: `{ "error": "请填写所有必填字段" }`
-- 400: `{ "error": "请输入有效的邮箱地址" }`
-- 400: `{ "error": "该邮箱已被注册" }`
-- 500: `{ "error": "注册失败，请稍后再试" }`
+**响应：** 所有 `is_shop=true` 的物品列表
 
-***
+---
 
-### 3. 用户登录
+## 二、用户接口（需要 authenticateToken）
 
-**POST** `/api/auth/login`
+### 2.1 认证相关
 
-**请求体**:
-```json
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
+#### 修改密码
+```
+POST /api/auth/change-password
+Body: { "currentPassword", "newPassword" }
 ```
 
-**响应** (200):
-```json
-{
-  "user": {
-    "id": "2",
-    "name": "用户名",
-    "email": "user@example.com",
-    "role": "user",
-    "points": 100,
-    "created_at": "2026-04-28"
-  },
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
+#### 领取新手礼包
+```
+POST /api/user/newbie-pack
+Response: { "message", "currencies", "items" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请输入邮箱和密码" }`
-- 401: `{ "error": "用户不存在" }`
-- 401: `{ "error": "密码错误" }`
-- 500: `{ "error": "登录失败，请稍后再试" }`
+### 2.2 用户信息
 
-***
-
-### 4. 修改密码
-
-**POST** `/api/auth/change-password`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求体**:
-```json
-{
-  "currentPassword": "oldpassword",
-  "newPassword": "newpassword"
-}
+#### 获取当前用户
+```
+GET /api/users/me
+Response: { "id", "name", "email", "role", "is_new_user", "currencies", "created_at" }
 ```
 
-**响应** (200):
-```json
-{ "message": "密码修改成功" }
+#### 更新个人信息
+```
+PUT /api/users/me
+Body: { "name" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请输入当前密码和新密码" }`
-- 401: `{ "error": "当前密码错误" }`
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "修改密码失败，请稍后再试" }`
-
-***
-
-## 用户接口
-
-### 5. 获取所有用户列表 (管理员)
-
-**GET** `/api/users`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**响应** (200):
-```json
-[
-  {
-    "id": "2",
-    "name": "用户",
-    "email": "user@example.com",
-    "role": "user",
-    "points": 100,
-    "seeds": { "C": 0, "B": 0, "A": 0, "S": 0, "SSS": 0 },
-    "crops": { "C": 0, "B": 0, "A": 0, "S": 0, "SSS": 0 },
-    "uses": { "C": 0, "B": 0, "A": 0, "S": 0 },
-    "created_at": "2026-04-28",
-    "last_login_at": "2026-04-28T12:00:00.000Z"
-  }
-]
+#### 搜索用户
+```
+GET /api/users/search?q=关键词
 ```
 
-**错误响应**:
-- 500: `{ "error": "获取用户列表失败，请稍后再试" }`
+### 2.3 货币
 
-***
-
-### 6. 添加用户 (管理员)
-
-**POST** `/api/users`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**请求体**:
-```json
-{
-  "email": "user@example.com",
-  "password": "password123",
-  "confirmPassword": "password123",
-  "role": "user",
-  "points": 100
-}
+#### 获取货币余额
+```
+GET /api/user/currencies
+Response: { "silver_coin", "gold_coin", "diamond" }
 ```
 
-**响应** (201):
-```json
-{
-  "id": "2",
-  "name": "user",
-  "email": "user@example.com",
-  "role": "user",
-  "points": 100,
-  "seeds": { "C": 0, "B": 0, "A": 0, "S": 0, "SSS": 0 },
-  "crops": { "C": 0, "B": 0, "A": 0, "S": 0, "SSS": 0 },
-  "uses": { "C": 0, "B": 0, "A": 0, "S": 0 },
-  "created_at": "2026-04-28T12:00:00.000Z"
-}
+#### 货币兑换
+```
+POST /api/user/currencies/exchange
+Body: { "from_type", "to_type", "amount" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请填写所有必填字段" }`
-- 400: `{ "error": "两次输入的密码不一致" }`
-- 400: `{ "error": "该邮箱已被注册" }`
-- 500: `{ "error": "创建用户失败，请稍后再试" }`
+### 2.4 背包
 
-***
-
-### 7. 获取当前用户信息
-
-**GET** `/api/users/me`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**响应** (200):
-```json
-{
-  "id": "2",
-  "name": "用户",
-  "email": "user@example.com",
-  "role": "user",
-  "points": 100,
-  "seeds": { "C": 5, "A": 2 },
-  "crops": { "B": 3 },
-  "uses": { "C": 1 },
-  "created_at": "2026-04-28"
-}
+#### 获取背包物品
+```
+GET /api/user/backpack
+Response: { "groups": { "seed": [...], "crop": [...], "fertilizer": [...], "pet_food": [...], "decoration": [...] } }
 ```
 
-**说明**: 返回的背包数据只包含数量>0的物品
-
-**错误响应**:
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "获取用户信息失败，请稍后再试" }`
-
-***
-
-### 8. 更新当前用户信息
-
-**PUT** `/api/users/me`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求体**:
-```json
-{
-  "name": "新用户名"
-}
+#### 获取用户物品
+```
+GET /api/user/items
 ```
 
-**响应** (200):
-```json
-{
-  "id": "2",
-  "name": "新用户名",
-  "email": "user@example.com",
-  "role": "user",
-  "points": 100,
-  "created_at": "2026-04-28"
-}
+### 2.5 商店
+
+#### 获取商店商品
+```
+GET /api/shop?tab=seeds|fertilizers|pets|pet_food|decorations
+Response: [{ "id", "name", "icon", "rarity", "buy_price", "purchasable", "sold_out", ... }]
 ```
 
-**错误响应**:
-- 400: `{ "error": "请填写用户名" }`
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "更新用户信息失败，请稍后再试" }`
-
-***
-
-### 9. 获取单个用户 (管理员)
-
-**GET** `/api/users/:id`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**请求参数**:
-- `id` (必填): 用户ID
-
-**响应** (200):
-```json
-{
-  "id": "2",
-  "name": "用户",
-  "email": "user@example.com",
-  "role": "user",
-  "points": 100,
-  "seeds": { "C": 0, "B": 0, "A": 0, "S": 0, "SSS": 0 },
-  "crops": { "C": 0, "B": 0, "A": 0, "S": 0, "SSS": 0 },
-  "uses": { "C": 0, "B": 0, "A": 0, "S": 0 },
-  "created_at": "2026-04-28"
-}
+#### 购买物品
+```
+POST /api/user/shop/purchase
+Body: { "item_id", "quantity" }
 ```
 
-**错误响应**:
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "获取用户数据失败，请稍后再试" }`
-
-***
-
-### 10. 更新用户 (管理员)
-
-**PUT** `/api/users/:id`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**请求参数**:
-- `id` (必填): 用户ID
-
-**请求体**:
-```json
-{
-  "name": "用户名",
-  "email": "user@example.com",
-  "role": "user",
-  "points": 100,
-  "seeds": { "C": 0, "B": 0, "A": 0, "S": 0, "SSS": 0 },
-  "crops": { "C": 0, "B": 0, "A": 0, "S": 0, "SSS": 0 },
-  "uses": { "C": 0, "B": 0, "A": 0, "S": 0 },
-  "password": "newpassword"
-}
+#### 购买宠物
+```
+POST /api/user/pets/purchase
+Body: { "pet_id" }
 ```
 
-**说明**: 
-- 背包数量会被裁剪到 MAX_ITEM_COUNT (999)
-- uses 字段不支持 SSS 等级
-
-**响应** (200): 返回更新后的用户对象
-
-**错误响应**:
-- 400: `{ "error": "请填写邮箱" }`
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "更新用户失败，请稍后再试" }`
-
-***
-
-### 11. 删除用户 (管理员)
-
-**DELETE** `/api/users/:id`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**请求参数**:
-- `id` (必填): 用户ID
-
-**说明**: 
-- id为1的管理员无法被删除
-- 管理员不能删除自己
-
-**响应** (200):
-```json
-{ "message": "用户删除成功" }
+#### 购买饰品
+```
+POST /api/user/decorations/purchase
+Body: { "decoration_id", "quantity" }
 ```
 
-**错误响应**:
-- 404: `{ "error": "用户不存在" }`
-- 400: `{ "error": "id为1的管理员无法被删除" }`
-- 400: `{ "error": "不能删除自己" }`
-- 500: `{ "error": "删除用户失败，请稍后再试" }`
-
-***
-
-## 植物/商品接口
-
-### 12. 获取所有商品
-
-**GET** `/api/plants`
-
-**响应** (200):
-```json
-[
-  {
-    "id": 1,
-    "name": "普通种子",
-    "icon": "🌱",
-    "rarity": "C",
-    "price": 10,
-    "plants_role": "seed",
-    "created_at": "2026-04-28T12:00:00.000Z"
-  },
-  {
-    "id": 6,
-    "name": "普通肥料",
-    "icon": "💩",
-    "rarity": "C",
-    "price": 20,
-    "plants_role": "use",
-    "created_at": "2026-04-28T12:00:00.000Z"
-  }
-]
+#### 卖出物品
+```
+POST /api/user/shop/sell
+Body: { "item_id", "quantity" }
 ```
 
-**错误响应**:
-- 500: `{ "error": "获取植物列表失败，请稍后再试" }`
+### 2.6 花园
 
-***
-
-### 13. 添加商品 (管理员)
-
-**POST** `/api/plants`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**请求体**:
-```json
-{
-  "name": "新种子",
-  "icon": "🌱",
-  "rarity": "C",
-  "price": 10,
-  "plants_role": "seed"
-}
+#### 获取地块信息
+```
+GET /api/user/plots
+Response: [{ "plot_index", "is_unlocked", "level", "seed_id", "stage", "planted_at" }]
 ```
 
-**响应** (201):
-```json
-{
-  "id": 10,
-  "name": "新种子",
-  "icon": "🌱",
-  "rarity": "C",
-  "price": 10,
-  "plants_role": "seed",
-  "created_at": "2026-04-28T12:00:00.000Z"
-}
+#### 获取解锁/升级费用
+```
+GET /api/user/plots/costs
+Response: { "unlock_costs", "upgrade_costs" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请填写所有必填字段" }`
-- 500: `{ "error": "创建植物失败，请稍后再试" }`
-
-***
-
-### 14. 更新商品 (管理员)
-
-**PUT** `/api/plants/:id`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**请求参数**:
-- `id` (必填): 商品ID
-
-**请求体**:
-```json
-{
-  "name": "更新后的种子",
-  "icon": "🌱",
-  "rarity": "C",
-  "price": 15,
-  "plants_role": "seed"
-}
+#### 解锁地块
+```
+POST /api/user/plots/:plotIndex/unlock
 ```
 
-**响应** (200): 返回更新后的商品对象
-
-**错误响应**:
-- 400: `{ "error": "请填写所有必填字段" }`
-- 404: `{ "error": "植物不存在" }`
-- 500: `{ "error": "更新植物失败，请稍后再试" }`
-
-***
-
-### 15. 删除商品 (管理员)
-
-**DELETE** `/api/plants/:id`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**请求参数**:
-- `id` (必填): 商品ID
-
-**响应** (200):
-```json
-{ "message": "植物删除成功" }
+#### 升级地块
+```
+POST /api/user/plots/:plotIndex/upgrade
 ```
 
-**错误响应**:
-- 404: `{ "error": "植物不存在" }`
-- 500: `{ "error": "删除植物失败，请稍后再试" }`
-
-***
-
-## 用户背包接口
-
-### 16. 获取背包数据
-
-**GET** `/api/user/backpack`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**响应** (200):
-```json
-{
-  "seeds": { "C": 5, "A": 2 },
-  "crops": { "B": 3 },
-  "uses": { "C": 1 }
-}
+#### 种植
+```
+POST /api/user/plots/:plotIndex/plant
+Body: { "seed_id" }
 ```
 
-**错误响应**:
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "获取背包数据失败，请稍后再试" }`
-
-***
-
-### 17. 获取卖出价格
-
-**GET** `/api/user/sell-price`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**查询参数**:
-- `itemType` (必填): 物品类型 (seed/use/crop)
-- `rarity` (必填): 稀有度
-
-**定价规则**:
-| 物品类型 | 定价规则 |
-|---------|---------|
-| `seed` | 同品质种子最低价 × 50% |
-| `use` | 同品质肥料最低价 × 50% |
-| `crop` | 同品质种子最高价 × 200% |
-
-**响应** (200):
-```json
-{
-  "rarity": "C",
-  "itemType": "seed",
-  "minBuyPrice": 10,
-  "sellPrice": 5
-}
+#### 浇水
+```
+POST /api/user/plots/:plotIndex/water
+Response: { "message", "stage", "water_cd", "is_mature" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请提供物品类型和稀有度" }`
-- 400: `{ "error": "不支持的物品类型" }`
-- 404: `{ "error": "未找到该物品" }`
-- 500: `{ "error": "获取卖出价格失败，请稍后再试" }`
-
-***
-
-### 18. 购买种子
-
-**POST** `/api/user/seeds`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求体**:
-```json
-{
-  "rarity": "C",
-  "price": 10,
-  "quantity": 1
-}
+#### 施肥
+```
+POST /api/user/plots/:plotIndex/fertilize
+Body: { "fertilizer_id" }
 ```
 
-**参数说明**:
-- `rarity` (必填): 稀有度
-- `price` (必填): 单价
-- `quantity` (可选): 购买数量，默认1，最大99
-
-**响应** (201):
-```json
-{
-  "rarity": "C",
-  "quantity": 6,
-  "points": 90
-}
+#### 收获
+```
+POST /api/user/plots/:plotIndex/harvest
+Response: { "harvest_count", "yield", "bonus_yield", "sss_drop" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请提供种子稀有度和价格" }`
-- 400: `{ "error": "积分不足" }`
-- 400: `{ "error": "种子数量已达上限(999)" }`
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "添加种子失败，请稍后再试" }`
-
-***
-
-### 19. 卖出种子
-
-**DELETE** `/api/user/seeds/:rarity`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求参数**:
-- `rarity` (必填): 稀有度
-
-**请求体**:
-```json
-{
-  "quantity": 1
-}
+#### 铲除
+```
+POST /api/user/plots/:plotIndex/remove
 ```
 
-**说明**: 价格由后端自动计算（同品质种子最低价的50%）
-
-**响应** (200):
-```json
-{
-  "rarity": "C",
-  "quantity": 5,
-  "points": 105
-}
+#### 花园总览
+```
+GET /api/garden
+Response: { "plots", "currencies" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "无法计算种子价格" }`
-- 404: `{ "error": "用户不存在" }`
-- 404: `{ "error": "种子不存在或数量不足" }`
-- 500: `{ "error": "卖出种子失败，请稍后再试" }`
+### 2.7 宠物
 
-***
-
-### 20. 购买肥料
-
-**POST** `/api/user/uses`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求体**:
-```json
-{
-  "rarity": "C",
-  "price": 20,
-  "quantity": 1
-}
+#### 获取宠物列表
+```
+GET /api/user/pets
+Response: [{ "user_pet_id", "name", "icon", "level", "current_bonus", "hunger", "is_active", "equipped_decorations" }]
 ```
 
-**参数说明**:
-- `rarity` (必填): 稀有度 (C/B/A/S，无SSS)
-- `price` (必填): 单价
-- `quantity` (可选): 购买数量，默认1，最大99
-
-**说明**: 订单创建在事务之外
-
-**响应** (201):
-```json
-{
-  "rarity": "C",
-  "quantity": 2,
-  "points": 80
-}
+#### 获取出战宠物
+```
+GET /api/user/pets/active
+Response: { "pet", "bonus" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请提供物品稀有度和价格" }`
-- 400: `{ "error": "积分不足" }`
-- 400: `{ "error": "肥料数量已达上限(999)" }`
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "添加物品失败，请稍后再试" }`
-
-***
-
-### 21. 卖出肥料
-
-**DELETE** `/api/user/uses/:rarity`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求参数**:
-- `rarity` (必填): 稀有度
-
-**请求体**:
-```json
-{
-  "quantity": 1
-}
+#### 激活/休息宠物
+```
+POST /api/user/pets/:userPetId/activate
 ```
 
-**说明**: 价格由后端自动计算（同品质肥料最低价的50%）
-
-**响应** (200):
-```json
-{
-  "rarity": "C",
-  "quantity": 1,
-  "points": 110
-}
+#### 喂食
+```
+POST /api/user/pets/:userPetId/feed
+Body: { "food_item_id", "confirm_overflow" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "无法计算肥料价格" }`
-- 404: `{ "error": "用户不存在" }`
-- 404: `{ "error": "肥料不存在或数量不足" }`
-- 500: `{ "error": "卖出肥料失败，请稍后再试" }`
-
-***
-
-### 22. 添加作物
-
-**POST** `/api/user/crops`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求体**:
-```json
-{
-  "rarity": "C"
-}
+#### 升级宠物
+```
+POST /api/user/pets/:userPetId/upgrade
 ```
 
-**响应** (201):
-```json
-{
-  "rarity": "C",
-  "quantity": 1
-}
+#### 装备饰品
+```
+POST /api/user/pets/:userPetId/equip
+Body: { "decoration_id", "slot_type" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请提供作物稀有度" }`
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "添加作物失败，请稍后再试" }`
-
-***
-
-### 23. 卖出作物
-
-**DELETE** `/api/user/crops/:rarity`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求参数**:
-- `rarity` (必填): 稀有度
-
-**请求体**:
-```json
-{
-  "quantity": 1
-}
+#### 卸下饰品
+```
+POST /api/user/pets/:userPetId/unequip
+Body: { "slot_type" }
 ```
 
-**说明**: 价格由后端自动计算（同品质种子最高价的200%）
-
-**响应** (200):
-```json
-{
-  "rarity": "C",
-  "quantity": 2,
-  "points": 120
-}
+#### 获取所有饰品
+```
+GET /api/decorations
 ```
 
-**错误响应**:
-- 400: `{ "error": "无法计算作物价格" }`
-- 404: `{ "error": "用户不存在" }`
-- 404: `{ "error": "作物不存在或数量不足" }`
-- 500: `{ "error": "卖出作物失败，请稍后再试" }`
-
-***
-
-### 24. 更新用户积分
-
-**PUT** `/api/user/points`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求体**:
-```json
-{
-  "points": 200
-}
+#### 获取用户饰品
+```
+GET /api/user/decorations
 ```
 
-**响应** (200):
-```json
-{
-  "points": 200
-}
+### 2.8 好友
+
+#### 获取好友列表
+```
+GET /api/user/friends
+Response: { "friends", "pending_requests", "sent_requests", "rejected_requests" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请提供积分值" }`
-- 500: `{ "error": "更新积分失败，请稍后再试" }`
-
-***
-
-## 订单接口
-
-### 25. 获取用户订单
-
-**GET** `/api/orders`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**查询参数**:
-- `page` (可选): 页码，默认1
-- `limit` (可选): 每页数量，默认10
-
-**响应** (200):
-```json
-{
-  "orders": [
-    {
-      "id": "uuid",
-      "user_id": 2,
-      "type": "PURCHASE_SEED",
-      "amount": -10,
-      "created_at": "2026-04-28 12:00:00"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 10,
-    "total": 5,
-    "totalPages": 1
-  }
-}
+#### 发送好友请求
+```
+POST /api/user/friends
+Body: { "friend_id" }
 ```
 
-**错误响应**:
-- 500: `{ "error": "获取订单列表失败，请稍后再试" }`
-
-***
-
-## 花园接口
-
-### 26. 获取花园状态
-
-**GET** `/api/garden`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**响应** (200):
-```json
-{
-  "hasPlant": true,
-  "plant": {
-    "id": 1,
-    "seedId": 1,
-    "rarity": "C",
-    "stage": 3,
-    "lastWateredAt": "2026-04-28T12:00:00.000Z",
-    "createdAt": "2026-04-28T12:00:00.000Z"
-  },
-  "isWilted": false,
-  "canHarvest": false
-}
+#### 接受/拒绝好友请求
+```
+POST /api/user/friends/:friendshipId
+Body: { "action": "accept" | "reject" }
 ```
 
-或 (无植物时):
-```json
-{
-  "hasPlant": false
-}
+#### 删除好友
+```
+DELETE /api/user/friends/:friendshipId
 ```
 
-**说明**:
-- `isWilted`: 五阶段前1分钟不浇水则枯萎
-- `canHarvest`: 五阶段且未枯萎时可收获
-
-**错误响应**:
-- 500: `{ "error": "获取花园状态失败，请稍后再试" }`
-
-***
-
-### 27. 种植种子
-
-**POST** `/api/garden/plant`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求体**:
-```json
-{
-  "rarity": "C"
-}
+#### 发送礼物
+```
+POST /api/user/friends/:friendId/gift
+Body: { "item_id", "quantity" }
 ```
 
-**说明**: 会扣除背包中对应稀有度的种子1个
-
-**响应** (200):
-```json
-{
-  "message": "种植成功"
-}
+#### 获取礼物列表
+```
+GET /api/user/gifts
 ```
 
-**错误响应**:
-- 400: `{ "error": "请提供种子稀有度" }`
-- 400: `{ "error": "种子数量不足" }`
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "种植失败，请稍后再试" }`
-
-***
-
-### 28. 浇水
-
-**POST** `/api/garden/water`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**响应** (200):
-```json
-{
-  "message": "浇水成功",
-  "stage": 4
-}
+#### 接受礼物
+```
+POST /api/user/gifts/:giftId/accept
 ```
 
-**说明**:
-- 成熟植物（5阶段）冷却时间5分钟
-- 其他阶段冷却时间5秒
-- 未枯萎且阶段<5时，浇水后阶段+1
-
-**错误响应**:
-- 400: `{ "error": "浇水过于频繁，请等待 X 秒" }`
-- 404: `{ "error": "花园不存在" }`
-- 500: `{ "error": "浇水失败，请稍后再试" }`
-
-***
-
-### 29. 施肥
-
-**POST** `/api/garden/fertilize`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**请求体**:
-```json
-{
-  "rarity": "C"
-}
+#### 全部接受
+```
+POST /api/user/gifts/accept-all
 ```
 
-**肥料效果**:
-| 稀有度 | 提升阶段数 |
-|-------|----------|
-| C | 1 |
-| B | 2 |
-| A | 3 |
-| S | 4 |
-
-**说明**:
-- 施肥可绕过冷却时间
-- 只能在植物生长阶段（1-4阶段）进行
-- 枯萎植物需先浇水才能施肥
-
-**响应** (200):
-```json
-{
-  "message": "施肥成功",
-  "stage": 5
-}
+#### 转账
+```
+POST /api/user/friends/:friendId/transfer
+Body: { "currency_type", "amount" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请提供肥料稀有度" }`
-- 400: `{ "error": "无效的肥料等级" }`
-- 400: `{ "error": "施肥只能在植物生长阶段（1-4阶段）进行" }`
-- 400: `{ "error": "植物已枯萎，请先浇水复活" }`
-- 400: `{ "error": "肥料不足" }`
-- 404: `{ "error": "花园不存在" }`
-- 404: `{ "error": "用户不存在" }`
-- 500: `{ "error": "施肥失败，请稍后再试" }`
+### 2.9 订单
 
-***
-
-### 30. 收获作物
-
-**POST** `/api/garden/harvest`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**响应** (200):
-```json
-{
-  "message": "收获成功",
-  "crop": "C"
-}
+#### 获取订单记录
+```
+GET /api/orders?page=1&limit=20
+Response: { "orders", "total", "page", "limit" }
 ```
 
-**说明**:
-- 植物需达到5阶段且未枯萎才能收获
-- 收获后作物加入背包
-- 背包中对应等级作物达到上限时无法收获
+### 2.10 AI 问答
 
-**错误响应**:
-- 400: `{ "error": "植物尚未成熟" }`
-- 400: `{ "error": "植物已枯萎" }`
-- 400: `{ "error": "背包中X级作物已达上限(999)，请先清理背包再收获" }`
-- 404: `{ "error": "花园不存在" }`
-- 500: `{ "error": "收获失败，请稍后再试" }`
-
-***
-
-### 31. 铲除植物
-
-**DELETE** `/api/garden/remove`
-
-**请求头**: `Authorization: Bearer <token>`
-
-**说明**: 已成熟的植物（5阶段）需先收获才能铲除
-
-**响应** (200):
-```json
-{
-  "message": "铲除成功"
-}
+```
+POST /api/ask
+Body: { "question" }
+Response: { "answer" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "植物已成熟，请先收获" }`
-- 404: `{ "error": "花园不存在" }`
-- 500: `{ "error": "铲除失败，请稍后再试" }`
+---
 
-***
+## 三、管理接口（需要 requireAdmin）
 
-## 管理员专用接口
+### 3.1 用户管理
 
-### 32. 创建管理员用户
-
-**POST** `/api/admin/users`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**请求体**:
-```json
-{
-  "name": "Admin",
-  "email": "admin@example.com",
-  "password": "password123"
-}
+#### 获取所有用户
+```
+GET /api/users
 ```
 
-**响应** (201):
-```json
-{
-  "message": "管理员用户创建成功",
-  "userId": "3"
-}
+#### 创建用户
+```
+POST /api/users
+Body: { "name", "email", "password", "role" }
 ```
 
-**错误响应**:
-- 400: `{ "error": "请填写所有必填字段" }`
-- 400: `{ "error": "请输入有效的邮箱地址" }`
-- 400: `{ "error": "该邮箱已被注册" }`
-- 500: `{ "error": "创建管理员用户失败，请稍后再试" }`
-
-***
-
-### 33. 获取今日活跃用户数
-
-**GET** `/api/admin/active-users`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**响应** (200):
-```json
-{
-  "count": 5
-}
+#### 获取用户详情
+```
+GET /api/users/:id
 ```
 
-**说明**: 返回今天登录过的普通用户数量
-
-**错误响应**:
-- 500: `{ "error": "获取活跃用户数失败" }`
-
-***
-
-### 34. 获取所有订单 (管理员)
-
-**GET** `/api/admin/orders`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**查询参数**:
-- `page` (可选): 页码，默认1
-- `limit` (可选): 每页数量，默认10
-
-**响应** (200):
-```json
-{
-  "orders": [
-    {
-      "id": "uuid",
-      "user_id": 2,
-      "type": "PURCHASE_SEED",
-      "amount": -10,
-      "created_at": "2026-04-28 12:00:00",
-      "user": {
-        "id": 2,
-        "name": "用户",
-        "email": "user@example.com"
-      }
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 10,
-    "total": 10,
-    "totalPages": 1
-  }
-}
+#### 更新用户
+```
+PUT /api/users/:id
+Body: { "name", "email", "password", "role" }
 ```
 
-**错误响应**:
-- 500: `{ "error": "获取订单列表失败，请稍后再试" }`
-
-***
-
-### 35. 删除订单 (管理员)
-
-**DELETE** `/api/admin/orders/:id`
-
-**请求头**: `Authorization: Bearer <token>` (需管理员权限)
-
-**请求参数**:
-- `id` (必填): 订单ID
-
-**响应** (200):
-```json
-{
-  "message": "订单删除成功"
-}
+#### 删除用户（不能删除自己）
+```
+DELETE /api/users/:id
 ```
 
-**错误响应**:
-- 404: `{ "error": "订单不存在" }`
-- 500: `{ "error": "删除订单失败，请稍后再试" }`
-
-***
-
-## 订单类型说明
-
-| 类型 | 说明 |
-|-----|------|
-| `PURCHASE_SEED` | 购买种子 |
-| `SELL_SEED` | 卖出种子 |
-| `PURCHASE_USE` | 购买肥料 |
-| `SELL_USE` | 卖出肥料 |
-| `SELL_CROP` | 卖出作物 |
-
-***
-
-## 稀有度说明
-
-| 稀有度 | 标识 | 说明 |
-|-------|-----|------|
-| C | 灰色 | 普通 |
-| B | 绿色 | 稀有 |
-| A | 蓝色 | 史诗 |
-| S | 紫色 | 传说 |
-| SSS | 金色 | 神级 |
-
-**注意**: 肥料不包含 SSS 等级
-
-***
-
-## 错误响应格式
-
-所有错误响应都遵循以下格式：
-```json
-{
-  "error": "错误信息描述"
-}
+#### 获取用户背包
+```
+GET /api/admin/users/:id/backpack
 ```
 
-常见状态码：
-- `400`: 请求参数错误
-- `401`: 未认证或认证失败
-- `403`: 权限不足
-- `404`: 资源不存在
-- `500`: 服务器内部错误
+#### 删除用户宠物
+```
+DELETE /api/admin/users/:id/pets/:petId
+```
 
-***
+#### 删除用户饰品
+```
+DELETE /api/admin/users/:id/decorations/:decorationId
+```
 
-## 数据库表结构
+#### 修改用户货币
+```
+PUT /api/admin/users/:id/currencies
+Body: { "silver_coin", "gold_coin", "diamond" }
+```
 
-### users 表
+#### 修改用户物品
+```
+PUT /api/admin/users/:id/items
+Body: { "item_id", "quantity" }
+```
 
-| 字段 | 类型 | 说明 |
-|-----|------|------|
-| id | VARCHAR(50) | 主键，奇数为管理员，偶数为普通用户 |
-| email | VARCHAR(255) | 邮箱，唯一 |
-| name | VARCHAR(255) | 用户名 |
-| password | VARCHAR(255) | bcrypt加密密码 |
-| role | VARCHAR(50) | 角色 (user/admin) |
-| points | INT | 积分 |
-| seeds | JSONB | 种子背包 `{ C: 0, B: 0, A: 0, S: 0, SSS: 0 }` |
-| crops | JSONB | 作物背包 `{ C: 0, B: 0, A: 0, S: 0, SSS: 0 }` |
-| uses | JSONB | 肥料背包 `{ C: 0, B: 0, A: 0, S: 0 }` |
-| last_login_at | TIMESTAMP | 最后登录时间 |
-| created_at | TIMESTAMP | 创建时间 |
+#### 获取活跃用户
+```
+GET /api/admin/active-users
+```
 
-### plants 表
+### 3.2 物品管理
 
-| 字段 | 类型 | 说明 |
-|-----|------|------|
-| id | SERIAL | 主键 |
-| name | VARCHAR(255) | 商品名称 |
-| icon | VARCHAR(50) | 图标 |
-| rarity | VARCHAR(50) | 稀有度 |
-| price | INT | 价格 |
-| plants_role | VARCHAR(50) | 类型 (seed/use) |
-| created_at | TIMESTAMP | 创建时间 |
+#### 获取所有物品（含非商店）
+```
+GET /api/items/all
+```
 
-### orders 表
+#### 创建物品
+```
+POST /api/admin/items
+Body: { "name", "icon", "rarity", "item_type", "base_yield", "buy_price", "sell_price", "currency_type", "is_shop", "purchasable", "water_cd", "stage_skip" }
+```
 
-| 字段 | 类型 | 说明 |
-|-----|------|------|
-| id | UUID | 主键 |
-| user_id | VARCHAR(50) | 用户ID |
-| type | VARCHAR(50) | 订单类型 |
-| amount | INT | 积分变化（负数为消费，正数为收入） |
-| created_at | TIMESTAMP | 创建时间 |
+#### 更新物品
+```
+PUT /api/admin/items/:id
+Body: 同上（部分更新）
+```
 
-### garden 表
+#### 删除物品
+```
+DELETE /api/admin/items/:id
+```
 
-| 字段 | 类型 | 说明 |
-|-----|------|------|
-| id | SERIAL | 主键 |
-| user_id | INTEGER | 用户ID（唯一） |
-| seed_id | INTEGER | 种子ID |
-| rarity | VARCHAR(50) | 稀有度 |
-| stage | INT | 生长阶段 (0-5) |
-| last_watered_at | TIMESTAMP | 最后浇水时间 |
-| created_at | TIMESTAMP | 创建时间 |
+### 3.3 宠物管理
+
+#### 获取所有宠物
+```
+GET /api/pets/all
+```
+
+#### 创建宠物
+```
+POST /api/admin/pets
+Body: { "name", "icon", "rarity", "base_bonus", "price_amount", "price_type", "is_shop", "purchasable", "is_test", "bonus_curve", "growth_curve", "effect_file" }
+```
+
+#### 更新宠物
+```
+PUT /api/admin/pets/:id
+Body: 同上（部分更新）
+```
+
+#### 删除宠物
+```
+DELETE /api/admin/pets/:id
+```
+
+#### 获取宠物曲线
+```
+GET /api/admin/pets/:id/curve
+Response: { "bonus_curve", "growth_curve" }
+```
+
+#### 更新宠物曲线
+```
+PUT /api/admin/pets/:id/curve
+Body: { "bonus_curve": [10个数值], "growth_curve": [10个数值] }
+```
+
+### 3.4 饰品管理
+
+#### 获取所有饰品
+```
+GET /api/admin/decorations/all
+```
+
+#### 创建饰品
+```
+POST /api/admin/decorations
+Body: { "name", "icon", "slot_type", "quality", "bonus", "price_amount", "price_type", "is_shop", "pet_id" }
+```
+
+#### 更新饰品
+```
+PUT /api/admin/decorations/:id
+Body: 同上（部分更新）
+```
+
+#### 删除饰品
+```
+DELETE /api/admin/decorations/:id
+```
+
+### 3.5 管理员管理
+
+#### 获取管理员列表
+```
+GET /api/admin/admins
+```
+
+#### 添加管理员
+```
+POST /api/admin/admins
+Body: { "email", "password" }
+```
+
+#### 删除管理员（不能删除自己，不能删除 ID=1）
+```
+DELETE /api/admin/admins/:id
+```
+
+### 3.6 订单管理
+
+#### 获取所有订单（分页）
+```
+GET /api/admin/orders?page=1&limit=20
+```
+
+#### 删除订单
+```
+DELETE /api/admin/orders/:id
+```
+
+### 3.7 配置管理
+
+#### 获取所有配置
+```
+GET /api/admin/config
+Response: { "configs": { "key": value, ... } }
+```
+
+#### 更新配置
+```
+PUT /api/admin/config
+Body: { "key": value } 或 { "key1": val1, "key2": val2 }
+```
+
+#### 获取统计信息
+```
+GET /api/admin/stats
+Response: { "total_users", "total_orders", ... }
+```
+
+### 3.8 特效管理
+
+#### 获取特效列表
+```
+GET /api/admin/effects
+Response: { "effects": ["bubble-fish.js", "cat-paw.js", ...] }
+```
+
+#### 上传特效
+```
+POST /api/admin/effects/upload
+Content-Type: multipart/form-data
+Body: file=<.js文件>
+```
+
+#### 获取特效内容
+```
+GET /api/admin/effects/:filename/content
+Response: { "content": "文件内容" }
+```
+
+#### 更新特效
+```
+PUT /api/admin/effects/:filename
+Body: { "content": "新内容" }
+```
+
+#### 删除特效（内置特效不可删）
+```
+DELETE /api/admin/effects/:filename
+```
+
+### 3.9 数据重置
+
+```
+POST /api/admin/reset
+Response: { "message": "重置成功" }
+```
+
+重置当前用户的花园、背包、货币到初始状态，同步特效文件。
+
+---
+
+## 四、特殊机制
+
+### 售罄判定
+
+- `is_shop=false` → 不在商店显示
+- `is_shop=true, purchasable=true` → 正常可购买
+- `is_shop=true, purchasable=false` → 显示「售罄」
+
+### 浇水冷却
+
+- 默认 5 秒冷却（由物品 `water_cd` 字段控制，最大 240 秒）
+- 超过 180 秒未浇水 → 植物干涸死亡
+
+### 宠物饱食度
+
+- 饱食度随时间衰减（默认每 5 秒 -1）
+- 饱食度 = 0 时加成暂停
+- 喂食恢复饱食度，溢出部分转化为成长值
+
+### SSS 掉落
+
+- 仅 S/SSS 级作物可触发
+- 掉落率 = `sss_drop_base × (1 + pet_bonus%)`，上限 `sss_drop_cap`
+- 掉落物为 SSS 级种子
