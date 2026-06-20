@@ -171,6 +171,7 @@ h3 {
 .rarity-B { background: #4caf50; }
 .rarity-A { background: #2196f3; }
 .rarity-S { background: #9c27b0; }
+.rarity-SSR { background: #f44336; color: white; }
 .rarity-SSS { background: linear-gradient(135deg, #ffd700, #ff8c00); color: #2d2b15; }
 .seed-qty {
   font-size: 0.85rem;

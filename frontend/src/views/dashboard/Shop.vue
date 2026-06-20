@@ -271,6 +271,7 @@ onMounted(async () => {
 .rarity-border-B { border-color: #4caf5044; }
 .rarity-border-A { border-color: #2196f344; }
 .rarity-border-S { border-color: #9c27b044; }
+.rarity-border-SSR { border-color: #f4433666; }
 .rarity-border-SSS { border-color: #ffd70066; }
 
 .item-icon {
@@ -330,6 +331,7 @@ onMounted(async () => {
 .rarity-B { background: #4caf50; color: white; }
 .rarity-A { background: #2196f3; color: white; }
 .rarity-S { background: #9c27b0; color: white; }
+.rarity-SSR { background: #f44336; color: white; }
 .rarity-SSS { background: linear-gradient(135deg, #ffd700, #ff8c00); color: #2d2b15; }
 
 .item-price {

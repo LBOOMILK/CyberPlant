@@ -319,6 +319,7 @@ onMounted(async () => {
 .rarity-B { background: #4caf50; color: white; }
 .rarity-A { background: #2196f3; color: white; }
 .rarity-S { background: #9c27b0; color: white; }
+.rarity-SSR { background: #f44336; color: white; }
 .rarity-SSS { background: linear-gradient(135deg, #ffd700, #ff8c00); color: #2d2b15; }
 
 .item-quantity {

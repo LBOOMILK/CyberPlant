@@ -81,6 +81,7 @@
 
   <div
     v-if="visible"
+    ref="petFloatEl"
     class="pet-floating"
     :class="{ dragging: isDragging }"
     :style="floatStyle"
@@ -222,6 +223,7 @@ const dragOffset = ref({ x: 0, y: 0 })
 const hunger = ref(100)
 const effectContainer = ref(null)
 const topbarEffectContainer = ref(null)
+const petFloatEl = ref(null)
 const topbarExpanded = ref(false)
 let currentEffectInstance = null
 let topbarEffectInstance = null
@@ -238,7 +240,8 @@ const petEffectMap = {
 
 function getEffectName(pet) {
   if (!pet) return null
-  return pet.effect_file || petEffectMap[pet.name] || null
+  const raw = pet.effect_file || petEffectMap[pet.name] || null
+  return raw ? raw.replace(/\.js$/, '') : null
 }
 
 function loadPetEffect() {
@@ -395,6 +398,10 @@ let hungerTimer = null
 function updateHunger() {
   if (!petStore.activePet) return
   const pet = petStore.activePet
+  if (pet.is_test) {
+    hunger.value = 100
+    return
+  }
   if (!pet.last_fed_at) {
     hunger.value = pet.hunger
     return
@@ -426,9 +433,12 @@ function onDrag(e) {
   const touch = e.touches ? e.touches[0] : e
   const newX = window.innerWidth - touch.clientX - dragOffset.value.x
   const newY = touch.clientY - dragOffset.value.y
+  const rect = petFloatEl.value?.getBoundingClientRect()
+  const width = rect?.width || 280
+  const height = rect?.height || 80
   position.value = {
-    x: Math.max(0, Math.min(newX, window.innerWidth - 280)),
-    y: Math.max(0, Math.min(newY, window.innerHeight - 120))
+    x: Math.max(0, Math.min(newX, window.innerWidth - width)),
+    y: Math.max(0, Math.min(newY, window.innerHeight - height))
   }
 }
 
@@ -604,7 +614,7 @@ watch(topbarExpanded, async (val) => {
 .pet-section {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 24px;
 }
 
 /* 无宠物状态区域 */
@@ -649,10 +659,11 @@ watch(topbarExpanded, async (val) => {
   position: absolute;
   top: -20px;
   left: -20px;
-  right: -20px;
+  right: -8px;
   bottom: -20px;
   pointer-events: none;
-  overflow: visible;
+  overflow: hidden;
+  border-radius: 16px;
 }
 
 .pet-float-icon {

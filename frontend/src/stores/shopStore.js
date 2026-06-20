@@ -41,6 +41,7 @@ export const useShopStore = defineStore('shop', () => {
     B: '#4caf50',
     A: '#2196f3',
     S: '#9c27b0',
+    SSR: '#f44336',
     SSS: '#FFD700'
   }
 
@@ -64,7 +65,7 @@ export const useShopStore = defineStore('shop', () => {
   }
 
   // ========== 加载商店物品 ==========
-  const rarityOrder = { C: 1, B: 2, A: 3, S: 4, SSS: 5 }
+  const rarityOrder = { C: 1, B: 2, A: 3, S: 4, SSR: 5, SSS: 6 }
   async function loadShop(tab) {
     loading.value = true
     try {

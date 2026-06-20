@@ -328,7 +328,8 @@ const petEffectMap = {
 
 function getEffectName(pet) {
   if (!pet) return null
-  return pet.effect_file || petEffectMap[pet.name] || null
+  const raw = pet.effect_file || petEffectMap[pet.name] || null
+  return raw ? raw.replace(/\.js$/, '') : null
 }
 
 function loadPanelEffect() {
@@ -347,7 +348,8 @@ function loadPanelEffect() {
   if (effect) {
     panelEffectInstance = effect.init(panelEffectContainer.value, {
       level: selectedPet.value.level,
-      bonus: selectedPet.value.current_bonus
+      bonus: selectedPet.value.current_bonus,
+      scale: 3
     })
   }
 }
@@ -462,12 +464,22 @@ function formatTime(minutes) {
 
 // 计算饥饿倒计时
 function updateHungerDecayTime() {
-  if (!selectedPet.value || selectedPet.value.hunger <= 0) {
+  if (!selectedPet.value) {
+    hungerDecayTime.value = 0
+    return
+  }
+  const pet = selectedPet.value
+  if (pet.is_test) {
+    hungerDecayTime.value = 100 * 60 // 测试宠物永远满饱食度
+    pet.level = 999
+    return
+  }
+  
+  if (pet.hunger <= 0) {
     hungerDecayTime.value = 0
     return
   }
   // 每小时饱食度减少1点，计算剩余时间
-  const pet = selectedPet.value
   if (!pet.last_fed_at) {
     hungerDecayTime.value = pet.hunger * 60 // 按小时计算
     return
@@ -497,9 +509,15 @@ onMounted(async () => {
     loadPanelEffect()
     hungerTimer = setInterval(updateHungerDecayTime, 5000)
     refreshTimer = setInterval(async () => {
-      if (selectedPet.value) {
-        await petStore.loadActivePet()
-        selectedPet.value = petStore.pets.find(p => p.user_pet_id === selectedPet.value.user_pet_id)
+      const currentPetId = selectedPet.value?.user_pet_id
+      await petStore.loadPets()
+      // 保持当前所选宠物不变
+      if (currentPetId) {
+        const found = petStore.pets.find(p => p.user_pet_id === currentPetId)
+        if (found) {
+          selectedPet.value = found
+          updateHungerDecayTime()
+        }
       }
     }, 5000)
   } catch (e) {

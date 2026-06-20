@@ -14,11 +14,13 @@ export const usePetStore = defineStore('pet', () => {
   const userDecorations = ref([])
   const loading = ref(false)
 
-  // 稀有度配置 (B/A/S)
+  // 稀有度配置
   const rarityConfig = {
     B: { label: '普通', color: '#9e9e9e', bg: '#f5f5f5' },
     A: { label: '稀有', color: '#2196f3', bg: '#e3f2fd' },
-    S: { label: '史诗', color: '#9c27b0', bg: '#f3e5f5' }
+    S: { label: '史诗', color: '#9c27b0', bg: '#f3e5f5' },
+    SSR: { label: '测试', color: '#f44336', bg: '#ffebee' },
+    SSS: { label: '神话', color: '#FFD700', bg: '#fff8e1' }
   }
 
   // 槽位配置
