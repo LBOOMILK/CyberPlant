@@ -244,6 +244,13 @@
                   <option :value="false">否</option>
                 </select>
               </div>
+              <div class="form-group" v-if="newItem.item_type === 'seed'">
+                <label for="purchasable">可购买</label>
+                <select id="purchasable" v-model="newItem.purchasable">
+                  <option :value="true">是</option>
+                  <option :value="false">否（售罄）</option>
+                </select>
+              </div>
             </div>
             <div class="modal-actions">
               <button type="button" class="cancel-btn" @click="showAddModal = false">取消</button>
@@ -338,6 +345,13 @@
                 <select id="edit-is_shop" v-model="currentItem.is_shop">
                   <option :value="true">是</option>
                   <option :value="false">否</option>
+                </select>
+              </div>
+              <div class="form-group" v-if="currentItem.item_type === 'seed'">
+                <label for="edit-purchasable">可购买</label>
+                <select id="edit-purchasable" v-model="currentItem.purchasable">
+                  <option :value="true">是</option>
+                  <option :value="false">否（售罄）</option>
                 </select>
               </div>
             </div>
@@ -799,7 +813,7 @@ async function handleAddItem() {
     })
     if (response.ok) {
       showAddModal.value = false
-      newItem.value = { name: '', icon: '', rarity: 'C', item_type: 'seed', grow_time: 0, base_yield: 1, buy_price: 0, sell_price: 0, currency_type: 'silver_coin', is_shop: true, water_cd: 5, crop_id: null }
+      newItem.value = { name: '', icon: '', rarity: 'C', item_type: 'seed', grow_time: 0, base_yield: 1, buy_price: 0, sell_price: 0, currency_type: 'silver_coin', is_shop: true, purchasable: true, water_cd: 5, crop_id: null }
       await loadItems()
       if (toastRef.value) toastRef.value.addToast('添加物品成功', 'success')
     } else {

@@ -80,7 +80,6 @@ const GLOBAL_CONFIG_DEFAULTS = [
   ['hunger_decay_interval', 5, '饱食度衰减间隔（秒）'],
   ['sss_drop_base', 0.33, 'SSS 基础掉落率'],
   ['sss_drop_cap', 1.0, 'SSS 掉落率上限'],
-  ['yield_accumulator_threshold', 10, '累加值触发阈值'],
   ['max_seed_count', 999, '种子上限'],
   ['max_crop_count', 9999, '作物上限'],
   ['max_fertilizer_count', 99, '肥料上限'],
