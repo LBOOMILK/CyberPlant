@@ -96,7 +96,7 @@ const configDescriptions = {
 
   sss_drop_base: 'SSS掉落基础概率',
   sss_drop_cap: 'SSS掉落概率上限',
-  yield_accumulator_threshold: '累加值阈值',
+  yield_accumulator_threshold: '累加值阈值（满N则+1）',
   max_seed_count: '背包种子上限',
   max_crop_count: '背包作物上限',
   max_fertilizer_count: '背包肥料上限',
