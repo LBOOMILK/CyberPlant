@@ -13,6 +13,16 @@
         </select>
       </div>
 
+      <!-- 特效文件选择 -->
+      <div v-if="selectedPet" class="effect-selector">
+        <label>特效文件：</label>
+        <select v-model="selectedEffectFile" @change="saveEffectFile" class="pet-select">
+          <option value="">无</option>
+          <option v-for="f in availableEffects" :key="f" :value="f">{{ f }}</option>
+        </select>
+        <span class="effect-hint">{{ selectedEffectFile ? '当前：' + selectedEffectFile : '未绑定特效' }}</span>
+      </div>
+
       <div v-if="selectedPet" class="curve-editor">
         <!-- bonus_curve 编辑 -->
         <div class="curve-section">
@@ -79,6 +89,8 @@ const selectedPetId = ref(null)
 const bonusCurve = ref([])
 const growthCurve = ref([])
 const toastRef = ref(null)
+const availableEffects = ref([])
+const selectedEffectFile = ref('')
 
 const selectedPet = computed(() => pets.value.find(p => p.id === selectedPetId.value))
 const maxBonus = computed(() => Math.max(...bonusCurve.value, 1))
@@ -116,8 +128,53 @@ async function loadPetCurve() {
       bonusCurve.value = [...(data.bonus_curve || new Array(10).fill(0))]
       growthCurve.value = [...(data.growth_curve || new Array(10).fill(0))]
     }
+    // 加载当前宠物的 effect_file
+    const pet = pets.value.find(p => p.id === selectedPetId.value)
+    selectedEffectFile.value = pet?.effect_file || ''
   } catch (e) {
     console.error('Failed to load curve:', e)
+  }
+}
+
+async function loadAvailableEffects() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/effects`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (r.ok) {
+      const data = await r.json()
+      availableEffects.value = (data.effects || data || []).filter(f => f.endsWith('.js'))
+    }
+  } catch (e) {
+    console.error('Failed to load effects:', e)
+  }
+}
+
+async function saveEffectFile() {
+  if (!selectedPetId.value) return
+  try {
+    const token = localStorage.getItem('auth_token')
+    const pet = pets.value.find(p => p.id === selectedPetId.value)
+    if (!pet) return
+    const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/pets/${selectedPetId.value}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ effect_file: selectedEffectFile.value || null })
+    })
+    if (r.ok) {
+      toastRef.value?.addToast('特效绑定已更新', 'success')
+      // 更新本地数据
+      pet.effect_file = selectedEffectFile.value || null
+    } else {
+      const err = await r.json()
+      toastRef.value?.addToast(err.error || '保存失败', 'error')
+    }
+  } catch (e) {
+    toastRef.value?.addToast('网络错误', 'error')
   }
 }
 
@@ -150,7 +207,7 @@ async function saveCurve() {
   }
 }
 
-onMounted(loadPets)
+onMounted(() => { loadPets(); loadAvailableEffects() })
 </script>
 
 <style scoped>
@@ -164,6 +221,8 @@ onMounted(loadPets)
   border: 1px solid var(--border-color, #21262d); color: var(--text-primary, #c9d1d9);
   border-radius: 6px; font-size: 13px;
 }
+.theme-hub .effect-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.theme-hub .effect-hint { font-size: 11px; color: var(--text-muted, #8b949e); }
 .theme-hub .curve-section { margin-bottom: 24px; }
 .theme-hub .curve-section h4 { color: #00ff88; margin: 0 0 4px 0; font-size: 13px; }
 .theme-hub .curve-hint { font-size: 11px; color: var(--text-muted, #8b949e); margin: 0 0 12px 0; }
@@ -205,6 +264,8 @@ onMounted(loadPets)
   border: 1px solid var(--border-color, #334155); color: var(--text-primary, #f1f5f9);
   border-radius: 6px; font-size: 13px;
 }
+.theme-classic .effect-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.theme-classic .effect-hint { font-size: 12px; color: var(--text-muted, #8b949e); }
 .theme-classic .curve-section { margin-bottom: 28px; }
 .theme-classic .curve-section h4 { color: #f59e0b; margin: 0 0 8px 0; font-size: 1rem; font-weight: 600; }
 .theme-classic .curve-hint { font-size: 12px; color: var(--text-muted, #8b949e); margin: 0 0 16px 0; }

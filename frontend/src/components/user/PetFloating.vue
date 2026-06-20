@@ -257,8 +257,7 @@ function loadPetEffect() {
   if (effect) {
     currentEffectInstance = effect.init(effectContainer.value, {
       level: petStore.activePet.level,
-      bonus: petStore.activePet.current_bonus,
-      scale: 0.45
+      bonus: petStore.activePet.current_bonus
     })
   }
 }
@@ -278,8 +277,7 @@ function loadTopbarEffect() {
   if (effect) {
     topbarEffectInstance = effect.init(topbarEffectContainer.value, {
       level: petStore.activePet.level,
-      bonus: petStore.activePet.current_bonus,
-      scale: 0.4
+      bonus: petStore.activePet.current_bonus
     })
   }
 }
@@ -848,7 +846,7 @@ watch(topbarExpanded, async (val) => {
 
 .topbar-expand-arrow {
   font-size: 0.85rem;
-  color: #484848;
+  color: #779778;
   font-weight: 700;
   margin-left: 10px;
   width: 22px;
@@ -934,7 +932,7 @@ watch(topbarExpanded, async (val) => {
   right: -8px;
   bottom: -8px;
   pointer-events: none;
-  overflow: visible;
+  overflow: hidden;
   border-radius: 12px;
 }
 
