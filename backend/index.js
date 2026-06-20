@@ -468,6 +468,8 @@ async function initDatabase() {
     `);
     // 专属宠物ID (1.1)
     await client.query(`ALTER TABLE decorations ADD COLUMN IF NOT EXISTS pet_id INT DEFAULT NULL`);
+    // is_shop 标志
+    await client.query(`ALTER TABLE decorations ADD COLUMN IF NOT EXISTS is_shop BOOLEAN DEFAULT true`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS user_decorations (
@@ -2687,6 +2689,129 @@ app.delete('/api/admin/pets/:id', authenticateToken, requireAdmin, async (req, r
   }
 });
 
+// ============ 饰品管理 API ============
+app.get('/api/admin/decorations/all', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await client.query('SELECT d.*, p.name as pet_name FROM decorations d LEFT JOIN pets p ON d.pet_id = p.id ORDER BY d.slot_type, d.quality DESC, d.id');
+    logger.info('Decorations all query returned rows:', { count: result.rows.length });
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Get decorations error:', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: '获取饰品列表失败: ' + error.message });
+  }
+});
+
+app.post('/api/admin/decorations', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { name, icon, slot_type, quality, bonus, price_type, price_amount, pet_id } = req.body;
+    if (!name || !slot_type) return res.status(400).json({ error: '请填写饰品名和槽位类型' });
+    const result = await client.query('INSERT INTO decorations (name, icon, slot_type, quality, bonus, price_type, price_amount, pet_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+      [name, icon || '🎀', slot_type, quality || 'C', bonus || 0, price_type || 'silver_coin', price_amount || 100, pet_id || null]);
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    logger.error('Create decoration error', { error: error.message });
+    res.status(500).json({ error: '创建饰品失败' });
+  }
+});
+
+app.put('/api/admin/decorations/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, icon, slot_type, quality, bonus, price_type, price_amount, pet_id } = req.body;
+    const existing = await client.query('SELECT * FROM decorations WHERE id = $1', [id]);
+    if (existing.rowCount === 0) return res.status(404).json({ error: '饰品不存在' });
+    const e = existing.rows[0];
+    const result = await client.query('UPDATE decorations SET name=$1, icon=$2, slot_type=$3, quality=$4, bonus=$5, price_type=$6, price_amount=$7, pet_id=$8 WHERE id=$9 RETURNING *',
+      [name || e.name, icon || e.icon, slot_type || e.slot_type, quality || e.quality, bonus || e.bonus, price_type || e.price_type, price_amount || e.price_amount, pet_id !== undefined ? pet_id : e.pet_id, id]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Update decoration error', { error: error.message });
+    res.status(500).json({ error: '更新饰品失败' });
+  }
+});
+
+app.delete('/api/admin/decorations/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await client.query('DELETE FROM decorations WHERE id = $1 RETURNING *', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: '饰品不存在' });
+    res.json({ message: '饰品删除成功' });
+  } catch (error) {
+    logger.error('Delete decoration error', { error: error.message });
+    res.status(500).json({ error: '删除饰品失败' });
+  }
+});
+
+// ============ 用户背包 API ============
+app.get('/api/admin/users/:id/backpack', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userCheck = await client.query('SELECT id, name, email, role FROM users WHERE id = $1', [id]);
+    if (userCheck.rowCount === 0) return res.status(404).json({ error: '用户不存在' });
+
+    const itemsResult = await client.query(
+      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.buy_price, i.sell_price, i.currency_type
+       FROM user_items ui
+       JOIN items i ON ui.item_id = i.id
+       WHERE ui.user_id = $1
+       ORDER BY i.item_type, i.rarity, i.id`,
+      [id]
+    );
+
+    const petsResult = await client.query(
+      `SELECT up.id AS user_pet_id, up.pet_id, up.level, up.hunger, up.is_active,
+              p.name, p.icon, p.rarity, p.base_bonus, p.price_amount, p.price_type
+       FROM user_pets up
+       JOIN pets p ON up.pet_id = p.id
+       WHERE up.user_id = $1
+       ORDER BY p.rarity DESC, up.level DESC`,
+      [id]
+    );
+
+    const decorationsResult = await client.query(
+      `SELECT ud.decoration_id, ud.quantity, d.name, d.icon, d.slot_type, d.quality, d.bonus
+       FROM user_decorations ud
+       JOIN decorations d ON ud.decoration_id = d.id
+       WHERE ud.user_id = $1
+       ORDER BY d.quality DESC, d.id`,
+      [id]
+    );
+
+    res.json({
+      user: userCheck.rows[0],
+      items: itemsResult.rows,
+      pets: petsResult.rows,
+      decorations: decorationsResult.rows
+    });
+  } catch (error) {
+    logger.error('Get user backpack error:', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: '获取用户背包失败: ' + error.message });
+  }
+});
+
+// 删除用户宠物
+app.delete('/api/admin/users/:id/pets/:petId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id, petId } = req.params;
+    await client.query('DELETE FROM user_pets WHERE user_id = $1 AND pet_id = $2', [id, petId]);
+    res.json({ message: '用户宠物删除成功' });
+  } catch (error) {
+    logger.error('Delete user pet error', { error: error.message });
+    res.status(500).json({ error: '删除用户宠物失败' });
+  }
+});
+
+// 删除用户饰品
+app.delete('/api/admin/users/:id/decorations/:decorationId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id, decorationId } = req.params;
+    await client.query('DELETE FROM user_decorations WHERE user_id = $1 AND decoration_id = $2', [id, decorationId]);
+    res.json({ message: '用户饰品删除成功' });
+  } catch (error) {
+    logger.error('Delete user decoration error', { error: error.message });
+    res.status(500).json({ error: '删除用户饰品失败' });
+  }
+});
+
 app.get('/api/admin/active-users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -2870,6 +2995,23 @@ app.post('/api/admin/reset', authenticateToken, requireAdmin, async (req, res) =
     // 重新初始化（建表 + 插入默认数据，含 admin + test1 + test2 账号）
     await initDatabase();
 
+    // 同步特效目录：复制前端内置特效到后端，清除非内置文件
+    const frontendEffects = path.join(__dirname, '../frontend/src/effects');
+    if (fs.existsSync(frontendEffects)) {
+      const defaultFiles = fs.readdirSync(frontendEffects).filter(f => f.endsWith('.js') && f !== 'index.js');
+      if (fs.existsSync(effectsDir)) {
+        for (const f of fs.readdirSync(effectsDir)) {
+          if (f.endsWith('.js') && !BUILTIN_EFFECTS.includes(f)) {
+            fs.unlinkSync(path.join(effectsDir, f));
+          }
+        }
+      }
+      for (const f of defaultFiles) {
+        fs.copyFileSync(path.join(frontendEffects, f), path.join(effectsDir, f));
+      }
+      logger.info('Effects directory synced with defaults');
+    }
+
     logger.info('Full database reset completed');
     res.json({ message: '重置成功', accounts: [
       { name: 'Admin', email: 'admin@cyberplant.com', password: 'admin123' },
@@ -2937,6 +3079,53 @@ app.get('/api/effects/:filename', (req, res) => {
   } catch (error) {
     logger.error('Get effect file error:', { error: error.message });
     res.status(500).json({ error: '获取特效文件失败' });
+  }
+});
+
+const BUILTIN_EFFECTS = ['bubble-fish.js', 'cat-paw.js', 'star-rabbit.js', 'thunder-eagle.js', 'crystal-dragon.js', 'lbooktest.js'];
+
+app.get('/api/admin/effects/:filename/content', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const filename = req.params.filename.replace(/[^a-z0-9-\.]/g, '-');
+    const filePath = path.join(effectsDir, filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+    const content = fs.readFileSync(filePath, 'utf-8');
+    res.json({ filename, content, builtin: BUILTIN_EFFECTS.includes(filename) });
+  } catch (error) {
+    logger.error('Get effect content error:', { error: error.message });
+    res.status(500).json({ error: '获取特效内容失败' });
+  }
+});
+
+app.put('/api/admin/effects/:filename', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const filename = req.params.filename.replace(/[^a-z0-9-\.]/g, '-');
+    const filePath = path.join(effectsDir, filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+    const { content } = req.body;
+    if (!content) return res.status(400).json({ error: '内容不能为空' });
+    if (!content.includes('name') || !content.includes('init')) {
+      return res.status(400).json({ error: '必须导出 { name, init }' });
+    }
+    fs.writeFileSync(filePath, content, 'utf-8');
+    res.json({ message: '更新成功', filename });
+  } catch (error) {
+    logger.error('Update effect error:', { error: error.message });
+    res.status(500).json({ error: '更新特效失败' });
+  }
+});
+
+app.delete('/api/admin/effects/:filename', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const filename = req.params.filename.replace(/[^a-z0-9-\.]/g, '-');
+    if (BUILTIN_EFFECTS.includes(filename)) return res.status(400).json({ error: '内置特效不能删除' });
+    const filePath = path.join(effectsDir, filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+    fs.unlinkSync(filePath);
+    res.json({ message: '删除成功', filename });
+  } catch (error) {
+    logger.error('Delete effect error:', { error: error.message });
+    res.status(500).json({ error: '删除特效失败' });
   }
 });
 

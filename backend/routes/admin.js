@@ -52,6 +52,142 @@ router.delete('/items/:id', authenticateToken, requireAdmin, async (req, res) =>
   try { const result = await client.query('DELETE FROM items WHERE id = $1 RETURNING *', [req.params.id]); if (result.rowCount === 0) return res.status(404).json({ error: '物品不存在' }); res.json({ message: '物品删除成功' }); } catch (error) { res.status(500).json({ error: '删除物品失败' }); }
 });
 
+// ============================================================
+// 管理员：获取指定用户完整背包（物品 + 宠物 + 饰品）
+// ============================================================
+router.get('/users/:id/backpack', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    // 检查用户是否存在
+    const userCheck = await client.query('SELECT id, name, email FROM users WHERE id = $1', [id]);
+    if (userCheck.rowCount === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    // 物品：从 items 表和 user_items 表结合
+    const itemsResult = await client.query(
+      `SELECT ui.item_id, ui.quantity, i.name, i.icon, i.rarity, i.item_type, i.buy_price, i.sell_price, i.currency_type
+       FROM user_items ui
+       JOIN items i ON ui.item_id = i.id
+       WHERE ui.user_id = $1
+       ORDER BY i.item_type, i.rarity, i.id`,
+      [id]
+    );
+
+    // 宠物：从 pets 和 user_pets 结合
+    const petsResult = await client.query(
+      `SELECT up.id AS user_pet_id, up.pet_id, up.level, up.hunger, up.is_active,
+              p.name, p.icon, p.rarity, p.base_bonus, p.price_amount, p.price_type
+       FROM user_pets up
+       JOIN pets p ON up.pet_id = p.id
+       WHERE up.user_id = $1
+       ORDER BY p.rarity DESC, up.level DESC`,
+      [id]
+    );
+
+    // 饰品：从 decorations 和 user_decorations 结合
+    const decorationsResult = await client.query(
+      `SELECT ud.decoration_id, ud.quantity, d.name, d.icon, d.slot_type, d.quality, d.bonus
+       FROM user_decorations ud
+       JOIN decorations d ON ud.decoration_id = d.id
+       WHERE ud.user_id = $1
+       ORDER BY d.quality DESC, d.id`,
+      [id]
+    );
+
+    res.json({
+      user: userCheck.rows[0],
+      items: itemsResult.rows,
+      pets: petsResult.rows,
+      decorations: decorationsResult.rows
+    });
+  } catch (error) {
+    logger?.error('Get user backpack error:', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: '获取用户背包失败: ' + error.message });
+  }
+});
+
+// ============================================================
+// 管理员：给用户添加/删除宠物
+// ============================================================
+router.post('/users/:id/pets/:petId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id, petId } = req.params;
+    const existing = await client.query('SELECT id FROM users WHERE id = $1', [id]);
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    const pet = await client.query('SELECT id FROM pets WHERE id = $1', [petId]);
+    if (pet.rowCount === 0) {
+      return res.status(404).json({ error: '宠物不存在' });
+    }
+    const already = await client.query('SELECT id FROM user_pets WHERE user_id = $1 AND pet_id = $2', [id, petId]);
+    if (already.rowCount > 0) {
+      return res.status(400).json({ error: '该用户已拥有此宠物' });
+    }
+    const result = await client.query(
+      'INSERT INTO user_pets (user_id, pet_id, level, growth_points, hunger, is_active) VALUES ($1, $2, 1, 0, 20, false) RETURNING *',
+      [id, petId]
+    );
+    res.json({ message: '宠物添加成功', user_pet: result.rows[0] });
+  } catch (error) {
+    logger?.error('Add user pet error:', { error: error.message });
+    res.status(500).json({ error: '添加用户宠物失败' });
+  }
+});
+
+router.delete('/users/:id/pets/:petId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id, petId } = req.params;
+    await client.query('DELETE FROM user_pets WHERE user_id = $1 AND pet_id = $2', [id, petId]);
+    res.json({ message: '用户宠物删除成功' });
+  } catch (error) {
+    logger?.error('Delete user pet error:', { error: error.message });
+    res.status(500).json({ error: '删除用户宠物失败' });
+  }
+});
+
+// ============================================================
+// 管理员：给用户添加/删除饰品
+// ============================================================
+router.post('/users/:id/decorations/:decorationId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id, decorationId } = req.params;
+    const existing = await client.query('SELECT id FROM users WHERE id = $1', [id]);
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    const dec = await client.query('SELECT id FROM decorations WHERE id = $1', [decorationId]);
+    if (dec.rowCount === 0) {
+      return res.status(404).json({ error: '饰品不存在' });
+    }
+    // 检查是否已有，已有就加数量
+    const already = await client.query('SELECT quantity FROM user_decorations WHERE user_id = $1 AND decoration_id = $2', [id, decorationId]);
+    if (already.rowCount > 0) {
+      const newQty = (already.rows[0].quantity || 0) + 1;
+      await client.query('UPDATE user_decorations SET quantity = $1 WHERE user_id = $2 AND decoration_id = $3', [newQty, id, decorationId]);
+      res.json({ message: '饰品数量增加成功', quantity: newQty });
+    } else {
+      await client.query('INSERT INTO user_decorations (user_id, decoration_id, quantity) VALUES ($1, $2, 1)', [id, decorationId]);
+      res.json({ message: '饰品添加成功', quantity: 1 });
+    }
+  } catch (error) {
+    logger?.error('Add user decoration error:', { error: error.message });
+    res.status(500).json({ error: '添加用户饰品失败' });
+  }
+});
+
+router.delete('/users/:id/decorations/:decorationId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id, decorationId } = req.params;
+    await client.query('DELETE FROM user_decorations WHERE user_id = $1 AND decoration_id = $2', [id, decorationId]);
+    res.json({ message: '用户饰品删除成功' });
+  } catch (error) {
+    logger?.error('Delete user decoration error:', { error: error.message });
+    res.status(500).json({ error: '删除用户饰品失败' });
+  }
+});
+
 // 宠物管理
 router.get('/pets/all', authenticateToken, requireAdmin, async (req, res) => { try { res.json((await client.query('SELECT * FROM pets ORDER BY rarity, id')).rows); } catch (error) { res.status(500).json({ error: '获取宠物列表失败' }); } });
 
@@ -78,7 +214,16 @@ router.put('/pets/:id', authenticateToken, requireAdmin, async (req, res) => {
 router.delete('/pets/:id', authenticateToken, requireAdmin, async (req, res) => { try { const result = await client.query('DELETE FROM pets WHERE id = $1 RETURNING *', [req.params.id]); if (result.rowCount === 0) return res.status(404).json({ error: '宠物不存在' }); res.json({ message: '宠物删除成功' }); } catch (error) { res.status(500).json({ error: '删除宠物失败' }); } });
 
 // 饰品管理
-router.get('/decorations/all', authenticateToken, requireAdmin, async (req, res) => { try { res.json((await client.query('SELECT d.*, p.name as pet_name FROM decorations d LEFT JOIN pets p ON d.pet_id = p.id ORDER BY d.slot_type, d.quality DESC, d.id')).rows); } catch (error) { res.status(500).json({ error: '获取饰品列表失败' }); } });
+router.get('/decorations/all', authenticateToken, requireAdmin, async (req, res) => { 
+  try { 
+    const result = await client.query('SELECT d.*, p.name as pet_name FROM decorations d LEFT JOIN pets p ON d.pet_id = p.id ORDER BY d.slot_type, d.quality DESC, d.id');
+    logger?.info('Decorations all query returned rows:', { count: result.rows.length });
+    res.json(result.rows); 
+  } catch (error) { 
+    logger?.error('Get decorations error:', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: '获取饰品列表失败: ' + error.message }); 
+  } 
+});
 
 router.post('/decorations', authenticateToken, requireAdmin, async (req, res) => {
   try {

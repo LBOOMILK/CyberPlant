@@ -7,6 +7,7 @@
       <div class="tab-bar">
         <button :class="['tab-btn', { active: currentTab === 'items' }]" @click="currentTab = 'items'">📦 物品</button>
         <button :class="['tab-btn', { active: currentTab === 'pets' }]" @click="currentTab = 'pets'; loadPets()">🐾 宠物</button>
+        <button :class="['tab-btn', { active: currentTab === 'decorations' }]" @click="currentTab = 'decorations'; loadDecorations()">🎀 饰品</button>
       </div>
       
       <!-- 物品管理 -->
@@ -109,7 +110,52 @@
           </table>
         </div>
       </div>
-      
+
+      <!-- 饰品管理 -->
+      <div v-if="currentTab === 'decorations'">
+        <div class="action-bar">
+          <button class="add-btn" @click="showAddDecModal = true">添加饰品</button>
+        </div>
+
+        <div class="items-table">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>图标</th>
+                <th>名称</th>
+                <th>槽位</th>
+                <th>品质</th>
+                <th>加成</th>
+                <th>价格</th>
+                <th>货币</th>
+                <th>可售</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="dec in decorations" :key="dec.id">
+                <td>{{ dec.id }}</td>
+                <td class="icon-cell">{{ dec.icon }}</td>
+                <td>{{ dec.name }}</td>
+                <td>{{ dec.slot_type }}</td>
+                <td><span :class="['item-rarity', dec.quality]">{{ dec.quality }}</span></td>
+                <td>+{{ dec.bonus }}</td>
+                <td>{{ dec.price_amount }}</td>
+                <td>{{ currencyName(dec.price_type) }}</td>
+                <td>{{ dec.is_shop ? '✅' : '❌' }}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="edit-btn" @click="openEditDecModal(dec)">编辑</button>
+                    <button class="delete-btn" @click="deleteDec(dec.id)">删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- 添加物品弹窗 -->
       <div v-if="showAddModal" class="modal-overlay" @mousedown.self="showAddModal = false">
         <div class="modal-content wide-modal">
@@ -446,6 +492,150 @@
           </div>
         </div>
       </div>
+
+      <!-- 添加饰品弹窗 -->
+      <div v-if="showAddDecModal" class="modal-overlay" @mousedown.self="showAddDecModal = false">
+        <div class="modal-content wide-modal">
+          <h3>添加饰品</h3>
+          <form @submit.prevent="handleAddDec">
+            <div class="form-row">
+              <div class="form-group">
+                <label>饰品名</label>
+                <input type="text" v-model="newDec.name" required placeholder="请输入饰品名">
+              </div>
+              <div class="form-group">
+                <label>图标 (Emoji)</label>
+                <input type="text" v-model="newDec.icon" placeholder="🎀">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>槽位</label>
+                <select v-model="newDec.slot_type" required>
+                  <option value="head">头部</option>
+                  <option value="neck">颈部</option>
+                  <option value="body">身体</option>
+                  <option value="back">背部</option>
+                  <option value="tail">尾部</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>品质</label>
+                <select v-model="newDec.quality" required>
+                  <option value="C">C - 普通</option>
+                  <option value="B">B - 稀有</option>
+                  <option value="A">A - 史诗</option>
+                  <option value="S">S - 传说</option>
+                  <option value="SSS">SSS - 神话</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>加成值</label>
+                <input type="number" v-model.number="newDec.bonus" min="0" placeholder="0">
+              </div>
+              <div class="form-group">
+                <label>价格</label>
+                <input type="number" v-model.number="newDec.price_amount" min="0" placeholder="0">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>货币类型</label>
+                <select v-model="newDec.price_type">
+                  <option value="silver_coin">🪙 银币</option>
+                  <option value="gold_coin">🥇 金币</option>
+                  <option value="diamond">💎 钻石</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>可售</label>
+                <select v-model="newDec.is_shop">
+                  <option :value="true">是</option>
+                  <option :value="false">否</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="cancel-btn" @click="showAddDecModal = false">取消</button>
+              <button type="submit" class="confirm-btn">确认添加</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- 编辑饰品弹窗 -->
+      <div v-if="showEditDecModal" class="modal-overlay" @mousedown.self="showEditDecModal = false">
+        <div class="modal-content wide-modal">
+          <h3>编辑饰品</h3>
+          <form @submit.prevent="handleEditDec">
+            <div class="form-row">
+              <div class="form-group">
+                <label>饰品名</label>
+                <input type="text" v-model="currentDec.name" required>
+              </div>
+              <div class="form-group">
+                <label>图标 (Emoji)</label>
+                <input type="text" v-model="currentDec.icon">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>槽位</label>
+                <select v-model="currentDec.slot_type" required>
+                  <option value="head">头部</option>
+                  <option value="neck">颈部</option>
+                  <option value="body">身体</option>
+                  <option value="back">背部</option>
+                  <option value="tail">尾部</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>品质</label>
+                <select v-model="currentDec.quality" required>
+                  <option value="C">C - 普通</option>
+                  <option value="B">B - 稀有</option>
+                  <option value="A">A - 史诗</option>
+                  <option value="S">S - 传说</option>
+                  <option value="SSS">SSS - 神话</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>加成值</label>
+                <input type="number" v-model.number="currentDec.bonus" min="0">
+              </div>
+              <div class="form-group">
+                <label>价格</label>
+                <input type="number" v-model.number="currentDec.price_amount" min="0">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>货币类型</label>
+                <select v-model="currentDec.price_type">
+                  <option value="silver_coin">🪙 银币</option>
+                  <option value="gold_coin">🥇 金币</option>
+                  <option value="diamond">💎 钻石</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>可售</label>
+                <select v-model="currentDec.is_shop">
+                  <option :value="true">是</option>
+                  <option :value="false">否</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="cancel-btn" @click="showEditDecModal = false">取消</button>
+              <button type="submit" class="confirm-btn">确认更新</button>
+            </div>
+          </form>
+        </div>
+      </div>
   </div>
 </template>
 
@@ -471,6 +661,23 @@ const showEditPetModal = ref(false)
 const showDeletePetModalVisible = ref(false)
 const currentPet = ref(null)
 const deletingPetId = ref(null)
+
+// 饰品相关状态
+const decorations = ref([])
+const showAddDecModal = ref(false)
+const showEditDecModal = ref(false)
+const currentDec = ref(null)
+const newDec = ref({
+  name: '',
+  icon: '🎀',
+  slot_type: 'head',
+  quality: 'C',
+  bonus: 0,
+  price_amount: 0,
+  price_type: 'silver_coin',
+  is_shop: true,
+  pet_id: null
+})
 
 const filteredItems = computed(() => {
   if (filterType.value === 'all') return items.value
@@ -642,7 +849,7 @@ async function confirmDeleteItem() {
 
 // ========== 宠物管理函数 ==========
 
-// 加载宠物数据
+// 加载宠物数据（按 ID 升序排序）
 async function loadPets() {
   try {
     const token = localStorage.getItem('auth_token')
@@ -650,11 +857,106 @@ async function loadPets() {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (!response.ok) throw new Error('获取宠物列表失败')
-    pets.value = await response.json()
+    const data = await response.json()
+    pets.value = data.sort((a, b) => Number(a.id) - Number(b.id))
   } catch (error) {
     console.error('Failed to load pets:', error)
     pets.value = []
     if (toastRef.value) toastRef.value.addToast(error.message || '加载宠物数据失败', 'error')
+  }
+}
+
+// ========== 饰品管理函数 ==========
+
+// 加载饰品数据（按 ID 升序排序）
+async function loadDecorations() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/decorations/all`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (!response.ok) throw new Error('获取饰品列表失败')
+    const data = await response.json()
+    decorations.value = Array.isArray(data) ? data.sort((a, b) => Number(a.id) - Number(b.id)) : []
+  } catch (error) {
+    console.error('Failed to load decorations:', error)
+    decorations.value = []
+    if (toastRef.value) toastRef.value.addToast(error.message || '加载饰品数据失败', 'error')
+  }
+}
+
+// 打开编辑饰品弹窗
+function openEditDecModal(dec) {
+  currentDec.value = { ...dec }
+  showEditDecModal.value = true
+}
+
+// 添加饰品
+async function handleAddDec() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/decorations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(newDec.value)
+    })
+    if (response.ok) {
+      showAddDecModal.value = false
+      newDec.value = { name: '', icon: '🎀', slot_type: 'head', quality: 'C', bonus: 0, price_amount: 0, price_type: 'silver_coin', is_shop: true, pet_id: null }
+      await loadDecorations()
+      if (toastRef.value) toastRef.value.addToast('添加饰品成功', 'success')
+    } else {
+      const errorData = await response.json()
+      if (toastRef.value) toastRef.value.addToast(errorData.error || '添加饰品失败', 'error')
+    }
+  } catch (error) {
+    console.error('Failed to add decoration:', error)
+    if (toastRef.value) toastRef.value.addToast('网络错误，请稍后再试', 'error')
+  }
+}
+
+// 编辑饰品
+async function handleEditDec() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/decorations/${currentDec.value.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(currentDec.value)
+    })
+    if (response.ok) {
+      showEditDecModal.value = false
+      await loadDecorations()
+      if (toastRef.value) toastRef.value.addToast('编辑饰品成功', 'success')
+    } else {
+      const errorData = await response.json()
+      if (toastRef.value) toastRef.value.addToast(errorData.error || '编辑饰品失败', 'error')
+    }
+  } catch (error) {
+    console.error('Failed to edit decoration:', error)
+    if (toastRef.value) toastRef.value.addToast('网络错误，请稍后再试', 'error')
+  }
+}
+
+// 删除饰品
+async function deleteDec(decId) {
+  if (!confirm('确定要删除此饰品吗？')) return
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/decorations/${decId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (response.ok) {
+      await loadDecorations()
+      if (toastRef.value) toastRef.value.addToast('删除饰品成功', 'success')
+    } else {
+      const errorData = await response.json()
+      if (toastRef.value) toastRef.value.addToast(errorData.error || '删除饰品失败', 'error')
+    }
+  } catch (error) {
+    console.error('Failed to delete decoration:', error)
+    if (toastRef.value) toastRef.value.addToast('网络错误，请稍后再试', 'error')
   }
 }
 
