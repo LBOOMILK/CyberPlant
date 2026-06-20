@@ -257,7 +257,8 @@ function loadPetEffect() {
   if (effect) {
     currentEffectInstance = effect.init(effectContainer.value, {
       level: petStore.activePet.level,
-      bonus: petStore.activePet.current_bonus
+      bonus: petStore.activePet.current_bonus,
+      scale: 0.45
     })
   }
 }
@@ -277,7 +278,8 @@ function loadTopbarEffect() {
   if (effect) {
     topbarEffectInstance = effect.init(topbarEffectContainer.value, {
       level: petStore.activePet.level,
-      bonus: petStore.activePet.current_bonus
+      bonus: petStore.activePet.current_bonus,
+      scale: 0.4
     })
   }
 }
@@ -932,7 +934,7 @@ watch(topbarExpanded, async (val) => {
   right: -8px;
   bottom: -8px;
   pointer-events: none;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 12px;
 }
 

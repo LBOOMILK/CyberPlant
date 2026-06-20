@@ -3,6 +3,7 @@ export default {
   name: 'lbooktest',
   icon: '🐼',
   init(container, options = {}) {
+    const scale = options.scale || 1
     const allElements = []
     const rafIds = []
 
@@ -21,7 +22,7 @@ export default {
       b.textContent = '🎋'
       Object.assign(b.style, {
         position: 'absolute',
-        fontSize: pos.size + 'px',
+        fontSize: pos.size * scale + 'px',
         pointerEvents: 'none',
         transformOrigin: 'bottom center',
         filter: 'drop-shadow(0 0 8px rgba(0,255,136,0.5)) drop-shadow(0 0 20px rgba(0,200,100,0.3))',
@@ -42,7 +43,7 @@ export default {
         ch.textContent = Math.random() > 0.5 ? '0' : '1'
         Object.assign(ch.style, {
           position: 'absolute',
-          fontSize: '12px',
+          fontSize: 12 * scale + 'px',
           fontFamily: "'Courier New', monospace",
           color: 'rgba(0,255,136,0.85)',
           pointerEvents: 'none',
@@ -68,8 +69,8 @@ export default {
       const y = 3 + Math.random() * 90
       Object.assign(pixel.style, {
         position: 'absolute',
-        width: '3px',
-        height: '3px',
+        width: 3 * scale + 'px',
+        height: 3 * scale + 'px',
         background: '#00ff88',
         pointerEvents: 'none',
         left: x + '%',
@@ -86,8 +87,8 @@ export default {
       const ring = document.createElement('div')
       Object.assign(ring.style, {
         position: 'absolute',
-        width: '20px',
-        height: '20px',
+        width: 20 * scale + 'px',
+        height: 20 * scale + 'px',
         border: '1px solid rgba(0,255,136,0.3)',
         borderRadius: '50%',
         pointerEvents: 'none',

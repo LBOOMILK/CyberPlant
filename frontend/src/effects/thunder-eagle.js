@@ -3,6 +3,7 @@ export default {
   name: 'thunder-eagle',
   icon: '🦅',
   init(container, options = {}) {
+    const scale = options.scale || 1
     const bolts = []
     const cx = 50, cy = 50, r = 38
     const rafIds = []
@@ -13,7 +14,7 @@ export default {
       b.textContent = '⚡'
       Object.assign(b.style, {
         position: 'absolute',
-        fontSize: '30px',
+        fontSize: 30 * scale + 'px',
         pointerEvents: 'none',
         filter: 'drop-shadow(0 0 12px rgba(255,220,30,0.9)) drop-shadow(0 0 24px rgba(255,180,20,0.5))',
         animation: `boltFlash ${0.5 + Math.random() * 0.5}s ease-in-out ${Math.random() * 0.7}s infinite`

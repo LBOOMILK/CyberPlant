@@ -3,6 +3,7 @@ export default {
   name: 'bubble-fish',
   icon: '🐟',
   init(container, options = {}) {
+    const scale = options.scale || 1
     const spots = [
       { x: 10, y: 15 }, { x: 70, y: 10 }, { x: 15, y: 60 },
       { x: 72, y: 58 }, { x: 42, y: 5 }, { x: 45, y: 72 },
@@ -12,7 +13,7 @@ export default {
     for (let i = 0; i < spots.length; i++) {
       const b = document.createElement('div')
       b.className = 'effect-bubble'
-      const size = 10 + Math.random() * 18
+      const size = (10 + Math.random() * 18) * scale
       Object.assign(b.style, {
         position: 'absolute',
         width: size + 'px',

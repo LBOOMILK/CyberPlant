@@ -3,6 +3,7 @@ export default {
   name: 'crystal-dragon',
   icon: '🐉',
   init(container, options = {}) {
+    const scale = options.scale || 1
     const positions = [
       { x: 8, y: 10 },  { x: 68, y: 8 },
       { x: 15, y: 55 }, { x: 70, y: 55 },
@@ -23,8 +24,8 @@ export default {
       o.className = 'effect-orb'
       Object.assign(o.style, {
         position: 'absolute',
-        width: '36px',
-        height: '36px',
+        width: 36 * scale + 'px',
+        height: 36 * scale + 'px',
         borderRadius: '50%',
         pointerEvents: 'none',
         filter: 'blur(1px)',
@@ -51,10 +52,10 @@ export default {
         if (orb.x < 0 || orb.x > 70) orb.vx *= -1
         if (orb.y < 0 || orb.y > 70) orb.vy *= -1
         orb.phase += 0.025
-        const scale = 0.8 + 0.5 * Math.sin(orb.phase)
+        const breath = 0.8 + 0.5 * Math.sin(orb.phase)
         orb.el.style.left = orb.x + '%'
         orb.el.style.top = orb.y + '%'
-        orb.el.style.transform = 'scale(' + scale + ')'
+        orb.el.style.transform = 'scale(' + breath + ')'
         orb.el.style.opacity = (0.55 + 0.4 * Math.sin(orb.phase + 1.5)).toFixed(2)
       }
       rafIds.push(requestAnimationFrame(tick))
