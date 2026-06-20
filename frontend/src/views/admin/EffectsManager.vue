@@ -68,12 +68,25 @@
       </div>
 
       <Toast ref="toastRef" />
+
+      <ConfirmModal
+        :visible="showDeleteEffectConfirm"
+        title="删除确认"
+        :message="'确定删除特效 ' + (pendingDeleteEffect?.name || '') + ' ？'"
+        icon="🗑️"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doDeleteEffect"
+        @cancel="showDeleteEffectConfirm = false; pendingDeleteEffect = null"
+      />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import Toast from '@/components/common/Toast.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const BUILTIN_EFFECTS = ['bubble-fish.js', 'cat-paw.js', 'star-rabbit.js', 'thunder-eagle.js', 'crystal-dragon.js', 'lbooktest.js']
 
@@ -89,6 +102,9 @@ const showEditor = ref(false)
 const editingEffect = ref(null)
 const editorContent = ref('')
 const saving = ref(false)
+
+const showDeleteEffectConfirm = ref(false)
+const pendingDeleteEffect = ref(null)
 
 function handleFileSelect(e) {
   const file = e.target.files[0]
@@ -211,7 +227,14 @@ async function saveEffect() {
 
 async function deleteEffect(eff) {
   if (eff.builtin) return
-  if (!confirm(`确定删除特效 "${eff.name}"？`)) return
+  pendingDeleteEffect.value = eff
+  showDeleteEffectConfirm.value = true
+}
+async function doDeleteEffect() {
+  const eff = pendingDeleteEffect.value
+  showDeleteEffectConfirm.value = false
+  pendingDeleteEffect.value = null
+  if (!eff) return
   try {
     const token = localStorage.getItem('auth_token')
     const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/effects/${eff.filename}`, {

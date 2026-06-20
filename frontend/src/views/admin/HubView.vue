@@ -189,8 +189,9 @@
                 <div class="form-grid">
                   <label>名称 <input v-model="editItemForm.name" /></label>
                   <label>图标 <input v-model="editItemForm.icon" /></label>
-                  <label>买价 <span class="number-input-group"><button class="num-btn" @click="editItemForm.buy_price = Math.max(0, editItemForm.buy_price - 100)" type="button">−</button><input v-model.number="editItemForm.buy_price" type="number" min="0" /><button class="num-btn" @click="editItemForm.buy_price += 100" type="button">+</button></span></label>
+                  <label v-if="editItemForm.item_type === 'seed'">买价 <span class="number-input-group"><button class="num-btn" @click="editItemForm.buy_price = Math.max(0, editItemForm.buy_price - 100)" type="button">−</button><input v-model.number="editItemForm.buy_price" type="number" min="0" /><button class="num-btn" @click="editItemForm.buy_price += 100" type="button">+</button></span></label>
                   <label>卖价 <span class="number-input-group"><button class="num-btn" @click="editItemForm.sell_price = Math.max(0, editItemForm.sell_price - 100)" type="button">−</button><input v-model.number="editItemForm.sell_price" type="number" min="0" /><button class="num-btn" @click="editItemForm.sell_price += 100" type="button">+</button></span></label>
+                  <label v-if="editItemForm.item_type === 'seed'">基础产出 <span class="number-input-group"><button class="num-btn" @click="editItemForm.base_yield = Math.max(0, (editItemForm.base_yield || 0) - 1)" type="button">−</button><input v-model.number="editItemForm.base_yield" type="number" min="0" /><button class="num-btn" @click="editItemForm.base_yield = (editItemForm.base_yield || 0) + 1" type="button">+</button></span></label>
                   <label>货币
                     <select v-model="editItemForm.currency_type">
                       <option value="silver_coin">银币</option>
@@ -198,7 +199,7 @@
                       <option value="diamond">钻石</option>
                     </select>
                   </label>
-                  <label>可购买 <input type="checkbox" v-model="editItemForm.purchasable" /></label>
+                  <label v-if="editItemForm.item_type !== 'crop'">可购买 <input type="checkbox" v-model="editItemForm.purchasable" /></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showEditItem = false">取消</button>
@@ -228,12 +229,13 @@
                       <option value="B">B</option>
                       <option value="A">A</option>
                       <option value="S">S</option>
-                      <option value="SSS">SSS</option>
+                      <option value="SSR">SSR</option><option value="SSS">SSS</option>
                     </select>
                   </label>
-                  <label>买价 <span class="number-input-group"><button class="num-btn" @click="newItemForm.buy_price = Math.max(0, newItemForm.buy_price - 100)" type="button">−</button><input v-model.number="newItemForm.buy_price" type="number" min="0" /><button class="num-btn" @click="newItemForm.buy_price += 100" type="button">+</button></span></label>
+                  <label v-if="newItemForm.item_type === 'seed'">买价 <span class="number-input-group"><button class="num-btn" @click="newItemForm.buy_price = Math.max(0, newItemForm.buy_price - 100)" type="button">−</button><input v-model.number="newItemForm.buy_price" type="number" min="0" /><button class="num-btn" @click="newItemForm.buy_price += 100" type="button">+</button></span></label>
                   <label>卖价 <span class="number-input-group"><button class="num-btn" @click="newItemForm.sell_price = Math.max(0, newItemForm.sell_price - 100)" type="button">−</button><input v-model.number="newItemForm.sell_price" type="number" min="0" /><button class="num-btn" @click="newItemForm.sell_price += 100" type="button">+</button></span></label>
-                  <label>基础产出 <span class="number-input-group"><button class="num-btn" @click="newItemForm.base_yield = Math.max(0, newItemForm.base_yield - 1)" type="button">−</button><input v-model.number="newItemForm.base_yield" type="number" min="0" /><button class="num-btn" @click="newItemForm.base_yield++" type="button">+</button></span></label>
+                  <label v-if="newItemForm.item_type === 'seed'">基础产出 <span class="number-input-group"><button class="num-btn" @click="newItemForm.base_yield = Math.max(0, newItemForm.base_yield - 1)" type="button">−</button><input v-model.number="newItemForm.base_yield" type="number" min="0" /><button class="num-btn" @click="newItemForm.base_yield++" type="button">+</button></span></label>
+                  <label v-if="newItemForm.item_type !== 'crop'">可购买 <input type="checkbox" v-model="newItemForm.purchasable" /></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showAddItem = false">取消</button>
@@ -251,7 +253,7 @@
                   <label>图标 <input v-model="editPetForm.icon" /></label>
                   <label>稀有度
                     <select v-model="editPetForm.rarity">
-                      <option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option><option value="SSS">SSS</option>
+                      <option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option><option value="SSR">SSR</option><option value="SSS">SSS</option>
                     </select>
                   </label>
                   <label>基础加成
@@ -265,8 +267,7 @@
                       <option value="diamond">钻石</option>
                     </select>
                   </label>
-                  <label>可售 <input type="checkbox" v-model="editPetForm.is_shop" /></label>
-                  <label>测试 <input type="checkbox" v-model="editPetForm.is_test" /></label>
+                  <label style="flex-direction:row;align-items:center;gap:8px;cursor:pointer;">可售 <input type="checkbox" v-model="editPetForm.is_shop" style="width:auto;cursor:pointer;" /></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showEditPet = false">取消</button>
@@ -284,7 +285,7 @@
                   <label>图标 <input v-model="newPetForm.icon" placeholder="🐱" /></label>
                   <label>稀有度
                     <select v-model="newPetForm.rarity">
-                      <option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option><option value="SSS">SSS</option>
+                      <option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option><option value="SSR">SSR</option><option value="SSS">SSS</option>
                     </select>
                   </label>
                   <label>价格 <span class="number-input-group"><button class="num-btn" @click="newPetForm.price_amount = Math.max(0, newPetForm.price_amount - 100)" type="button">−</button><input v-model.number="newPetForm.price_amount" type="number" min="0" /><button class="num-btn" @click="newPetForm.price_amount += 100" type="button">+</button></span></label>
@@ -296,8 +297,7 @@
                       <option value="diamond">钻石</option>
                     </select>
                   </label>
-                  <label>可售 <input type="checkbox" v-model="newPetForm.is_shop" /></label>
-                  <label>测试宠物 <input type="checkbox" v-model="newPetForm.is_test" /></label>
+                  <label style="flex-direction:row;align-items:center;gap:8px;cursor:pointer;">可售 <input type="checkbox" v-model="newPetForm.is_shop" style="width:auto;cursor:pointer;" /></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showAddPet = false">取消</button>
@@ -323,7 +323,7 @@
                   </label>
                   <label>品质
                     <select v-model="editDecForm.quality">
-                      <option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option><option value="SSS">SSS</option>
+                      <option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option><option value="SSR">SSR</option><option value="SSS">SSS</option>
                     </select>
                   </label>
                   <label>加成值 <span class="number-input-group"><button class="num-btn" @click="editDecForm.bonus = Math.max(0, editDecForm.bonus - 1)" type="button">−</button><input v-model.number="editDecForm.bonus" type="number" min="0" /><button class="num-btn" @click="editDecForm.bonus += 1" type="button">+</button></span></label>
@@ -366,7 +366,7 @@
                   </label>
                   <label>品质
                     <select v-model="newDecForm.quality">
-                      <option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option><option value="SSS">SSS</option>
+                      <option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option><option value="SSR">SSR</option><option value="SSS">SSS</option>
                     </select>
                   </label>
                   <label>加成值
@@ -439,6 +439,7 @@
                     <td>{{ a.id }}</td>
                     <td>{{ a.email }}</td>
                     <td>
+                      <button class="action-btn-sm" @click="openEditAdmin(a)">编辑</button>
                       <button class="action-btn-sm danger" @click="deleteAdmin(a.id)">删除</button>
                     </td>
                   </tr>
@@ -453,6 +454,35 @@
                 <div class="form-grid">
                   <label>用户名 <input v-model="editUserForm.name" /></label>
                   <label>邮箱 <input v-model="editUserForm.email" /></label>
+                </div>
+                <div class="form-group" style="margin-top:16px;">
+                  <div style="font-weight:600;margin-bottom:10px;">货币余额</div>
+                  <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <span style="min-width:60px;">银币</span>
+                      <span style="display:flex;align-items:center;gap:4px;">
+                        <button class="num-btn" @click="editUserForm.silver_coin = Math.max(0, editUserForm.silver_coin - 100)" type="button">−</button>
+                        <input type="number" v-model.number="editUserForm.silver_coin" min="0" style="width:120px;padding:6px 10px;border:1px solid #30363d;border-radius:4px;background:#0d1117;color:#e6edf3;" />
+                        <button class="num-btn" @click="editUserForm.silver_coin = Number(editUserForm.silver_coin) + 100" type="button">+</button>
+                      </span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <span style="min-width:60px;">金币</span>
+                      <span style="display:flex;align-items:center;gap:4px;">
+                        <button class="num-btn" @click="editUserForm.gold_coin = Math.max(0, editUserForm.gold_coin - 100)" type="button">−</button>
+                        <input type="number" v-model.number="editUserForm.gold_coin" min="0" style="width:120px;padding:6px 10px;border:1px solid #30363d;border-radius:4px;background:#0d1117;color:#e6edf3;" />
+                        <button class="num-btn" @click="editUserForm.gold_coin = Number(editUserForm.gold_coin) + 100" type="button">+</button>
+                      </span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <span style="min-width:60px;">钻石</span>
+                      <span style="display:flex;align-items:center;gap:4px;">
+                        <button class="num-btn" @click="editUserForm.diamond = Math.max(0, editUserForm.diamond - 100)" type="button">−</button>
+                        <input type="number" v-model.number="editUserForm.diamond" min="0" style="width:120px;padding:6px 10px;border:1px solid #30363d;border-radius:4px;background:#0d1117;color:#e6edf3;" />
+                        <button class="num-btn" @click="editUserForm.diamond = Number(editUserForm.diamond) + 100" type="button">+</button>
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div class="modal-actions">
                   <button @click="showEditUser = false">取消</button>
@@ -472,6 +502,21 @@
                 <div class="modal-actions">
                   <button @click="showAddAdmin = false">取消</button>
                   <button class="primary" @click="addAdmin">添加</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 编辑管理员弹窗 -->
+            <div v-if="showEditAdmin" class="modal-overlay" @mousedown.self="showEditAdmin = false">
+              <div class="modal-card">
+                <h3>编辑管理员</h3>
+                <div class="form-grid" style="grid-template-columns:1fr;">
+                  <label>邮箱 <input v-model="editAdminForm.email" type="email" /></label>
+                  <label>新密码 <input v-model="editAdminForm.password" type="password" placeholder="留空则不修改" /></label>
+                </div>
+                <div class="modal-actions">
+                  <button @click="showEditAdmin = false">取消</button>
+                  <button class="primary" @click="saveAdmin">保存</button>
                 </div>
               </div>
             </div>
@@ -594,17 +639,48 @@
             <div v-else-if="hubEffects.length === 0" style="text-align:center;padding:30px;color:var(--text-muted,#8b949e);">暂无特效文件</div>
             <table v-else class="detail-table">
               <thead>
-                <tr><th>图标</th><th>名称</th><th>文件名</th></tr>
+                <tr><th>图标</th><th>名称</th><th>文件名</th><th>操作</th></tr>
               </thead>
               <tbody>
                 <tr v-for="eff in hubEffects" :key="eff.filename">
                   <td>{{ eff.icon || '✨' }}</td>
                   <td>{{ eff.name }}</td>
                   <td style="color:var(--text-muted,#8b949e);font-size:11px;">{{ eff.filename }}</td>
+                  <td>
+                    <span v-if="eff.builtin" class="builtin-tag" style="font-size:11px;padding:2px 8px;background:rgba(245,158,11,0.15);color:#f59e0b;border-radius:6px;">默认</span>
+                    <button class="action-btn-sm" @click="viewEffect(eff)">查看</button>
+                    <button class="action-btn-sm danger" :disabled="eff.builtin" @click="deleteEffect(eff)">删除</button>
+                  </td>
                 </tr>
               </tbody>
             </table>
             <div v-if="effectUploadError" style="margin-top:8px;color:#f87171;font-size:12px;">{{ effectUploadError }}</div>
+
+            <!-- 代码编辑弹窗 -->
+            <div v-if="showEffectEditor" class="modal-overlay" @mousedown.self="showEffectEditor = false">
+              <div class="modal-card wide-modal" style="width:700px;max-width:90vw;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <h3 style="margin:0;color:#f59e0b;">{{ editingEffect?.filename }}</h3>
+                  <span v-if="editingEffect?.builtin" style="font-size:11px;padding:4px 10px;background:rgba(245,158,11,0.15);color:#f59e0b;border-radius:6px;">默认</span>
+                  <button class="action-btn-sm" @click="showEffectEditor = false">✕</button>
+                </div>
+                <textarea
+                  v-model="editorContent"
+                  :readonly="editingEffect?.builtin"
+                  spellcheck="false"
+                  style="width:100%;height:300px;font-family:monospace;font-size:12px;background:rgba(0,0,0,0.3);color:#e6e8eb;border:1px solid var(--border-color,#334155);border-radius:6px;padding:12px;resize:vertical;"
+                ></textarea>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+                  <span style="font-size:12px;color:var(--text-muted,#8b949e);">{{ editingEffect?.builtin ? '内置特效为只读，不可修改' : '修改后点击保存生效' }}</span>
+                  <div style="display:flex;gap:10px;">
+                    <button class="action-btn-sm" @click="showEffectEditor = false">关闭</button>
+                    <button v-if="!editingEffect?.builtin" class="action-btn-sm primary" :disabled="savingEffect" @click="saveEffect">
+                      {{ savingEffect ? '保存中...' : '💾 保存' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 统计 -->
@@ -624,6 +700,106 @@
         </div>
       </div>
     </div>
+      <!-- ConfirmModals -->
+      <ConfirmModal
+        :visible="showDeletePetConfirm"
+        title="删除确认"
+        message="确定删除此宠物？"
+        icon="🗑️"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doDeletePet"
+        @cancel="showDeletePetConfirm = false; pendingDeletePetId = null"
+      />
+      <ConfirmModal
+        :visible="showDeleteDecConfirm"
+        title="删除确认"
+        message="确定删除此饰品？"
+        icon="🗑️"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doDeleteDecoration"
+        @cancel="showDeleteDecConfirm = false; pendingDeleteDecId = null"
+      />
+      <ConfirmModal
+        :visible="showRemoveUserPetConfirm"
+        title="移除确认"
+        message="确定移除该用户的此宠物？"
+        icon="🐾"
+        confirm-text="确认移除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doRemoveUserPet"
+        @cancel="showRemoveUserPetConfirm = false; pendingRemoveUserPetId = null"
+      />
+      <ConfirmModal
+        :visible="showRemoveUserDecConfirm"
+        title="移除确认"
+        message="确定移除该用户的此饰品？"
+        icon="🎀"
+        confirm-text="确认移除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doRemoveUserDecoration"
+        @cancel="showRemoveUserDecConfirm = false; pendingRemoveUserDecId = null"
+      />
+      <ConfirmModal
+        :visible="showDeleteEffectConfirm"
+        title="删除确认"
+        :message="'确定删除特效 ' + (pendingDeleteEffect?.name || '') + ' ？'"
+        icon="🗑️"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doDeleteEffect"
+        @cancel="showDeleteEffectConfirm = false; pendingDeleteEffect = null"
+      />
+      <ConfirmModal
+        :visible="showDeleteItemConfirm"
+        title="删除确认"
+        message="确定删除此物品？"
+        icon="🗑️"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doDeleteItem"
+        @cancel="showDeleteItemConfirm = false; pendingDeleteItemId = null"
+      />
+      <ConfirmModal
+        :visible="showDeleteUserConfirm"
+        title="删除确认"
+        message="确定删除此用户？"
+        icon="⚠️"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doDeleteUser"
+        @cancel="showDeleteUserConfirm = false; pendingDeleteUserId = null"
+      />
+      <ConfirmModal
+        :visible="showDeleteAdminConfirm"
+        title="删除确认"
+        message="确定删除此管理员？"
+        icon="⚠️"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doDeleteAdmin"
+        @cancel="showDeleteAdminConfirm = false; pendingDeleteAdminId = null"
+      />
+      <ConfirmModal
+        :visible="showDeleteOrderConfirm"
+        title="删除确认"
+        message="确定删除此订单？"
+        icon="🗑️"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doDeleteOrder"
+        @cancel="showDeleteOrderConfirm = false; pendingDeleteOrderId = null"
+      />
   </div>
 </template>
 
@@ -634,6 +810,7 @@ import { useThemeStore } from '@/stores/themeStore'
 import PetsPanel from './PetsPanel.vue'
 import ConfigPanel from './ConfigPanel.vue'
 import StatsPanel from './StatsPanel.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const themeStore = useThemeStore()
@@ -651,6 +828,8 @@ const showAddItem = ref(false)
 const showEditItem = ref(false)
 const showEditUser = ref(false)
 const showAddAdmin = ref(false)
+const showEditAdmin = ref(false)
+const editAdminForm = ref({ id: null, email: '', password: '' })
 const editItemForm = ref({})
 const editUserForm = ref({})
 const newItemForm = ref({ name: '', icon: '', item_type: 'seed', rarity: 'C', buy_price: 0, sell_price: 0, base_yield: 0, currency_type: 'silver_coin', purchasable: true })
@@ -658,6 +837,11 @@ const newAdminForm = ref({ email: '', password: '' })
 const effectFileInput = ref(null)
 const effectUploadError = ref('')
 const loadingEffects = ref(false)
+const BUILTIN_EFFECTS = ['bubble-fish.js', 'cat-paw.js', 'star-rabbit.js', 'thunder-eagle.js', 'crystal-dragon.js', 'lbooktest.js']
+const showEffectEditor = ref(false)
+const editingEffect = ref(null)
+const editorContent = ref('')
+const savingEffect = ref(false)
 
 // 物品/宠物/饰品 tab 相关
 const hubItemTab = ref('items')
@@ -666,7 +850,7 @@ const showEditPet = ref(false)
 const showAddDec = ref(false)
 const showEditDec = ref(false)
 const editPetForm = ref({})
-const newPetForm = ref({ name: '', icon: '🐾', rarity: 'C', base_bonus: 0, price_amount: 0, price_type: 'silver_coin', is_shop: true, is_test: false })
+const newPetForm = ref({ name: '', icon: '🐾', rarity: 'C', base_bonus: 0, price_amount: 0, price_type: 'silver_coin', is_shop: true })
 const editDecForm = ref({})
 const newDecForm = ref({ name: '', icon: '🎀', slot_type: 'head', quality: 'C', bonus: 0, price_type: 'silver_coin', price_amount: 0, pet_id: null })
 
@@ -689,6 +873,26 @@ const hubDecorations = ref([])
 const loadingItems = ref(false)
 const loadingPets = ref(false)
 const loadingDecs = ref(false)
+
+// ConfirmModal refs
+const showDeletePetConfirm = ref(false)
+const pendingDeletePetId = ref(null)
+const showDeleteDecConfirm = ref(false)
+const pendingDeleteDecId = ref(null)
+const showRemoveUserPetConfirm = ref(false)
+const pendingRemoveUserPetId = ref(null)
+const showRemoveUserDecConfirm = ref(false)
+const pendingRemoveUserDecId = ref(null)
+const showDeleteEffectConfirm = ref(false)
+const pendingDeleteEffect = ref(null)
+const showDeleteItemConfirm = ref(false)
+const pendingDeleteItemId = ref(null)
+const showDeleteUserConfirm = ref(false)
+const pendingDeleteUserId = ref(null)
+const showDeleteAdminConfirm = ref(false)
+const pendingDeleteAdminId = ref(null)
+const showDeleteOrderConfirm = ref(false)
+const pendingDeleteOrderId = ref(null)
 
 // 模块按钮 refs
 const moduleRefs = ref({})
@@ -838,7 +1042,7 @@ async function loadHubDecorations() {
 
 // 宠物 CRUD
 function editPet(pet) {
-  editPetForm.value = { id: pet.id, name: pet.name, icon: pet.icon, rarity: pet.rarity, base_bonus: pet.base_bonus, price_amount: pet.price_amount, price_type: pet.price_type, is_shop: pet.is_shop, is_test: pet.is_test }
+  editPetForm.value = { id: pet.id, name: pet.name, icon: pet.icon, rarity: pet.rarity, base_bonus: pet.base_bonus, price_amount: pet.price_amount, price_type: pet.price_type, is_shop: pet.is_shop }
   showEditPet.value = true
 }
 
@@ -875,13 +1079,20 @@ async function addPet() {
       const data = await r.json()
       hubPets.value.push(data)
       showAddPet.value = false
-      newPetForm.value = { name: '', icon: '🐾', rarity: 'C', base_bonus: 0, price_amount: 0, price_type: 'silver_coin', is_shop: true, is_test: false }
+      newPetForm.value = { name: '', icon: '🐾', rarity: 'C', base_bonus: 0, price_amount: 0, price_type: 'silver_coin', is_shop: true }
     }
   } catch (e) { console.error('Failed to add pet:', e) }
 }
 
 async function deletePet(petId) {
-  if (!confirm('确定删除此宠物？')) return
+  pendingDeletePetId.value = petId
+  showDeletePetConfirm.value = true
+}
+async function doDeletePet() {
+  const petId = pendingDeletePetId.value
+  showDeletePetConfirm.value = false
+  pendingDeletePetId.value = null
+  if (!petId) return
   try {
     const token = localStorage.getItem('auth_token')
     await fetch(`${import.meta.env.VITE_API_URL}/admin/pets/${petId}`, {
@@ -935,7 +1146,14 @@ async function addDecoration() {
 }
 
 async function deleteDecoration(decId) {
-  if (!confirm('确定删除此饰品？')) return
+  pendingDeleteDecId.value = decId
+  showDeleteDecConfirm.value = true
+}
+async function doDeleteDecoration() {
+  const decId = pendingDeleteDecId.value
+  showDeleteDecConfirm.value = false
+  pendingDeleteDecId.value = null
+  if (!decId) return
   try {
     const token = localStorage.getItem('auth_token')
     await fetch(`${import.meta.env.VITE_API_URL}/admin/decorations/${decId}`, {
@@ -1004,7 +1222,14 @@ async function updateUserItemQuantity(itemId, newQuantity) {
 
 // 删除用户宠物（使用 pet_id，因为后端是按 user_id + pet_id 删除）
 async function removeUserPet(petId) {
-  if (!confirm('确定移除该用户的此宠物？')) return
+  pendingRemoveUserPetId.value = petId
+  showRemoveUserPetConfirm.value = true
+}
+async function doRemoveUserPet() {
+  const petId = pendingRemoveUserPetId.value
+  showRemoveUserPetConfirm.value = false
+  pendingRemoveUserPetId.value = null
+  if (!petId) return
   try {
     const token = localStorage.getItem('auth_token')
     const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${currentBackpackUser.value.id}/pets/${petId}`, {
@@ -1019,7 +1244,14 @@ async function removeUserPet(petId) {
 
 // 删除用户饰品
 async function removeUserDecoration(decId) {
-  if (!confirm('确定移除该用户的此饰品？')) return
+  pendingRemoveUserDecId.value = decId
+  showRemoveUserDecConfirm.value = true
+}
+async function doRemoveUserDecoration() {
+  const decId = pendingRemoveUserDecId.value
+  showRemoveUserDecConfirm.value = false
+  pendingRemoveUserDecId.value = null
+  if (!decId) return
   try {
     const token = localStorage.getItem('auth_token')
     const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${currentBackpackUser.value.id}/decorations/${decId}`, {
@@ -1109,12 +1341,76 @@ async function loadEffects() {
     if (r.ok) {
       const data = await r.json()
       const files = data.effects || data
-      hubEffects.value = files.map(f => ({ filename: f, name: f.replace('.js', ''), icon: '✨' }))
+      hubEffects.value = files.map(f => ({ filename: f, name: f.replace('.js', ''), icon: '✨', builtin: BUILTIN_EFFECTS.includes(f) }))
     }
   } catch (e) {
     console.error('Failed to load effects:', e)
   } finally {
     loadingEffects.value = false
+  }
+}
+
+async function viewEffect(eff) {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/effects/${eff.filename}/content`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (r.ok) {
+      const data = await r.json()
+      editingEffect.value = { ...eff, builtin: data.builtin }
+      editorContent.value = data.content
+      showEffectEditor.value = true
+    }
+  } catch (e) {
+    console.error('Failed to load effect content:', e)
+  }
+}
+
+async function saveEffect() {
+  if (!editingEffect.value) return
+  savingEffect.value = true
+  try {
+    const token = localStorage.getItem('auth_token')
+    const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/effects/${editingEffect.value.filename}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ content: editorContent.value })
+    })
+    if (r.ok) {
+      showEffectEditor.value = false
+    }
+  } catch (e) {
+    console.error('Save error:', e)
+  } finally {
+    savingEffect.value = false
+  }
+}
+
+async function deleteEffect(eff) {
+  if (eff.builtin) return
+  pendingDeleteEffect.value = eff
+  showDeleteEffectConfirm.value = true
+}
+async function doDeleteEffect() {
+  const eff = pendingDeleteEffect.value
+  showDeleteEffectConfirm.value = false
+  pendingDeleteEffect.value = null
+  if (!eff) return
+  try {
+    const token = localStorage.getItem('auth_token')
+    const r = await fetch(`${import.meta.env.VITE_API_URL}/admin/effects/${eff.filename}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (r.ok) {
+      await loadEffects()
+    }
+  } catch (e) {
+    console.error('Delete error:', e)
   }
 }
 
@@ -1232,7 +1528,14 @@ async function addItem() {
 }
 
 async function deleteItem(id) {
-  if (!confirm('确定删除此物品？')) return
+  pendingDeleteItemId.value = id
+  showDeleteItemConfirm.value = true
+}
+async function doDeleteItem() {
+  const id = pendingDeleteItemId.value
+  showDeleteItemConfirm.value = false
+  pendingDeleteItemId.value = null
+  if (!id) return
   const token = localStorage.getItem('auth_token')
   await fetch(`${import.meta.env.VITE_API_URL}/admin/items/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
   hubItems.value = hubItems.value.filter(i => i.id !== id)
@@ -1240,29 +1543,62 @@ async function deleteItem(id) {
 
 // ========== 用户 CRUD ==========
 function editUser(user) {
-  editUserForm.value = { id: user.id, name: user.name, email: user.email }
+  editUserForm.value = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    silver_coin: user.currencies?.silver_coin || 0,
+    gold_coin: user.currencies?.gold_coin || 0,
+    diamond: user.currencies?.diamond || 0
+  }
   showEditUser.value = true
 }
 
 async function saveUser() {
   const token = localStorage.getItem('auth_token')
+  // 1. 更新用户名和邮箱
   const r = await fetch(`${import.meta.env.VITE_API_URL}/users/${editUserForm.value.id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(editUserForm.value)
+    body: JSON.stringify({
+      name: editUserForm.value.name,
+      email: editUserForm.value.email
+    })
   })
-  if (r.ok) {
+  // 2. 更新货币
+  const curR = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${editUserForm.value.id}/currencies`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      silver_coin: editUserForm.value.silver_coin,
+      gold_coin: editUserForm.value.gold_coin,
+      diamond: editUserForm.value.diamond
+    })
+  })
+  if (r.ok && curR.ok) {
     const idx = hubUsers.value.findIndex(u => u.id === editUserForm.value.id)
     if (idx !== -1) {
       hubUsers.value[idx].name = editUserForm.value.name
       hubUsers.value[idx].email = editUserForm.value.email
+      hubUsers.value[idx].currencies = {
+        silver_coin: editUserForm.value.silver_coin,
+        gold_coin: editUserForm.value.gold_coin,
+        diamond: editUserForm.value.diamond
+      }
     }
     showEditUser.value = false
   }
 }
 
 async function deleteUser(id) {
-  if (!confirm('确定删除此用户？')) return
+  pendingDeleteUserId.value = id
+  showDeleteUserConfirm.value = true
+}
+async function doDeleteUser() {
+  const id = pendingDeleteUserId.value
+  showDeleteUserConfirm.value = false
+  pendingDeleteUserId.value = null
+  if (!id) return
   const token = localStorage.getItem('auth_token')
   await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
   hubUsers.value = hubUsers.value.filter(u => u.id !== id)
@@ -1288,8 +1624,43 @@ async function addAdmin() {
   }
 }
 
+function openEditAdmin(admin) {
+  editAdminForm.value = { id: admin.id, email: admin.email, password: '' }
+  showEditAdmin.value = true
+}
+
+async function saveAdmin() {
+  try {
+    const token = localStorage.getItem('auth_token')
+    const { id, email, password } = editAdminForm.value
+    const body = { email, name: email.split('@')[0], role: 'admin' }
+    if (password) body.password = password
+    const r = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body)
+    })
+    if (r.ok) {
+      showEditAdmin.value = false
+      // Reload admins list
+      const adminsRes = await fetch(`${import.meta.env.VITE_API_URL}/admin/admins`, { headers: { Authorization: `Bearer ${token}` } })
+      if (adminsRes.ok) hubAdmins.value = await adminsRes.json()
+    } else {
+      const err = await r.json()
+      alert(err.error || '保存失败')
+    }
+  } catch (e) { console.error('Failed to save admin:', e) }
+}
+
 async function deleteAdmin(id) {
-  if (!confirm('确定删除此管理员？')) return
+  pendingDeleteAdminId.value = id
+  showDeleteAdminConfirm.value = true
+}
+async function doDeleteAdmin() {
+  const id = pendingDeleteAdminId.value
+  showDeleteAdminConfirm.value = false
+  pendingDeleteAdminId.value = null
+  if (!id) return
   const token = localStorage.getItem('auth_token')
   await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
   hubAdmins.value = hubAdmins.value.filter(a => a.id !== id)
@@ -1313,7 +1684,14 @@ function goOrderPage(p) {
 
 // ========== 订单删除 ==========
 async function deleteOrder(id) {
-  if (!confirm('确定删除此订单？')) return
+  pendingDeleteOrderId.value = id
+  showDeleteOrderConfirm.value = true
+}
+async function doDeleteOrder() {
+  const id = pendingDeleteOrderId.value
+  showDeleteOrderConfirm.value = false
+  pendingDeleteOrderId.value = null
+  if (!id) return
   const token = localStorage.getItem('auth_token')
   await fetch(`${import.meta.env.VITE_API_URL}/admin/orders/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
   hubOrders.value = hubOrders.value.filter(o => o.id !== id)
@@ -1743,6 +2121,7 @@ async function deleteOrder(id) {
   background: var(--bg-secondary, #161b22);
   border: 1px solid var(--border-color, #30363d);
   border-radius: 12px; padding: 24px; width: 90%; max-width: 500px;
+  max-height: 80vh; overflow-y: auto;
 }
 .modal-card h3 { color: #00ff88; margin: 0 0 16px 0; font-size: 15px; }
 .form-grid {
@@ -1751,6 +2130,14 @@ async function deleteOrder(id) {
 .form-grid label {
   display: flex; flex-direction: column; gap: 4px;
   font-size: 12px; color: var(--text-secondary, #8b949e);
+  min-width: 0;
+}
+.form-grid .number-input-group {
+  width: 100%;
+}
+.form-grid .number-input-group input[type="number"] {
+  flex: 1;
+  min-width: 0;
 }
 .form-grid input, .form-grid select {
   padding: 6px 10px; background: var(--bg-primary, #0d1117);

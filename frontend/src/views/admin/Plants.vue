@@ -114,7 +114,7 @@
       <!-- 饰品管理 -->
       <div v-if="currentTab === 'decorations'">
         <div class="action-bar">
-          <button class="add-btn" @click="showAddDecModal = true">添加饰品</button>
+          <button class="add-btn" @click="openAddDecModal()">添加饰品</button>
         </div>
 
         <div class="items-table">
@@ -188,6 +188,7 @@
                   <option value="B">B - 稀有</option>
                   <option value="A">A - 史诗</option>
                   <option value="S">S - 传说</option>
+                  <option value="SSR">SSR - 测试</option>
                   <option value="SSS">SSS - 神话</option>
                 </select>
               </div>
@@ -218,7 +219,7 @@
               </div>
             </div>
             <div class="form-row">
-              <div class="form-group">
+              <div class="form-group" v-if="newItem.item_type === 'seed'">
                 <label for="buy_price">购买价格</label>
                 <span class="number-input-group"><button class="num-btn" @click="newItem.buy_price = Math.max(0, newItem.buy_price - 100)" type="button">−</button><input type="number" id="buy_price" v-model.number="newItem.buy_price" min="0" placeholder="0" /><button class="num-btn" @click="newItem.buy_price += 100" type="button">+</button></span>
               </div>
@@ -236,7 +237,7 @@
                 <option value="diamond">钻石</option>
               </select>
               </div>
-              <div class="form-group">
+              <div class="form-group" v-if="newItem.item_type !== 'crop'">
                 <label for="is_shop">商店出售</label>
                 <select id="is_shop" v-model="newItem.is_shop">
                   <option :value="true">是</option>
@@ -284,6 +285,7 @@
                   <option value="B">B - 稀有</option>
                   <option value="A">A - 史诗</option>
                   <option value="S">S - 传说</option>
+                  <option value="SSR">SSR - 测试</option>
                   <option value="SSS">SSS - 神话</option>
                 </select>
               </div>
@@ -313,7 +315,7 @@
               </div>
             </div>
             <div class="form-row">
-              <div class="form-group">
+              <div class="form-group" v-if="currentItem.item_type === 'seed'">
                 <label for="edit-buy_price">购买价格</label>
                 <span class="number-input-group"><button class="num-btn" @click="currentItem.buy_price = Math.max(0, currentItem.buy_price - 100)" type="button">−</button><input type="number" id="edit-buy_price" v-model.number="currentItem.buy_price" min="0" /><button class="num-btn" @click="currentItem.buy_price += 100" type="button">+</button></span>
               </div>
@@ -331,7 +333,7 @@
                   <option value="diamond">💎 钻石</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div class="form-group" v-if="currentItem.item_type !== 'crop'">
                 <label for="edit-is_shop">商店出售</label>
                 <select id="edit-is_shop" v-model="currentItem.is_shop">
                   <option :value="true">是</option>
@@ -382,6 +384,7 @@
                   <option value="B">B - 稀有</option>
                   <option value="A">A - 史诗</option>
                   <option value="S">S - 传说</option>
+                  <option value="SSR">SSR - 测试</option>
                   <option value="SSS">SSS - 神话</option>
                 </select>
               </div>
@@ -442,6 +445,7 @@
                   <option value="B">B - 稀有</option>
                   <option value="A">A - 史诗</option>
                   <option value="S">S - 传说</option>
+                  <option value="SSR">SSR - 测试</option>
                   <option value="SSS">SSS - 神话</option>
                   <option value="SSR">SSR 测试专属</option>
                 </select>
@@ -514,9 +518,8 @@
                 <select v-model="newDec.slot_type" required>
                   <option value="head">头部</option>
                   <option value="neck">颈部</option>
-                  <option value="body">身体</option>
-                  <option value="back">背部</option>
-                  <option value="tail">尾部</option>
+                                    <option value="back">背部</option>
+                  <option value="special">特殊</option>
                 </select>
               </div>
               <div class="form-group">
@@ -526,6 +529,7 @@
                   <option value="B">B - 稀有</option>
                   <option value="A">A - 史诗</option>
                   <option value="S">S - 传说</option>
+                  <option value="SSR">SSR - 测试</option>
                   <option value="SSS">SSS - 神话</option>
                 </select>
               </div>
@@ -554,6 +558,15 @@
                 <select v-model="newDec.is_shop">
                   <option :value="true">是</option>
                   <option :value="false">否</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>专属宠物</label>
+                <select v-model="newDec.pet_id">
+                  <option :value="null">🔓 通用（所有宠物可用）</option>
+                  <option v-for="pet in pets" :key="pet.id" :value="pet.id">{{ pet.icon }} {{ pet.name }} (ID:{{ pet.id }})</option>
                 </select>
               </div>
             </div>
@@ -586,9 +599,8 @@
                 <select v-model="currentDec.slot_type" required>
                   <option value="head">头部</option>
                   <option value="neck">颈部</option>
-                  <option value="body">身体</option>
-                  <option value="back">背部</option>
-                  <option value="tail">尾部</option>
+                                    <option value="back">背部</option>
+                  <option value="special">特殊</option>
                 </select>
               </div>
               <div class="form-group">
@@ -598,6 +610,7 @@
                   <option value="B">B - 稀有</option>
                   <option value="A">A - 史诗</option>
                   <option value="S">S - 传说</option>
+                  <option value="SSR">SSR - 测试</option>
                   <option value="SSS">SSS - 神话</option>
                 </select>
               </div>
@@ -629,6 +642,15 @@
                 </select>
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>专属宠物</label>
+                <select v-model="currentDec.pet_id">
+                  <option :value="null">🔓 通用（所有宠物可用）</option>
+                  <option v-for="pet in pets" :key="pet.id" :value="pet.id">{{ pet.icon }} {{ pet.name }} (ID:{{ pet.id }})</option>
+                </select>
+              </div>
+            </div>
             <div class="modal-actions">
               <button type="button" class="cancel-btn" @click="showEditDecModal = false">取消</button>
               <button type="submit" class="confirm-btn">确认更新</button>
@@ -636,12 +658,24 @@
           </form>
         </div>
       </div>
+      <ConfirmModal
+        :visible="showDeleteDecConfirm"
+        title="删除确认"
+        message="确定要删除此饰品吗？"
+        icon="🗑️"
+        confirm-text="确认删除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doDeleteDec"
+        @cancel="showDeleteDecConfirm = false; pendingDeleteDec = null"
+      />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import Toast from '@/components/common/Toast.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const items = ref([])
 const cropItems = ref([])
@@ -667,6 +701,8 @@ const decorations = ref([])
 const showAddDecModal = ref(false)
 const showEditDecModal = ref(false)
 const currentDec = ref(null)
+const showDeleteDecConfirm = ref(false)
+const pendingDeleteDec = ref(null)
 const newDec = ref({
   name: '',
   icon: '🎀',
@@ -885,9 +921,20 @@ async function loadDecorations() {
   }
 }
 
-// 打开编辑饰品弹窗
-function openEditDecModal(dec) {
+// 打开添加饰品弹窗（确保宠物列表已加载）
+async function openAddDecModal() {
+  if (pets.value.length === 0) {
+    try { await loadPets() } catch (e) { console.warn('加载宠物列表失败:', e) }
+  }
+  showAddDecModal.value = true
+}
+
+// 打开编辑饰品弹窗（确保宠物列表已加载）
+async function openEditDecModal(dec) {
   currentDec.value = { ...dec }
+  if (pets.value.length === 0) {
+    try { await loadPets() } catch (e) { console.warn('加载宠物列表失败:', e) }
+  }
   showEditDecModal.value = true
 }
 
@@ -940,7 +987,14 @@ async function handleEditDec() {
 
 // 删除饰品
 async function deleteDec(decId) {
-  if (!confirm('确定要删除此饰品吗？')) return
+  pendingDeleteDec.value = decId
+  showDeleteDecConfirm.value = true
+}
+async function doDeleteDec() {
+  const decId = pendingDeleteDec.value
+  showDeleteDecConfirm.value = false
+  pendingDeleteDec.value = null
+  if (!decId) return
   try {
     const token = localStorage.getItem('auth_token')
     const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/decorations/${decId}`, {

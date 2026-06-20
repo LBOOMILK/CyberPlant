@@ -85,6 +85,10 @@
           <h3>编辑用户</h3>
           <form @submit.prevent="handleEditUser">
             <div class="form-group">
+              <label for="edit-name">用户名</label>
+              <input type="text" id="edit-name" v-model="currentUser.name" required placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
               <label for="edit-email">邮箱</label>
               <input type="email" id="edit-email" v-model="currentUser.email" required placeholder="请输入邮箱">
             </div>
@@ -137,32 +141,69 @@
       
       <!-- 背包管理弹窗 -->
       <div v-if="showBackpackModal" class="modal-overlay" @mousedown.self="showBackpackModal = false">
-        <div class="modal-content backpack-modal">
+        <div class="modal-content backpack-modal wide-modal">
           <h3>{{ backpackUser?.name }}的背包</h3>
           
           <div v-if="backpackLoading" class="loading-msg">加载中...</div>
-          
-          <div v-else-if="backpackItems.length === 0" class="empty-msg">
-            背包为空
-          </div>
-          
-          <div v-else class="backpack-content">
-            <div class="backpack-items">
-              <div v-for="item in backpackItems" :key="item.item_id" class="backpack-item">
-                <div class="item-info">
-                  <span class="item-icon">{{ item.icon }}</span>
-                  <span class="item-name">{{ item.name }}</span>
-                  <span :class="['item-rarity', item.rarity]">{{ item.rarity }}</span>
-                  <span class="item-type-badge">{{ itemTypeName(item.item_type) }}</span>
+          <div v-else>
+            <!-- 物品区 -->
+            <div class="backpack-section">
+              <h4>📦 物品 ({{ backpackItems.length }})</h4>
+              <div v-if="backpackItems.length === 0" class="empty-msg">暂无物品</div>
+              <div v-else class="backpack-list">
+                <div v-for="item in backpackItems" :key="item.item_id" class="backpack-item">
+                  <div class="item-info">
+                    <span class="item-icon">{{ item.icon }}</span>
+                    <span class="item-name">{{ item.name }}</span>
+                    <span :class="['item-rarity', item.rarity]">{{ item.rarity }}</span>
+                    <span class="item-type-badge">{{ itemTypeName(item.item_type) }}</span>
+                  </div>
+                  <div class="item-quantity-control">
+                    <button type="button" class="qty-btn" @click="adjustItemQuantity(item.item_id, item.quantity - 1)">−</button>
+                    <input type="number" v-model.number="item.quantity" @change="adjustItemQuantity(item.item_id, item.quantity)" min="0" class="qty-input" />
+                    <button type="button" class="qty-btn" @click="adjustItemQuantity(item.item_id, item.quantity + 1)">+</button>
+                  </div>
                 </div>
-                <div class="item-quantity">
-                  ×{{ item.quantity }}
+              </div>
+            </div>
+
+            <!-- 宠物区 -->
+            <div class="backpack-section" style="margin-top: 20px;">
+              <h4>🐾 宠物 ({{ backpackPets.length }})</h4>
+              <div v-if="backpackPets.length === 0" class="empty-msg">暂无宠物</div>
+              <div v-else class="backpack-list">
+                <div v-for="pet in backpackPets" :key="pet.pet_id" class="backpack-item">
+                  <div class="item-info">
+                    <span class="item-icon">{{ pet.icon }}</span>
+                    <span class="item-name">{{ pet.name }}</span>
+                    <span :class="['item-rarity', pet.rarity]">{{ pet.rarity }}</span>
+                    <span style="font-size: 12px; color: var(--text-muted, #888);">Lv.{{ pet.level }}</span>
+                  </div>
+                  <button type="button" class="delete-btn" @click="removeUserPet(pet.pet_id)">移除</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 饰品区 -->
+            <div class="backpack-section" style="margin-top: 20px;">
+              <h4>🎀 饰品 ({{ backpackDecorations.length }})</h4>
+              <div v-if="backpackDecorations.length === 0" class="empty-msg">暂无饰品</div>
+              <div v-else class="backpack-list">
+                <div v-for="dec in backpackDecorations" :key="dec.decoration_id" class="backpack-item">
+                  <div class="item-info">
+                    <span class="item-icon">{{ dec.icon }}</span>
+                    <span class="item-name">{{ dec.name }}</span>
+                    <span class="item-type-badge">{{ dec.slot_type }}</span>
+                    <span :class="['item-rarity', dec.quality]">{{ dec.quality }}</span>
+                    <span style="font-size: 12px; color: var(--text-muted, #888);">+{{ dec.bonus }}</span>
+                  </div>
+                  <button type="button" class="delete-btn" @click="removeUserDecoration(dec.decoration_id)">移除</button>
                 </div>
               </div>
             </div>
           </div>
           
-          <div class="modal-actions">
+<div class="modal-actions">
             <button type="button" class="cancel-btn" @click="showBackpackModal = false">关闭</button>
           </div>
         </div>
@@ -182,6 +223,28 @@
           </div>
         </div>
       </div>
+      <ConfirmModal
+        :visible="showRemovePetConfirm"
+        title="移除确认"
+        message="确定要移除这个宠物吗？"
+        icon="🐾"
+        confirm-text="确认移除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doRemoveUserPet"
+        @cancel="showRemovePetConfirm = false; pendingRemovePet = null"
+      />
+      <ConfirmModal
+        :visible="showRemoveDecConfirm"
+        title="移除确认"
+        message="确定要移除这个饰品吗？"
+        icon="🎀"
+        confirm-text="确认移除"
+        cancel-text="取消"
+        :danger="true"
+        @confirm="doRemoveUserDecoration"
+        @cancel="showRemoveDecConfirm = false; pendingRemoveDec = null"
+      />
   </div>
 </template>
 
@@ -189,6 +252,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Toast from '@/components/common/Toast.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const router = useRouter()
 const users = ref([])
@@ -215,7 +279,14 @@ const showDeleteModalVisible = ref(false)
 const deletingUserId = ref(null)
 const backpackUser = ref(null)
 const backpackItems = ref([])
+const backpackPets = ref([])
+const backpackDecorations = ref([])
 const backpackLoading = ref(false)
+
+const showRemovePetConfirm = ref(false)
+const pendingRemovePet = ref(null)
+const showRemoveDecConfirm = ref(false)
+const pendingRemoveDec = ref(null)
 
 // 加载用户数据
 async function loadUsers() {
@@ -499,24 +570,110 @@ function formatUserId(id) {
 async function openBackpackModal(user) {
   backpackUser.value = { id: user.id, name: user.name }
   backpackItems.value = []
+  backpackPets.value = []
+  backpackDecorations.value = []
   backpackLoading.value = true
   showBackpackModal.value = true
 
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${user.id}/items`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${user.id}/backpack`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (response.ok) {
-      backpackItems.value = await response.json()
-    } else {
-      backpackItems.value = []
+      const data = await response.json()
+      backpackItems.value = data.items || []
+      backpackPets.value = data.pets || []
+      backpackDecorations.value = data.decorations || []
     }
   } catch (error) {
     console.error('Error loading backpack:', error)
-    backpackItems.value = []
   } finally {
     backpackLoading.value = false
+  }
+}
+
+// 调整物品数量
+async function adjustItemQuantity(itemId, newQuantity) {
+  if (!backpackUser.value) return
+  if (newQuantity < 0) newQuantity = 0
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${backpackUser.value.id}/items`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ item_id: itemId, quantity: newQuantity })
+    })
+    if (response.ok) {
+      const idx = backpackItems.value.findIndex(i => i.item_id === itemId)
+      if (idx >= 0) {
+        if (newQuantity === 0) {
+          backpackItems.value.splice(idx, 1)
+        } else {
+          backpackItems.value[idx].quantity = newQuantity
+        }
+      }
+      toastRef.value?.addToast('数量调整成功', 'success')
+    } else {
+      toastRef.value?.addToast('调整失败', 'error')
+    }
+  } catch (error) {
+    console.error('Error adjusting item:', error)
+  }
+}
+
+// 删除用户宠物
+async function removeUserPet(petId) {
+  if (!backpackUser.value) return
+  pendingRemovePet.value = petId
+  showRemovePetConfirm.value = true
+}
+async function doRemoveUserPet() {
+  const petId = pendingRemovePet.value
+  showRemovePetConfirm.value = false
+  pendingRemovePet.value = null
+  if (!petId || !backpackUser.value) return
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${backpackUser.value.id}/pets/${petId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (response.ok) {
+      backpackPets.value = backpackPets.value.filter(p => p.pet_id !== petId)
+      toastRef.value?.addToast('宠物移除成功', 'success')
+    }
+  } catch (error) {
+    console.error('Error removing pet:', error)
+  }
+}
+
+// 删除用户饰品
+async function removeUserDecoration(decId) {
+  if (!backpackUser.value) return
+  pendingRemoveDec.value = decId
+  showRemoveDecConfirm.value = true
+}
+async function doRemoveUserDecoration() {
+  const decId = pendingRemoveDec.value
+  showRemoveDecConfirm.value = false
+  pendingRemoveDec.value = null
+  if (!decId || !backpackUser.value) return
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${backpackUser.value.id}/decorations/${decId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (response.ok) {
+      backpackDecorations.value = backpackDecorations.value.filter(d => d.decoration_id !== decId)
+      toastRef.value?.addToast('饰品移除成功', 'success')
+    }
+  } catch (error) {
+    console.error('Error removing decoration:', error)
   }
 }
 
@@ -568,7 +725,9 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  padding: 30px 0;
+  overflow-y: auto;
   z-index: 1000;
 }
 
@@ -579,6 +738,7 @@ onMounted(() => {
   width: 90%;
   max-width: 500px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin: 0 auto;
 }
 
 .modal-content h3 {
@@ -846,6 +1006,105 @@ onMounted(() => {
 .backpack-modal {
   max-width: 600px;
   width: 90%;
+}
+
+.backpack-section {
+  margin-bottom: 16px;
+}
+
+.backpack-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: #555;
+}
+
+.backpack-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.backpack-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  gap: 10px;
+}
+
+.item-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.item-icon {
+  font-size: 1.3rem;
+}
+
+.item-name {
+  font-weight: 500;
+}
+
+.item-quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qty-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: #4caf50;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qty-btn:hover {
+  background: #388e3c;
+}
+
+.qty-input {
+  width: 60px;
+  height: 28px;
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.qty-input:focus {
+  border-color: #4caf50;
+}
+
+.item-type-badge {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.delete-btn {
+  padding: 6px 14px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.delete-btn:hover {
+  background: #d32f2f;
 }
 
 .tabs {

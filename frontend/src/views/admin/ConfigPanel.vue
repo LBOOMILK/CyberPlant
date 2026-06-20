@@ -93,7 +93,7 @@ const configDescriptions = {
   
   hunger_max: '宠物最大饱食度',
   hunger_decay_interval: '饱食度衰减间隔(秒)',
-  pet_deco_bonus_cap: '宠物装饰加成上限(%)',
+
   sss_drop_base: 'SSS掉落基础概率',
   sss_drop_cap: 'SSS掉落概率上限',
   yield_accumulator_threshold: '累加值阈值',
@@ -110,7 +110,7 @@ const configCategories = {
   '💰 经济类': ['exchange_silver_to_gold', 'exchange_gold_to_silver', 'gift_daily_limit_silver', 'friend_gift_cooldown_hours', 'account_gift_cooldown_hours'],
   '🌱 地块解锁费用': ['plot_unlock_2', 'plot_unlock_2_type', 'plot_unlock_3', 'plot_unlock_3_type', 'plot_unlock_4', 'plot_unlock_4_type', 'plot_unlock_5', 'plot_unlock_5_type', 'plot_unlock_6', 'plot_unlock_6_type'],
   '⬆️ 地块升级费用': ['plot_upgrade_1_2', 'plot_upgrade_1_2_type', 'plot_upgrade_2_3', 'plot_upgrade_2_3_type', 'plot_upgrade_3_4', 'plot_upgrade_3_4_type', 'plot_upgrade_4_5', 'plot_upgrade_4_5_type'],
-  '🐾 宠物类': ['hunger_max', 'hunger_decay_interval', 'pet_deco_bonus_cap'],
+  '🐾 宠物类': ['hunger_max', 'hunger_decay_interval'],
   '🎲 掉落类': ['sss_drop_base', 'sss_drop_cap'],
   '📈 累加值类': ['yield_accumulator_threshold'],
   '🎒 背包类': ['max_seed_count', 'max_crop_count', 'max_fertilizer_count', 'max_pet_food_count'],
