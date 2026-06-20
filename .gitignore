@@ -60,7 +60,8 @@ __screenshots__/
 # ========== Vite ==========
 *.timestamp-*-*.mjs
 .vite/
-backend/TECH_STACK.md
 
 # ========== 文档内容 ==========
 docs/
+# 后端内部文档（不上传）
+backend_docs/
