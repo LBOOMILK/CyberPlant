@@ -78,7 +78,6 @@ const GLOBAL_CONFIG_DEFAULTS = [
   ['plot_upgrade_4_5_type', 'diamond', 'Lv4→5升级货币类型'],
   ['hunger_max', 100, '饱食度上限'],
   ['hunger_decay_interval', 5, '饱食度衰减间隔（秒）'],
-  ['yield_accumulator_threshold', 1, '累加值阈值（小数累积满N则+1）'],
   ['sss_drop_base', 0.33, 'SSS 基础掉落率'],
   ['sss_drop_cap', 1.0, 'SSS 掉落率上限'],
   ['max_seed_count', 999, '种子上限'],

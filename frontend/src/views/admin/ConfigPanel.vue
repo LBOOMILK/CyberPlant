@@ -96,7 +96,6 @@ const configDescriptions = {
 
   sss_drop_base: 'SSS掉落基础概率',
   sss_drop_cap: 'SSS掉落概率上限',
-  yield_accumulator_threshold: '累加值阈值（满N则+1）',
   max_seed_count: '背包种子上限',
   max_crop_count: '背包作物上限',
   max_fertilizer_count: '背包肥料上限',
@@ -112,7 +111,6 @@ const configCategories = {
   '⬆️ 地块升级费用': ['plot_upgrade_1_2', 'plot_upgrade_1_2_type', 'plot_upgrade_2_3', 'plot_upgrade_2_3_type', 'plot_upgrade_3_4', 'plot_upgrade_3_4_type', 'plot_upgrade_4_5', 'plot_upgrade_4_5_type'],
   '🐾 宠物类': ['hunger_max', 'hunger_decay_interval'],
   '🎲 掉落类': ['sss_drop_base', 'sss_drop_cap'],
-  '📈 累加值类': ['yield_accumulator_threshold'],
   '🎒 背包类': ['max_seed_count', 'max_crop_count', 'max_fertilizer_count', 'max_pet_food_count'],
 }
 
