@@ -25,7 +25,6 @@
           <button class="claim-btn" :disabled="claiming" @click="handleClaim">
             {{ claiming ? '领取中...' : '🎁 领取新手礼包' }}
           </button>
-          <button class="skip-btn" @click="handleSkip">稍后再说</button>
         </div>
 
         <div v-else class="welcome-reward">
@@ -96,10 +95,6 @@ async function handleClaim() {
   } finally {
     claiming.value = false
   }
-}
-
-function handleSkip() {
-  handleClose()
 }
 
 function handleClose() {
@@ -239,17 +234,6 @@ function handleClose() {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
-.skip-btn {
-  padding: 10px;
-  border: none;
-  background: none;
-  color: #999;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.skip-btn:hover { color: #666; }
 
 /* 领取成功 */
 .welcome-reward {
