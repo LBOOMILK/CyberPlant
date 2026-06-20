@@ -199,7 +199,7 @@
                       <option value="diamond">钻石</option>
                     </select>
                   </label>
-                  <label v-if="editItemForm.item_type !== 'crop'">可购买 <input type="checkbox" v-model="editItemForm.purchasable" /></label>
+                  <label v-if="editItemForm.item_type !== 'crop'">可购买<select v-model="editItemForm.purchasable"><option :value="true">是</option><option :value="false">否（售罄）</option></select></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showEditItem = false">取消</button>
@@ -235,7 +235,7 @@
                   <label v-if="newItemForm.item_type === 'seed'">买价 <span class="number-input-group"><button class="num-btn" @click="newItemForm.buy_price = Math.max(0, newItemForm.buy_price - 100)" type="button">−</button><input v-model.number="newItemForm.buy_price" type="number" min="0" /><button class="num-btn" @click="newItemForm.buy_price += 100" type="button">+</button></span></label>
                   <label>卖价 <span class="number-input-group"><button class="num-btn" @click="newItemForm.sell_price = Math.max(0, newItemForm.sell_price - 100)" type="button">−</button><input v-model.number="newItemForm.sell_price" type="number" min="0" /><button class="num-btn" @click="newItemForm.sell_price += 100" type="button">+</button></span></label>
                   <label v-if="newItemForm.item_type === 'seed'">基础产出 <span class="number-input-group"><button class="num-btn" @click="newItemForm.base_yield = Math.max(0, newItemForm.base_yield - 1)" type="button">−</button><input v-model.number="newItemForm.base_yield" type="number" min="0" /><button class="num-btn" @click="newItemForm.base_yield++" type="button">+</button></span></label>
-                  <label v-if="newItemForm.item_type !== 'crop'">可购买 <input type="checkbox" v-model="newItemForm.purchasable" /></label>
+                  <label v-if="newItemForm.item_type !== 'crop'">可购买<select v-model="newItemForm.purchasable"><option :value="true">是</option><option :value="false">否（售罄）</option></select></label>
                 </div>
                 <div class="modal-actions">
                   <button @click="showAddItem = false">取消</button>
