@@ -1728,12 +1728,13 @@ app.post('/api/user/plots/:plotIndex/water', authenticateToken, async (req, res)
     const userId = req.user.id;
     const plotIndex = parseInt(req.params.plotIndex);
     if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
-    const plotResult = await client.query('SELECT gp.*, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
+    const plotResult = await client.query('SELECT gp.*, i.water_cd, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
     if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
     const plot = plotResult.rows[0];
     if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
     if (!plot.seed_id) return res.status(400).json({ error: '地块没有植物' });
     if (plot.is_dead) return res.status(400).json({ error: '植物已死亡，请铲除后重新种植' });
+    const waterCd = Math.min(240, plot.water_cd || 5);
     const dryTime = 180;
     const plantedAt = new Date(plot.planted_at).getTime();
     const now = Date.now();
@@ -1746,10 +1747,14 @@ app.post('/api/user/plots/:plotIndex/water', authenticateToken, async (req, res)
       await client.query('UPDATE garden_plots SET planted_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND plot_index = $2', [userId, plotIndex]);
       return res.json({ message: '浇水成功', plot_index: plotIndex, stage: plot.stage, stage_icon: plot.crop_icon || '🌿', is_mature: true });
     }
+    if (elapsed < waterCd) {
+      const remaining = Math.ceil(waterCd - elapsed);
+      return res.status(400).json({ error: `浇水冷却中，还需 ${remaining} 秒` });
+    }
     const newStage = plot.stage + 1;
     await client.query('UPDATE garden_plots SET stage = $1, planted_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND plot_index = $3', [newStage, userId, plotIndex]);
     const isMature = newStage >= 4;
-    res.json({ message: isMature ? '🎉 植物成熟了！' : '💧 浇水成功', plot_index: plotIndex, stage: newStage, stage_icon: isMature ? (plot.crop_icon || '🌿') : STAGE_ICONS[newStage], is_mature: isMature });
+    res.json({ message: isMature ? '🎉 植物成熟了！' : '💧 浇水成功', plot_index: plotIndex, stage: newStage, stage_icon: isMature ? (plot.crop_icon || '🌿') : STAGE_ICONS[newStage], is_mature: isMature, water_cd: waterCd });
   } catch (error) {
     logger.error('Water error', { error: error.message });
     res.status(500).json({ error: '浇水失败' });
@@ -1764,7 +1769,7 @@ app.post('/api/user/plots/:plotIndex/fertilize', authenticateToken, async (req, 
     const { item_id } = req.body;
     if (isNaN(plotIndex) || plotIndex < 1 || plotIndex > 6) return res.status(400).json({ error: '地块序号无效' });
     if (!item_id) return res.status(400).json({ error: '请提供肥料 item_id' });
-    const plotResult = await client.query('SELECT gp.*, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
+    const plotResult = await client.query('SELECT gp.*, i.water_cd, i.name as crop_name, i.icon as crop_icon, i.base_yield FROM garden_plots gp LEFT JOIN items i ON gp.seed_id = i.id WHERE gp.user_id = $1 AND gp.plot_index = $2', [userId, plotIndex]);
     if (plotResult.rowCount === 0) return res.status(404).json({ error: '地块不存在' });
     const plot = plotResult.rows[0];
     if (!plot.is_unlocked) return res.status(400).json({ error: '地块未解锁' });
