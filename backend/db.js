@@ -149,7 +149,7 @@ async function formatPetData(pet, petTemplate) {
     pixel_art: petTemplate.pixel_art, rarity: petTemplate.rarity, level: pet.level,
     growth_points: pet.growth_points, next_level_threshold: nextLevelThreshold,
     hunger: currentHunger, max_hunger: maxHunger || 100, is_active: pet.is_active,
-    base_bonus: Number(petTemplate.base_bonus), 
+    base_bonus: Number(petTemplate.base_bonus),
     level_bonus: Math.round(bonus * 100) / 100,
     current_bonus: Math.round(totalBonus * 100) / 100,
     equipped_decorations: pet.equipped_decorations || {}, last_fed_at: pet.last_fed_at,
@@ -165,9 +165,45 @@ const PET_FOOD_EFFECTS = {
   '稀有粮': { growth: 200, hunger: 100 }
 };
 
+// ========== 共享常量 ==========
+const STAGE_ICONS = ['🥜', '🌱', '🌿', '🌻'];
+const PLOT_LEVEL_MULTIPLIER = { 1: 1.0, 2: 1.1, 3: 1.3, 4: 1.5, 5: 1.8 };
+const SHOP_TAB_MAP = { seeds: 'seed', fertilizers: 'fertilizer', pets: 'pet', pet_food: 'pet_food', decorations: 'decoration' };
+const BUILTIN_EFFECTS = ['bubble-fish.js', 'cat-paw.js', 'star-rabbit.js', 'thunder-eagle.js', 'crystal-dragon.js', 'lbooktest.js'];
+
+// ========== 共享工具函数 ==========
+async function getUnlockCost(plotIndex) {
+  const key = `plot_unlock_${plotIndex}`;
+  const amount = await getConfig(key);
+  if (amount === null) return null;
+  let type = 'silver_coin';
+  if (plotIndex >= 3 && plotIndex <= 4) type = 'gold_coin';
+  if (plotIndex >= 5) type = 'diamond';
+  return { type, amount };
+}
+
+async function getUpgradeCost(nextLevel) {
+  const key = `plot_upgrade_${nextLevel - 1}_${nextLevel}`;
+  const amount = await getConfig(key);
+  if (amount === null) return null;
+  let type = 'silver_coin';
+  if (nextLevel === 2) type = 'silver_coin';
+  if (nextLevel === 3 || nextLevel === 4) type = 'gold_coin';
+  if (nextLevel === 5) type = 'diamond';
+  return { type, amount };
+}
+
+function calcDiscountRate(amount) {
+  if (amount <= 100) return 0.8;
+  if (amount <= 500) return 0.6;
+  return 0.5;
+}
+
 module.exports = {
   client, logger, getConfig, getAllConfig, clearConfigCache,
   deductCurrency, addCurrency, createOrder, getUserItemCount, generateUserId,
   calcCurrentHunger, calcPetBonusFromCurve, getPetBonus, formatPetData,
-  PET_FOOD_EFFECTS, MAX_POINTS: 999999999
+  PET_FOOD_EFFECTS, MAX_POINTS: 999999999,
+  STAGE_ICONS, PLOT_LEVEL_MULTIPLIER, SHOP_TAB_MAP, BUILTIN_EFFECTS,
+  getUnlockCost, getUpgradeCost, calcDiscountRate
 };
