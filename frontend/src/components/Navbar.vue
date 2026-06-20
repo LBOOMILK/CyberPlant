@@ -208,7 +208,7 @@ onMounted(async () => {
 
 // 路由变化时检查是否需要弹出新手欢迎
 watch(isDashboardPage, async (onDash) => {
-    if (onDash && userStore.isNewUser && !showWelcome.value) {
+    if (onDash && !showWelcome.value) {
         try {
             await userStore.loadFromLocal()
             if (userStore.isNewUser) {
