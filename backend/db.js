@@ -98,7 +98,7 @@ async function calcCurrentHunger(pet) {
 async function calcPetBonusFromCurve(pet, petTemplate) {
   const { currentHunger } = await calcCurrentHunger(pet);
   if (currentHunger <= 0) return 0;
-  if (petTemplate.is_test) return 1000;
+  if (petTemplate.is_test) return 8000;
   const bonusCurve = petTemplate.bonus_curve;
   if (bonusCurve && Array.isArray(bonusCurve)) {
     const idx = Math.min(pet.level - 1, bonusCurve.length - 1);

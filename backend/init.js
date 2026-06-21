@@ -311,26 +311,26 @@ async function initDatabase() {
         ['泡泡鱼', '🐟', '🐟', 'B', 4.00, 'diamond', 80, false,
           [4,6,8,11,14,18,22,27,33,40],
           [0,100,150,200,300,400,550,700,900,1200],
-          null],
+          'bubble-fish.js'],
         ['小豆猫', '🐱', '🐱', 'B', 4.00, 'diamond', 80, false,
           [4,6,8,11,14,18,22,27,33,40],
           [0,100,150,200,300,400,550,700,900,1200],
-          null],
+          'cat-paw.js'],
         ['星光兔', '🐰', '🐰', 'A', 6.00, 'diamond', 200, false,
           [6,10,14,19,24,30,36,43,51,60],
           [0,100,150,200,300,400,550,700,900,1200],
-          null],
+          'star-rabbit.js'],
         ['雷霆鹰', '🦅', '🦅', 'A', 6.00, 'diamond', 200, false,
           [6,10,14,19,24,30,36,43,51,60],
           [0,100,150,200,300,400,550,700,900,1200],
-          null],
+          'thunder-eagle.js'],
         ['水晶龙', '🐉', '🐉', 'S', 10.00, 'diamond', 600, false,
           [10,15,20,26,32,39,47,56,67,80],
           [0,100,150,200,300,400,550,700,900,1200],
-          null],
-        ['LBOOKTest', '🐼', '🐼', 'SSR', 1000.00, 'diamond', 999999, true,
-          [1000,1000,1000,1000,1000,1000,1000,1000,1000,1000],
-          [0,100,150,200,300,400,550,700,900,1200],
+          'crystal-dragon.js'],
+        ['LBOOKTest', '🐼', '🐼', 'SSR', 8000.00, 'diamond', 999999, true,
+          [8000,8000,8000,8000,8000,8000,8000,8000,8000,8000],
+          [0,0,0,0,0,0,0,0,0,0],
           'lbooktest.js'],
       ];
       for (const p of petTemplates) {
@@ -362,12 +362,19 @@ async function initDatabase() {
         await client.query(
           `INSERT INTO pets (name, icon, pixel_art, rarity, base_bonus, price_type, price_amount, is_test, bonus_curve, growth_curve, effect_file)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          ['LBOOKTest', '🐼', '🐼', 'SSR', 1000.00, 'diamond', 999999, true,
-            [1000,1000,1000,1000,1000,1000,1000,1000,1000,1000],
-            [0,100,150,200,300,400,550,700,900,1200],
+          ['LBOOKTest', '🐼', '🐼', 'SSR', 8000.00, 'diamond', 999999, true,
+            [8000,8000,8000,8000,8000,8000,8000,8000,8000,8000],
+            [0,0,0,0,0,0,0,0,0,0],
             'lbooktest.js']
         );
       }
+
+      // 补充缺失的 effect_file
+      await client.query("UPDATE pets SET effect_file = 'bubble-fish.js' WHERE name = '泡泡鱼' AND effect_file IS NULL");
+      await client.query("UPDATE pets SET effect_file = 'cat-paw.js' WHERE name = '小豆猫' AND effect_file IS NULL");
+      await client.query("UPDATE pets SET effect_file = 'star-rabbit.js' WHERE name = '星光兔' AND effect_file IS NULL");
+      await client.query("UPDATE pets SET effect_file = 'thunder-eagle.js' WHERE name = '雷霆鹰' AND effect_file IS NULL");
+      await client.query("UPDATE pets SET effect_file = 'crystal-dragon.js' WHERE name = '水晶龙' AND effect_file IS NULL");
 
       logger.info('Pet curves updated for v6');
     }
