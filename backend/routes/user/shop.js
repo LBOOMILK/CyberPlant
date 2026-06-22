@@ -12,14 +12,7 @@ router.post('/api/user/newbie-pack', authenticateToken, async (req, res) => {
     if (!userResult.rows[0].is_new_user) return res.status(400).json({ error: '新手礼包已领取' });
     await client.query('BEGIN');
     try {
-      const cSeeds = await client.query("SELECT id FROM items WHERE item_type = 'seed' AND rarity = 'C'");
-      for (const seed of cSeeds.rows) {
-        await client.query(
-          `INSERT INTO user_items (user_id, item_id, quantity) VALUES ($1, $2, 2)
-           ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_items.quantity + 2, updated_at = CURRENT_TIMESTAMP`,
-          [userId, seed.id]
-        );
-      }
+      // 种子已在注册时发放，新手礼包不再重复
       await client.query('UPDATE users SET is_new_user = false WHERE id = $1', [userId]);
       await client.query('COMMIT');
     } catch (error) {
