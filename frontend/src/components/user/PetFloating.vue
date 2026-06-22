@@ -218,7 +218,7 @@ const userStore = useUserStore()
 const router = useRouter()
 
 const isDragging = ref(false)
-const position = ref({ x: 20, y: 20 })
+const position = ref({ x: 50, y: 20 })
 const dragOffset = ref({ x: 0, y: 0 })
 const hunger = ref(100)
 const effectContainer = ref(null)
@@ -437,7 +437,7 @@ function onDrag(e) {
   const width = rect?.width || 280
   const height = rect?.height || 80
   position.value = {
-    x: Math.max(0, Math.min(newX, window.innerWidth - width)),
+    x: Math.max(28, Math.min(newX, window.innerWidth - width)),
     y: Math.max(0, Math.min(newY, window.innerHeight - height))
   }
 }
