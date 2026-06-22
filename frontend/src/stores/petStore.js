@@ -75,6 +75,14 @@ export const usePetStore = defineStore('pet', () => {
       const data = await response.json()
       pets.value = data.pets || []
 
+      // 测试宠物特殊处理
+      for (const pet of pets.value) {
+        if (pet.is_test) {
+          pet.level = 999
+          pet.hunger = pet.max_hunger || 100
+        }
+      }
+
       // 更新激活宠物
       const active = pets.value.find(p => p.is_active)
       if (active) {
@@ -106,6 +114,11 @@ export const usePetStore = defineStore('pet', () => {
       }
       const data = await response.json()
       activePet.value = data.pet
+      // 测试宠物特殊处理
+      if (activePet.value?.is_test) {
+        activePet.value.level = 999
+        activePet.value.hunger = activePet.value.max_hunger || 100
+      }
       activeBonus.value = data.bonus || 0
       return data
     } catch (error) {

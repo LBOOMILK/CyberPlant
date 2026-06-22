@@ -231,7 +231,12 @@ async function loadStats() {
             const data = await petsRes.json()
             petCount.value = (data.pets || []).length
             // 获取激活宠物
-            activePet.value = (data.pets || []).find(p => p.is_active) || null
+            const ap = (data.pets || []).find(p => p.is_active) || null
+            if (ap?.is_test) {
+                ap.level = 999
+                ap.hunger = ap.max_hunger || 100
+            }
+            activePet.value = ap
         }
         if (decsRes.ok) {
             const data = await decsRes.json()
