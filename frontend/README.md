@@ -9,7 +9,7 @@ Vue 3 + Vite 构建的赛博朋克风格植物养成游戏前端。
 - **路由：** Vue Router（用户仪表盘 + 管理面板双布局）
 - **构建：** Vite
 - **样式：** CSS3（CSS 变量主题、深色模式、响应式布局）
-- **特效：** Canvas + requestAnimationFrame 粒子动画
+- **特效：** SVG + CSS3 动画（登录页）、Canvas 粒子动画（宠物特效）
 
 ## 目录结构
 
@@ -17,7 +17,7 @@ Vue 3 + Vite 构建的赛博朋克风格植物养成游戏前端。
 src/
 ├── views/
 │   ├── auth/            # 登录注册
-│   ├── dashboard/       # 用户页面（花园/宠物/商店/背包/好友/个人中心/订单）
+│   ├── dashboard/       # 用户页面（花园/宠物/商店/背包/好友/个人中心/订单/帮助）
 │   └── admin/           # 管理页面（HubView 一体化 + ClassicLayout 分页式）
 ├── components/
 │   ├── common/          # 通用组件（Toast, Modal, ConfirmModal）
@@ -46,9 +46,10 @@ src/
 | 宠物 | `PetPanel.vue` | 宠物列表、喂食、升级、装饰 |
 | 商店 | `Shop.vue` | 种子/肥料/宠物粮/宠物/饰品购买 |
 | 背包 | `Backpack.vue` | 物品管理、卖出 |
-| 好友 | `FriendList.vue` | 好友管理、礼物、转账 |
-| 个人中心 | `User.vue` | 用户信息、密码修改 |
-| 订单 | `UserOrders.vue` | 交易记录 |
+| 好友 | `FriendList.vue` | 好友管理、钻石赠送、礼物箱 |
+| 个人中心 | `User.vue` | 用户信息、密码修改、订单/帮助入口 |
+| 订单 | `UserOrders.vue` | 交易记录（含赠送/收到礼物） |
+| 帮助 | `Help.vue` | 帮助中心（标签页引导 + AI助手入口） |
 
 ### 管理端
 | 页面 | 文件 | 功能 |
@@ -108,3 +109,9 @@ npm run build
   /admin/classic/effects     → 特效管理
   /admin/classic/pets        → 宠物管理
 ```
+
+## 导航栏说明
+
+- **移动端底部导航（6 个）：** 花园、商店、背包、好友、宠物、个人
+- **PC 端悬浮导航（2列×4行）：** 花园、商店、背包、好友、宠物、订单、我的、帮助
+- 订单和帮助入口在「个人」页面内也有子入口

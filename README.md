@@ -24,8 +24,8 @@
 
 ### 👥 社交系统
 - 好友添加/拒绝/删除
-- 货币转账、礼物互赠
-- 送礼冷却机制
+- 钻石赠送（每日限 5 颗，4 小时过期退回）
+- 新号/好友冷却机制
 
 ### 🎒 背包系统
 - 物品堆叠、数量管理
@@ -48,7 +48,7 @@
 - **路由：** Vue Router（用户仪表盘 + 管理面板双布局）
 - **构建：** Vite
 - **样式：** CSS3（CSS 变量主题、深色模式、响应式布局）
-- **特效：** Canvas + requestAnimationFrame 粒子动画
+- **特效：** SVG + CSS3 动画（登录页）、Canvas 粒子动画（宠物特效）
 
 ### 后端
 - **运行时：** Node.js + Express
@@ -83,10 +83,15 @@ npm run dev
 ```
 CyberPlant/
 ├── backend/
-│   ├── index.js              # 主入口（路由+初始化）
-│   ├── db.js                 # 数据库连接+工具函数
-│   ├── middleware.js          # JWT 认证+管理员权限
+│   ├── index.js              # 入口（Express 初始化 + 路由挂载）
+│   ├── db.js                 # 数据库连接 + 工具函数 + 常量
+│   ├── middleware.js          # JWT 认证 + 管理员权限
+│   ├── init.js               # 数据库初始化（表结构 + 默认数据）
 │   ├── utils/logger.js       # 日志工具
+│   ├── routes/
+│   │   ├── public/           # 公共接口（注册、登录）
+│   │   ├── user/             # 用户操作（花园、宠物、商店、好友等）
+│   │   └── admin/            # 管理功能（用户、物品、配置等）
 │   ├── effects/              # 宠物特效文件（.js）
 │   └── _deprecated/          # 已废弃的旧路由文件
 │
@@ -101,7 +106,8 @@ CyberPlant/
 │   │   │   │   ├── Backpack.vue     # 背包
 │   │   │   │   ├── FriendList.vue   # 好友
 │   │   │   │   ├── User.vue         # 个人中心
-│   │   │   │   └── UserOrders.vue   # 订单记录
+│   │   │   │   ├── UserOrders.vue   # 订单记录
+│   │   │   │   └── Help.vue         # 帮助中心
 │   │   │   └── admin/        # 管理页面
 │   │   │       ├── HubView.vue      # 一体化管理面板
 │   │   │       ├── Plants.vue       # 物品/饰品管理（Classic）
@@ -120,10 +126,9 @@ CyberPlant/
 │   │   │       ├── PetFloating.vue       # 悬浮宠物+特效
 │   │   │       ├── PlotModal.vue         # 地块操作弹窗
 │   │   │       ├── PlantSelectModal.vue  # 种植选择
-│   │   │       ├── GiftModal.vue         # 送礼弹窗
+│   │   │       ├── GiftModal.vue         # 送礼弹窗（钻石专属）
 │   │   │       ├── AIChatModal.vue       # AI 问答
 │   │   │       ├── WelcomeModal.vue      # 新手礼包
-│   │   │       ├── HandbookModal.vue     # 图鉴
 │   │   │       └── UpgradeModal.vue      # 升级弹窗
 │   │   │
 │   │   ├── stores/           # Pinia 状态管理
