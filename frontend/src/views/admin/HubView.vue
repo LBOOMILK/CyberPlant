@@ -2080,7 +2080,7 @@ async function doDeleteOrder() {
   background: #f8fafc;
 }
 [data-theme="light"] .hub-center {
-  background: radial-gradient(circle, #2d6a4f, #1b4332);
+  background: radial-gradient(circle, #f0fdf4, #dcfce7);
 }
 [data-theme="light"] .hub-module {
   background: #ffffff;
@@ -2234,5 +2234,114 @@ async function doDeleteOrder() {
 .page-info {
   font-size: 13px;
   color: var(--text-muted, #8b949e);
+}
+
+[data-theme="light"] .theme-switch-btn {
+  background: rgba(22,163,74,0.1);
+  color: #16a34a;
+  border-color: rgba(22,163,74,0.3);
+}
+[data-theme="light"] .theme-switch-btn:hover {
+  background: rgba(22,163,74,0.2);
+}
+[data-theme="light"] .hub-center {
+  border-color: rgba(22,163,74,0.2);
+  box-shadow: 0 0 30px rgba(22,163,74,0.08);
+}
+[data-theme="light"] .hub-center .hub-icon {
+  color: #15803d;
+  text-shadow: 0 0 20px rgba(22,163,74,0.3);
+}
+[data-theme="light"] .hub-module.active {
+  border-color: rgba(22,163,74,0.4);
+  box-shadow: 0 0 30px rgba(22,163,74,0.15);
+}
+[data-theme="light"] .hub-module.active .mod-icon {
+  color: #16a34a;
+}
+[data-theme="light"] .hub-module.active .mod-label {
+  color: #16a34a;
+}
+[data-theme="light"] .hub-module:hover {
+  border-color: rgba(22,163,74,0.3);
+}
+[data-theme="light"] .hub-module:hover .mod-icon {
+  color: #16a34a;
+}
+[data-theme="light"] .detail-table th {
+  color: #16a34a;
+}
+[data-theme="light"] .add-btn {
+  background: rgba(22,163,74,0.1);
+  border-color: rgba(22,163,74,0.3);
+  color: #16a34a;
+}
+[data-theme="light"] .add-btn:hover {
+  background: rgba(22,163,74,0.2);
+}
+[data-theme="light"] .action-btn-sm {
+  border-color: rgba(22,163,74,0.3);
+  background: rgba(22,163,74,0.08);
+  color: #16a34a;
+}
+[data-theme="light"] .action-btn-sm:hover {
+  background: rgba(22,163,74,0.15);
+}
+[data-theme="light"] .modal-card h3 {
+  color: #16a34a;
+}
+[data-theme="light"] .modal-actions button.primary {
+  background: rgba(22,163,74,0.15);
+  border-color: #16a34a;
+  color: #16a34a;
+}
+[data-theme="light"] .amount-pos {
+  color: #16a34a;
+}
+[data-theme="light"] .hub-center:hover {
+  box-shadow: 0 0 40px rgba(22,163,74,0.15);
+  border-color: rgba(22,163,74,0.3);
+}
+[data-theme="light"] .hub-center.expanded {
+  box-shadow: 0 0 50px rgba(22,163,74,0.2);
+  border-color: rgba(22,163,74,0.3);
+}
+[data-theme="light"] .pulse-ring {
+  border-color: rgba(22,163,74,0.2);
+  animation: pulseExpandLight 2s ease-out infinite;
+}
+[data-theme="light"] .pulse-ring.delay {
+  animation-delay: 1s;
+}
+@keyframes pulseExpandLight {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+[data-theme="light"] .hub-module:hover {
+  border-color: #16a34a;
+  box-shadow: 0 0 24px rgba(22,163,74,0.1);
+}
+[data-theme="light"] .detail-card h2 {
+  color: #16a34a;
+}
+[data-theme="light"] .tab-btn.active {
+  background: rgba(22,163,74,0.1);
+  color: #16a34a;
+}
+[data-theme="light"] .hub-tab.active {
+  background: rgba(22,163,74,0.1);
+  color: #16a34a;
+}
+[data-theme="light"] .add-btn:hover {
+  background: rgba(22,163,74,0.2);
+}
+[data-theme="light"] .action-btn-sm:hover {
+  background: rgba(22,163,74,0.15);
 }
 </style>
