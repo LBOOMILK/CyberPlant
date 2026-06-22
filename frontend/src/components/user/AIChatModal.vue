@@ -19,12 +19,22 @@
           </div>
 
           <!-- 消息列表 -->
-          <div class="ai-messages" ref="messagesRef">
-            <div class="ai-welcome" v-if="messages.length === 0">
-              <div class="welcome-icon">🌱</div>
-              <p>你好！我是赛博花园的 AI 助手</p>
-              <p class="welcome-hint">可以问我关于种植、货币、商店等问题</p>
-            </div>
+  <div class="ai-messages" ref="messagesRef">
+    <div class="ai-welcome" v-if="messages.length === 0 && !loading">
+      <div class="welcome-icon">🌱</div>
+      <p>{{ greeting || '你好！我是赛博花园的 AI 助手' }}</p>
+      <p class="welcome-hint">{{ greeting ? '可以问我关于种植、货币、商店等问题' : '可以问我关于种植、货币、商店等问题' }}</p>
+      <div v-if="suggestedQuestions.length > 0" class="suggested-questions">
+        <button
+          v-for="(q, index) in suggestedQuestions"
+          :key="index"
+          class="suggested-btn"
+          @click="sendSuggested(q)"
+        >
+          {{ q }}
+        </button>
+      </div>
+    </div>
 
             <div
               v-for="(msg, index) in messages"
@@ -88,6 +98,8 @@ const loading = ref(false)
 const conversationId = ref(null)
 const messagesRef = ref(null)
 const inputRef = ref(null)
+const greeting = ref('你好！我是小草，赛博花园的 AI 向导～\n有什么游戏问题想问我吗？')
+const suggestedQuestions = ref(['种子怎么获得？', '宠物怎么升级？', '怎么赚金币？'])
 
 // 自动聚焦输入框
 watch(() => props.visible, (val) => {
@@ -103,6 +115,11 @@ function close() {
 function clearChat() {
   messages.value = []
   conversationId.value = null
+}
+
+function sendSuggested(question) {
+  inputText.value = question
+  sendMessage()
 }
 
 function formatTime(date) {
@@ -151,6 +168,9 @@ async function sendMessage() {
     messages.value.push({ role: 'ai', text: data.answer, time: new Date() })
     if (data.conversation_id) {
       conversationId.value = data.conversation_id
+    }
+    if (data.suggested_questions) {
+      suggestedQuestions.value = data.suggested_questions
     }
   } catch (error) {
     messages.value.push({
@@ -286,11 +306,37 @@ async function sendMessage() {
 
 .ai-welcome p {
   margin: 4px 0;
+  white-space: pre-line;
 }
 
 .welcome-hint {
   font-size: 0.85rem;
   color: #aaa;
+}
+
+.suggested-questions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.suggested-btn {
+  padding: 6px 14px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  color: #22c55e;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.suggested-btn:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-1px);
 }
 
 /* 消息气泡 */
@@ -481,6 +527,17 @@ async function sendMessage() {
 
   .ai-welcome { color: #777; }
   .welcome-hint { color: #555; }
+
+  .suggested-btn {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: rgba(76, 175, 80, 0.3);
+    color: #8bc34a;
+  }
+
+  .suggested-btn:hover {
+    background: rgba(76, 175, 80, 0.15);
+    border-color: rgba(76, 175, 80, 0.5);
+  }
 }
 
 /* 移动端适配 */

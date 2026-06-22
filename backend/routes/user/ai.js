@@ -26,19 +26,20 @@ router.post('/api/ask', authenticateToken, async (req, res) => {
     if (!checkAiRateLimit(req.user.id)) return res.status(429).json({ error: '提问太频繁了' });
     const difyApiKey = process.env.DIFY_API_KEY;
     const difyApiUrl = process.env.DIFY_API_URL || 'https://api.dify.ai/v1';
-    if (!difyApiKey || difyApiKey === 'your-dify-api-key') return res.json({ answer: '🤖 AI 助手暂未配置', conversation_id: null });
+    if (!difyApiKey || difyApiKey === 'your-dify-api-key') return res.json({ answer: '🤖 AI 助手暂未配置', conversation_id: null, suggested_questions: [] });
     const difyResponse = await fetch(`${difyApiUrl}/chat-messages`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${difyApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ inputs: {}, query: question.trim(), response_mode: 'blocking', conversation_id: conversation_id || '', user: `cyberplant-user-${req.user.id}` })
     });
-    if (!difyResponse.ok) return res.json({ answer: '🤖 AI 助手暂时无法回答', conversation_id: null });
+    if (!difyResponse.ok) return res.json({ answer: '🤖 AI 助手暂时无法回答', conversation_id: null, suggested_questions: [] });
     const difyData = await difyResponse.json();
     let answer = (difyData.answer || '抱歉，暂时无法回答。').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-    res.json({ answer, conversation_id: difyData.conversation_id || null });
+    const suggestedQuestions = difyData.suggested_questions || difyData.data?.suggested_questions || [];
+    res.json({ answer, conversation_id: difyData.conversation_id || null, suggested_questions: suggestedQuestions });
   } catch (error) {
     logger.error('AI ask error', { error: error.message });
-    res.json({ answer: '🤖 AI 助手暂时无法回答', conversation_id: null });
+    res.json({ answer: '🤖 AI 助手暂时无法回答', conversation_id: null, suggested_questions: [] });
   }
 });
 
