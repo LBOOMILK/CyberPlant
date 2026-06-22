@@ -664,7 +664,7 @@
                   <td>
                     <span v-if="eff.builtin" class="builtin-tag" style="font-size:11px;padding:2px 8px;background:rgba(245,158,11,0.15);color:#f59e0b;border-radius:6px;">默认</span>
                     <button class="action-btn-sm" @click="viewEffect(eff)">查看</button>
-                    <button class="action-btn-sm danger" :disabled="eff.builtin" @click="deleteEffect(eff)">删除</button>
+                    <button v-if="!eff.builtin" class="action-btn-sm danger" @click="deleteEffect(eff)">删除</button>
                   </td>
                 </tr>
               </tbody>
