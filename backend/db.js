@@ -193,17 +193,11 @@ async function getUpgradeCost(nextLevel) {
   return { type, amount };
 }
 
-function calcDiscountRate(amount) {
-  if (amount <= 100) return 0.8;
-  if (amount <= 500) return 0.6;
-  return 0.5;
-}
-
 module.exports = {
   client, logger, getConfig, getAllConfig, clearConfigCache,
   deductCurrency, addCurrency, createOrder, getUserItemCount, generateUserId,
   calcCurrentHunger, calcPetBonusFromCurve, getPetBonus, formatPetData,
   PET_FOOD_EFFECTS, MAX_POINTS: 999999999,
   STAGE_ICONS, PLOT_LEVEL_MULTIPLIER, SHOP_TAB_MAP, BUILTIN_EFFECTS,
-  getUnlockCost, getUpgradeCost, calcDiscountRate
+  getUnlockCost, getUpgradeCost
 };

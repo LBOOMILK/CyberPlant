@@ -179,23 +179,26 @@
           <button class="close-btn" @click="showGiftBox = false">✕</button>
         </div>
         <div v-if="giftBoxLoading" class="loading">加载中...</div>
-        <div v-else-if="pendingGifts.length === 0" class="empty-state">
-          <p>📭 没有待接收的礼物</p>
-        </div>
-        <div v-else class="gift-list">
-          <div v-for="gift in pendingGifts" :key="gift.id" class="gift-card">
-            <div class="gift-info">
-              <span class="gift-sender">来自 {{ gift.sender_name }}</span>
-              <span v-if="gift.gift_type === 'item'" class="gift-detail">
-                {{ gift.item?.icon }} {{ gift.item?.name }}
-              </span>
-              <span v-else-if="gift.gift_type === 'currency'" class="gift-detail">
-                <img :src="getCurrencyIcon(gift.currency_type)" class="small-currency-icon" /> {{ gift.amount }} {{ getCurrencyName(gift.currency_type) }}
-              </span>
-            </div>
-            <button class="accept-btn" @click="acceptGift(gift.id)">接收</button>
+        <div v-else>
+          <div v-if="expiredRefunded > 0" class="expired-banner">
+            已过期并退回 {{ expiredRefunded }} 份（已自动返还发送方）
           </div>
-          <button class="accept-all-btn" @click="acceptAllGifts">一键接收全部</button>
+          <div v-if="pendingGifts.length === 0" class="empty-state">
+            <p>📭 没有待接收的礼物</p>
+          </div>
+          <div v-else class="gift-list">
+            <div v-for="gift in pendingGifts" :key="gift.id" class="gift-card">
+              <div class="gift-info">
+                <span class="gift-sender">来自 {{ gift.sender_name }}</span>
+                <span class="gift-detail">
+                  <img src="/diamond.png" class="small-currency-icon" /> {{ gift.amount }} 钻石
+                </span>
+              </div>
+              <button class="accept-btn" @click="acceptGift(gift.id)">接收</button>
+            </div>
+            <div class="daily-status">今日已收 {{ dailyReceived }}/{{ dailyLimit }}</div>
+            <button class="accept-all-btn" @click="acceptAllGifts">一键接收全部</button>
+          </div>
         </div>
       </div>
     </div>
@@ -242,6 +245,9 @@ const showGiftBox = ref(false)
 const pendingGifts = ref([])
 const pendingGiftCount = ref(0)
 const giftBoxLoading = ref(false)
+const expiredRefunded = ref(0)
+const dailyReceived = ref(0)
+const dailyLimit = ref(5)
 
 let refreshTimer = null
 
@@ -276,6 +282,9 @@ async function loadPendingGifts() {
       const data = await response.json()
       pendingGifts.value = data.gifts || []
       pendingGiftCount.value = data.count || 0
+      expiredRefunded.value = data.expired_refunded || 0
+      dailyReceived.value = data.daily_received || 0
+      dailyLimit.value = data.daily_limit || 5
     }
   } catch (e) {
     console.error('Failed to load gifts:', e)
@@ -326,15 +335,7 @@ async function acceptAllGifts() {
   }
 }
 
-function getCurrencyIcon(type) {
-  const map = { silver_coin: '/silver_icon.png', gold_coin: '/gold_icon.png', diamond: '/diamond.png' }
-  return map[type] || '/silver_icon.png'
-}
 
-function getCurrencyName(type) {
-  const map = { silver_coin: '银币', gold_coin: '金币', diamond: '钻石' }
-  return map[type] || '银币'
-}
 
 // 搜索防抖
 function onSearchInput() {
@@ -641,6 +642,25 @@ function formatTime(dateStr) {
 
 .accept-all-btn:hover {
   background: #388e3c;
+}
+
+.expired-banner {
+  padding: 10px 14px;
+  background: rgba(255, 152, 0, 0.08);
+  border: 1px solid rgba(255, 152, 0, 0.2);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: #e65100;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.daily-status {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 8px;
+  margin-bottom: 4px;
 }
 
 /* 搜索区域 */

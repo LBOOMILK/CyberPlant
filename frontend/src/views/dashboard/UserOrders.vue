@@ -14,8 +14,8 @@
     <div v-else class="orders-list">
       <div v-for="(order, index) in computedOrders" :key="order.id || index" class="order-item">
         <div class="order-header">
-          <div class="order-type" :class="orderTypeClass(order.type)">
-            {{ orderTypeText(order.type) }}
+          <div class="order-type" :class="orderTypeClass(order)">
+            {{ orderTypeText(order) }}
           </div>
           <div class="order-time">{{ formatTime(order.created_at) }}</div>
         </div>
@@ -125,11 +125,15 @@ const orderTypeMap = {
   HARVEST: '收获作物'
 }
 
-function orderTypeText(type) {
-  return orderTypeMap[type] || type
+function orderTypeText(order) {
+  if (order.type === 'CURRENCY_GIFT') {
+    return Number(order.amount) > 0 ? '收到礼物' : '赠送礼物'
+  }
+  return orderTypeMap[order.type] || order.type
 }
 
-function orderTypeClass(type) {
+function orderTypeClass(order) {
+  const type = order.type
   if (type.includes('SELL') || type === 'HARVEST') return 'type-sell'
   if (type.includes('PURCHASE') || type.includes('UNLOCK') || type.includes('UPGRADE')) return 'type-purchase'
   if (type === 'EXCHANGE' || type === 'CURRENCY_EXCHANGE') return 'type-exchange'

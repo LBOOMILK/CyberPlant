@@ -120,7 +120,7 @@ router.get('/api/users/search', authenticateToken, async (req, res) => {
   try {
     const q = req.query.q;
     if (!q || q.trim().length === 0) return res.status(400).json({ error: '请提供搜索关键词' });
-    const result = await client.query('SELECT id, name FROM users WHERE id != $1 AND (name ILIKE $2 OR id::text ILIKE $2) LIMIT 20', [req.user.id, `%${q.trim()}%`]);
+    const result = await client.query('SELECT id, name FROM users WHERE id != $1 AND role != $2 AND (name ILIKE $3 OR id::text ILIKE $3) LIMIT 20', [req.user.id, 'admin', `%${q.trim()}%`]);
     res.json(result.rows.map(r => ({ id: r.id, name: r.name })));
   } catch (error) {
     logger.error('Search users error:', { error: error.message });

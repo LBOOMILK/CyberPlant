@@ -140,45 +140,9 @@ export const useFriendStore = defineStore('friend', () => {
       throw new Error(err.error || '送礼失败')
     }
     const data = await response.json()
-
-    // 更新货币余额
+    // 刷新货币余额
     const userStore = useUserStore()
-    if (data.currencies) {
-      userStore.currencies.value = {
-        silver_coin: Number(data.currencies.silver_coin) || 0,
-        gold_coin: Number(data.currencies.gold_coin) || 0,
-        diamond: Number(data.currencies.diamond) || 0
-      }
-      userStore.saveToLocalStorage()
-    }
-
-    return data
-  }
-
-  // ========== 货币转让 ==========
-  async function transfer(friendId, transferData) {
-    const response = await fetch(`${API_URL}/user/friends/${friendId}/transfer`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(transferData)
-    })
-    if (!response.ok) {
-      const err = await response.json()
-      throw new Error(err.error || '转让失败')
-    }
-    const data = await response.json()
-
-    // 更新货币余额
-    const userStore = useUserStore()
-    if (data.currencies) {
-      userStore.currencies.value = {
-        silver_coin: Number(data.currencies.silver_coin) || 0,
-        gold_coin: Number(data.currencies.gold_coin) || 0,
-        diamond: Number(data.currencies.diamond) || 0
-      }
-      userStore.saveToLocalStorage()
-    }
-
+    await userStore.loadCurrencies()
     return data
   }
 
@@ -195,7 +159,6 @@ export const useFriendStore = defineStore('friend', () => {
     handleRequest,
     deleteFriend,
     searchUsers,
-    sendGift,
-    transfer
+    sendGift
   }
 })

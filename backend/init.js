@@ -6,7 +6,8 @@ const { client, logger, generateUserId } = require('./db');
 const GLOBAL_CONFIG_DEFAULTS = [
   ['exchange_silver_to_gold', 1000, '银→金 汇率'],
   ['exchange_gold_to_silver', 600, '金→银 汇率'],
-  ['gift_daily_limit_silver', 500, '每日礼物接收上限'],
+  ['gift_daily_limit_diamond', 5, '每日赠送/收礼上限（钻石）'],
+  ['gift_expire_hours', 4, '礼物过期时间（小时）'],
   ['friend_gift_cooldown_hours', 24, '好友互送冷却（小时）'],
   ['account_gift_cooldown_hours', 24, '新号送礼冷却（小时）'],
   ['plot_unlock_2', 3000, '地块#2解锁费用'],
@@ -162,16 +163,19 @@ async function initDatabase() {
         id SERIAL PRIMARY KEY,
         sender_id VARCHAR(50) NOT NULL,
         receiver_id VARCHAR(50) NOT NULL,
-        gift_type VARCHAR(20) NOT NULL,
-        item_id INT,
-        currency_type VARCHAR(20),
+        gift_type VARCHAR(20) NOT NULL DEFAULT 'currency',
+        currency_type VARCHAR(20) DEFAULT 'diamond',
         amount BIGINT DEFAULT 0,
-        discount_rate NUMERIC(3,2) DEFAULT 1.00,
-        status VARCHAR(20) DEFAULT 'accepted',
+        status VARCHAR(20) DEFAULT 'pending',
+        refunded BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-
+    // 兼容已有数据库
+    await client.query(`ALTER TABLE gifts ADD COLUMN IF NOT EXISTS refunded BOOLEAN DEFAULT false`);
+    // 移除遗留字段
+    await client.query(`ALTER TABLE gifts DROP COLUMN IF EXISTS discount_rate`);
+    await client.query(`ALTER TABLE gifts DROP COLUMN IF EXISTS item_id`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_friendships_user_id ON friendships(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_friendships_friend_id ON friendships(friend_id)`);
 
