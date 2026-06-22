@@ -52,14 +52,12 @@ async function initDatabase() {
         name VARCHAR(255) NOT NULL,
         password VARCHAR(255) NOT NULL,
         role VARCHAR(50) DEFAULT 'user',
+        admin_theme VARCHAR(20) DEFAULT 'hub',
         is_new_user BOOLEAN DEFAULT true,
         last_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-
-    // 添加 admin_theme 字段 (1.1)
-    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_theme VARCHAR(20) DEFAULT 'hub'`);
 
     // ========== 创建新表 ==========
 
@@ -71,11 +69,10 @@ async function initDatabase() {
         silver_coin BIGINT DEFAULT 0,
         gold_coin BIGINT DEFAULT 0,
         diamond BIGINT DEFAULT 0,
+        yield_accumulator JSONB DEFAULT '{}',
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    // 累加值字段 (1.8)
-    await client.query(`ALTER TABLE currencies ADD COLUMN IF NOT EXISTS yield_accumulator JSONB DEFAULT '{}'`);
 
     // garden_plots 表
     await client.query(`
@@ -90,11 +87,10 @@ async function initDatabase() {
         planted_at TIMESTAMP,
         last_watered_at TIMESTAMP,
         is_dead BOOLEAN DEFAULT false,
+        fertilized BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    // 施肥标记 (1.9)
-    await client.query(`ALTER TABLE garden_plots ADD COLUMN IF NOT EXISTS fertilized BOOLEAN DEFAULT FALSE`);
 
     // items 表
     await client.query(`
@@ -109,16 +105,15 @@ async function initDatabase() {
         sell_price INT DEFAULT 0,
         currency_type VARCHAR(20) DEFAULT 'silver_coin',
         is_shop BOOLEAN DEFAULT true,
+        purchasable BOOLEAN DEFAULT true,
         crop_id INT DEFAULT NULL,
         water_cd INT DEFAULT 5,
+        stage_skip INT DEFAULT 1,
+        bonus_curve JSONB DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (crop_id) REFERENCES items(id) ON DELETE SET NULL
       )
     `);
-    // 新增字段 (1.1)
-    await client.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS stage_skip INT DEFAULT 1`);
-    await client.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS bonus_curve JSONB DEFAULT NULL`);
-    await client.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS purchasable BOOLEAN DEFAULT true`);
 
     // user_items 表
     await client.query(`
@@ -171,11 +166,6 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    // 兼容已有数据库
-    await client.query(`ALTER TABLE gifts ADD COLUMN IF NOT EXISTS refunded BOOLEAN DEFAULT false`);
-    // 移除遗留字段
-    await client.query(`ALTER TABLE gifts DROP COLUMN IF EXISTS discount_rate`);
-    await client.query(`ALTER TABLE gifts DROP COLUMN IF EXISTS item_id`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_friendships_user_id ON friendships(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_friendships_friend_id ON friendships(friend_id)`);
 
@@ -191,16 +181,15 @@ async function initDatabase() {
         base_bonus NUMERIC(8,2) DEFAULT 0,
         price_type VARCHAR(20) DEFAULT 'silver_coin',
         price_amount BIGINT DEFAULT 0,
+        is_shop BOOLEAN DEFAULT TRUE,
+        purchasable BOOLEAN DEFAULT TRUE,
+        is_test BOOLEAN DEFAULT FALSE,
+        bonus_curve JSONB DEFAULT NULL,
+        growth_curve JSONB DEFAULT NULL,
+        effect_file VARCHAR(100) DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    // 新增字段 (1.1)
-    await client.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS is_shop BOOLEAN DEFAULT TRUE`);
-    await client.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS purchasable BOOLEAN DEFAULT TRUE`);
-    await client.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE`);
-    await client.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS bonus_curve JSONB DEFAULT NULL`);
-    await client.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS growth_curve JSONB DEFAULT NULL`);
-    await client.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS effect_file VARCHAR(100) DEFAULT NULL`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS user_pets (
@@ -228,13 +217,11 @@ async function initDatabase() {
         bonus NUMERIC(8,2) DEFAULT 0,
         price_type VARCHAR(20) DEFAULT 'silver_coin',
         price_amount BIGINT DEFAULT 0,
+        pet_id INT DEFAULT NULL,
+        is_shop BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    // 专属宠物ID (1.1)
-    await client.query(`ALTER TABLE decorations ADD COLUMN IF NOT EXISTS pet_id INT DEFAULT NULL`);
-    // is_shop 标志
-    await client.query(`ALTER TABLE decorations ADD COLUMN IF NOT EXISTS is_shop BOOLEAN DEFAULT true`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS user_decorations (
@@ -431,14 +418,6 @@ async function initDatabase() {
     }
 
     // ========== 插入物品种子数据 ==========
-    const cropIdColumnCheck = await client.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'items' AND column_name = 'crop_id'
-    `);
-    if (cropIdColumnCheck.rowCount === 0) {
-      await client.query(`ALTER TABLE items ADD COLUMN crop_id INT DEFAULT NULL`);
-    }
-
     const cropCheck = await client.query("SELECT COUNT(*) as count FROM items WHERE item_type = 'crop'");
     const hasCrops = parseInt(cropCheck.rows[0].count) > 0;
 
