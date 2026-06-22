@@ -52,7 +52,7 @@
     <!-- 待处理请求 -->
     <div v-if="friendStore.pendingRequests.length > 0" class="section">
       <div class="section-header" @click="showPending = !showPending">
-        <h3>📬 好友请求 <span class="badge">{{ friendStore.pendingRequests.length }}</span></h3>
+        <h3>📬 好友请求 ({{ friendStore.pendingRequests.length }})</h3>
         <span class="toggle-arrow">{{ showPending ? '▼' : '▶' }}</span>
       </div>
       <div v-if="showPending" class="request-list">
@@ -77,7 +77,7 @@
     <!-- 我发出的请求 -->
     <div v-if="friendStore.sentRequests.length > 0" class="section">
       <div class="section-header" @click="showSent = !showSent">
-        <h3>📤 已发送请求 <span class="badge">{{ friendStore.sentRequests.length }}</span></h3>
+        <h3>📤 已发送请求 ({{ friendStore.sentRequests.length }})</h3>
         <span class="toggle-arrow">{{ showSent ? '▼' : '▶' }}</span>
       </div>
       <div v-if="showSent" class="request-list">
@@ -99,7 +99,7 @@
     <!-- 被拒绝的请求 -->
     <div v-if="friendStore.rejectedRequests.length > 0" class="section">
       <div class="section-header" @click="showRejected = !showRejected">
-        <h3>❌ 被拒绝 <span class="badge-rejected">{{ friendStore.rejectedRequests.length }}</span></h3>
+        <h3>❌ 被拒绝 ({{ friendStore.rejectedRequests.length }})</h3>
         <span class="toggle-arrow">{{ showRejected ? '▼' : '▶' }}</span>
       </div>
       <div v-if="showRejected" class="request-list">
@@ -125,7 +125,7 @@
     <!-- 好友列表 -->
     <div class="section">
       <div class="section-header">
-        <h3>💚 我的好友 <span class="badge">{{ friendStore.friends.length }}</span>/50</h3>
+        <h3>💚 我的好友 ({{ friendStore.friends.length }}/50)</h3>
       </div>
       <div v-if="friendStore.loading" class="loading">加载中...</div>
       <div v-else-if="friendStore.friends.length === 0" class="empty-state">
@@ -798,14 +798,7 @@ function formatTime(dateStr) {
   color: #2c5a2a;
 }
 
-.badge {
-  background: #4caf50;
-  color: white;
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 10px;
-  margin-left: 4px;
-}
+
 
 .toggle-arrow {
   font-size: 0.8rem;
@@ -901,14 +894,7 @@ function formatTime(dateStr) {
   border-color: #ffcdd2 !important;
 }
 
-.badge-rejected {
-  background: #f44336;
-  color: white;
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 10px;
-  margin-left: 4px;
-}
+
 
 .resend-btn, .delete-rejected-btn {
   width: 36px;
@@ -1062,9 +1048,7 @@ function formatTime(dateStr) {
   .pending-label { color: #ffb74d; }
   .rejected-label { color: #ef9a9a; }
   .rejected-card { border-color: #555 !important; }
-  .badge-rejected { background: #c62828; }
   .resend-btn, .delete-rejected-btn { background: rgba(255, 255, 255, 0.08); }
-  .badge { background: #388e3c; }
   .toggle-arrow { color: #888; }
   .accept-btn { background: #388e3c; }
   .reject-btn { background: #c62828; }
