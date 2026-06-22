@@ -1068,16 +1068,22 @@ async function handleRegister() {
   padding: 40px 36px; border-radius: 20px;
   border: 1px solid rgba(255,255,255,0.1);
   transform: translateY(100vh);
-  transition: transform 0.6s cubic-bezier(0.16,1,0.3,1);
+  opacity: 0;
+  transition: transform 0.6s cubic-bezier(0.16,1,0.3,1), opacity 0.1s ease;
 }
-.login-overlay.active .login-card { transform: translateY(0); }
+.login-overlay.active .login-card { 
+  transform: translateY(0); 
+  opacity: 1;
+}
 
 /* 注册表单从上方滑入 */
 .login-overlay#loginRegister .login-card {
   transform: translateY(-100vh) scale(1);
+  opacity: 0;
 }
 .login-overlay#loginRegister.active .login-card {
   transform: translateY(0) scale(1);
+  opacity: 1;
 }
 
 .login-card.user-card {
@@ -1247,10 +1253,12 @@ async function handleRegister() {
   width: 380px; max-width: 90vw;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(255,60,60,0.1);
   transform: translateY(100vh);
-  transition: transform 0.6s cubic-bezier(0.16,1,0.3,1);
+  opacity: 0;
+  transition: transform 0.6s cubic-bezier(0.16,1,0.3,1), opacity 0.1s ease;
 }
 #loginGate.active .gate-card {
   transform: translateY(0);
+  opacity: 1;
 }
 .gate-card h2 {
   text-align: center; font-size: 1.5rem; font-weight: 800;
