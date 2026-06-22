@@ -2,12 +2,6 @@
   <div class="garden-page">
     <Toast ref="toastRef" />
 
-    <!-- AI 助手入口 -->
-    <button class="ai-chat-btn" @click="showAIChat = true" title="AI 助手">🤖</button>
-
-    <!-- 手册入口 -->
-    <button class="handbook-btn" @click="showHandbook = true" title="花园手册">?</button>
-
     <div class="card">
       <h1>🌱 赛博花园</h1>
 
@@ -120,12 +114,6 @@
       @plant="handleFertilize"
     />
 
-    <!-- AI 对话弹窗 -->
-    <AIChatModal :visible="showAIChat" @close="showAIChat = false" />
-
-    <!-- 手册弹窗 -->
-    <HandbookModal :visible="showHandbook" @close="showHandbook = false" />
-
     <!-- 铲除确认弹窗 -->
     <ConfirmModal
       :visible="showRemoveConfirm"
@@ -186,8 +174,6 @@ import Toast from '@/components/common/Toast.vue'
 import PlantSelectModal from '@/components/user/PlantSelectModal.vue'
 import PlotModal from '@/components/user/PlotModal.vue'
 import UpgradeModal from '@/components/user/UpgradeModal.vue'
-import AIChatModal from '@/components/user/AIChatModal.vue'
-import HandbookModal from '@/components/user/HandbookModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const plotStore = usePlotStore()
@@ -199,8 +185,6 @@ const showPlantSelect = ref(false)
 const showPlotModal = ref(false)
 const showUpgradeModal = ref(false)
 const showFertilizeSelect = ref(false)
-const showAIChat = ref(false)
-const showHandbook = ref(false)
 const showRemoveConfirm = ref(false)
 const showFertilizeConfirm = ref(false)
 const showUnlockConfirm = ref(false)
@@ -954,69 +938,6 @@ footer {
   margin-top: 12px;
 }
 
-/* AI 助手按钮 */
-.ai-chat-btn {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  width: 52px;
-  height: 52px;
-  border: none;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: white;
-  font-size: 1.5rem;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.35);
-  z-index: 1000;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ai-chat-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 24px rgba(34, 197, 94, 0.5);
-}
-
-.ai-chat-btn:active {
-  transform: scale(0.95);
-}
-
-/* 手册按钮 */
-.handbook-btn {
-  position: fixed;
-  top: 80px;
-  right: 80px;
-  width: 52px;
-  height: 52px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  color: #2e7d32;
-  font-size: 1.5rem;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid rgba(46, 125, 50, 0.2);
-}
-
-.handbook-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 24px rgba(46, 125, 50, 0.2);
-  background: #e8f5e9;
-}
-
-.handbook-btn:active {
-  transform: scale(0.95);
-}
-
 /* 移动端响应式 */
 @media (max-width: 767px) {
   .plots-grid {
@@ -1124,8 +1045,5 @@ footer {
   .multiplier-tag { background: rgba(255,255,255,0.1); color: #aaa; }
   .level-tag { background: rgba(255,255,255,0.1); }
   footer { color: #a0a080; }
-  .ai-chat-btn { background: linear-gradient(135deg, #4caf50, #388e3c); box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3); }
-  .handbook-btn { background: rgba(40, 40, 45, 0.9); color: #81c784; border-color: rgba(76, 175, 80, 0.3); }
-  .handbook-btn:hover { background: rgba(76, 175, 80, 0.15); }
 }
 </style>

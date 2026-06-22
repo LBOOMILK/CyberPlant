@@ -34,10 +34,6 @@
                 <span class="nav-emoji">🐾</span>
                 <span class="nav-text">宠物</span>
             </router-link>
-            <router-link to="/dashboard/orders" class="nav-link">
-                <span class="nav-emoji">📋</span>
-                <span class="nav-text">订单</span>
-            </router-link>
             <router-link to="/dashboard/user" class="nav-link">
                 <span class="nav-emoji">👤</span>
                 <span class="nav-text">个人</span>
@@ -83,6 +79,10 @@
                 <router-link to="/dashboard/user" class="nav-item" :class="{ active: $route.path === '/dashboard/user' }">
                     <span class="nav-icon">👤</span>
                     <span class="nav-label">我的</span>
+                </router-link>
+                <router-link to="/dashboard/help" class="nav-item" :class="{ active: $route.path === '/dashboard/help' }">
+                    <span class="nav-icon">❓</span>
+                    <span class="nav-label">帮助</span>
                 </router-link>
             </div>
             <div class="drag-handle" @mousedown="startDrag" @touchstart="startDrag">
@@ -173,9 +173,12 @@ const onNavDrag = (e) => {
     }
     const newX = touch.clientX - navDragOffset.value.x
     const newY = touch.clientY - navDragOffset.value.y
+    const capsuleEl = document.querySelector('.nav-capsule');
+    const capsuleH = capsuleEl ? capsuleEl.offsetHeight : 200;
+    const capsuleW = capsuleEl ? capsuleEl.offsetWidth : 140;
     navPosition.value = {
-        x: Math.max(0, Math.min(newX, window.innerWidth - 400)),
-        y: Math.max(0, Math.min(newY, window.innerHeight - 80))
+        x: Math.max(0, Math.min(newX, window.innerWidth - capsuleW - 30)),
+        y: Math.max(0, Math.min(newY, window.innerHeight - capsuleH - 10))
     }
 }
 
@@ -379,17 +382,17 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
 }
 
 .nav-capsule {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 4px;
     background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(15px);
     padding: 12px 10px;
-    border-radius: 40px;
+    border-radius: 24px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.5);
     transition: all 0.2s ease;
-    cursor: default; /* 导航胶囊默认cursor */
+    cursor: default;
 }
 
 .nav-capsule:hover {
@@ -438,15 +441,15 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 8px 12px;
-    border-radius: 30px;
+    gap: 3px;
+    padding: 8px 6px;
+    border-radius: 16px;
     text-decoration: none;
     color: #555;
     font-weight: 500;
     transition: all 0.2s ease;
     cursor: pointer;
-    min-width: 60px;
+    min-width: 56px;
     position: relative;
 }
 

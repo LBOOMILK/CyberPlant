@@ -78,6 +78,7 @@
             </div>
 
             <button class="orders-btn" @click="router.push('/dashboard/orders')">📋 查看订单</button>
+            <button class="help-btn" @click="router.push('/dashboard/help')">❓ 帮助中心</button>
             <button class="change-pwd-btn" @click="showChangePwdModal = true">🔒 修改密码</button>
             <button class="change-name-btn" @click="showChangeNameModal = true">✏️ 修改用户名</button>
             <button class="logout-btn" @click="showLogoutModal = true">🚪 退出登录</button>
@@ -569,6 +570,23 @@ function handleLogout() {
 
 .orders-btn:hover {
     background: #7b1fa2;
+}
+
+.help-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 40px;
+    background: #607d8b;
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 12px;
+}
+
+.help-btn:hover {
+    background: #455a64;
 }
 
 .change-pwd-btn {
