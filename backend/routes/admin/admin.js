@@ -56,7 +56,7 @@ router.delete('/api/admin/admins/:id', authenticateToken, requireAdmin, async (r
     await client.query('DELETE FROM user_items WHERE user_id = $1', [id]);
     await client.query('DELETE FROM user_pets WHERE user_id = $1', [id]);
     await client.query('DELETE FROM user_decorations WHERE user_id = $1', [id]);
-    await client.query('DELETE FROM friends WHERE user_id = $1 OR friend_id = $1', [id]);
+    await client.query('DELETE FROM friendships WHERE user_id = $1 OR friend_id = $1', [id]);
     await client.query('DELETE FROM gifts WHERE sender_id = $1 OR receiver_id = $1', [id]);
     await client.query('DELETE FROM currencies WHERE user_id = $1', [id]);
     const deletedUser = await client.query('DELETE FROM users WHERE id = $1 RETURNING *', [id]);
