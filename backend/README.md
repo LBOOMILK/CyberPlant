@@ -39,7 +39,6 @@ backend/
 │   ├── public/           # 无需认证（注册、登录）
 │   ├── user/             # 用户操作（花园、宠物、商店、好友等）
 │   └── admin/            # 管理功能（用户、物品、配置等）
-├── effects/              # 宠物特效文件
 ├── TECH_STACK.md         # 技术栈详细文档
 ├── API.md                # API 接口文档
 └── _deprecated/          # 已废弃代码

@@ -42,21 +42,6 @@ app.use(publicRoutes);
 app.use(userRoutes);
 app.use(adminRoutes);
 
-// 公开特效文件访问（无需认证）
-const effectsDir = path.join(__dirname, 'effects');
-app.get('/api/effects/:filename', (req, res) => {
-  try {
-    const filename = req.params.filename.replace(/[^a-z0-9-\.]/g, '-');
-    const filePath = path.join(effectsDir, filename);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '特效文件不存在' });
-    res.setHeader('Content-Type', 'application/javascript');
-    res.sendFile(filePath);
-  } catch (error) {
-    logger.error('Get effect file error:', { error: error.message });
-    res.status(500).json({ error: '获取特效文件失败' });
-  }
-});
-
 // SPA fallback
 app.use((req, res, next) => {
   if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.includes('.')) res.sendFile(path.join(frontendPath, 'index.html'));

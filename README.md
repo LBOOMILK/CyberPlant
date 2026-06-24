@@ -206,6 +206,6 @@ PORT=3000
 
 - 数据库初始化：首次启动自动创建表结构和基础数据
 - 管理面板入口：`/admin`（HubView）或 `/admin/classic`（ClassicLayout）
-- 特效文件：上传到 `backend/effects/`，同时同步到 `frontend/src/effects/`
+- 特效文件：源代码在 `frontend/src/effects/`，重置时同步到根目录 `effects/`（运行时由后端通过 `/api/admin/effects` 读写）
 - 宠物加成：由 `bonus_curve` 查表决定，与等级挂钩
 - 累加值系统：收获时小数余数按稀有度分别累积，满 1 则 +1
