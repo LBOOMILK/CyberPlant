@@ -395,7 +395,19 @@ router.post('/api/user/plots/:plotIndex/remove', authenticateToken, async (req, 
 router.get('/api/garden', authenticateToken, async (req, res) => {
   try {
     const result = await client.query('SELECT * FROM garden_plots WHERE user_id = $1 ORDER BY plot_index', [req.user.id]);
-    res.json(result.rows.map(p => ({ id: p.id, plot_index: p.plot_index, is_unlocked: p.is_unlocked, level: p.level, seed_id: p.seed_id, stage: p.stage, planted_at: p.planted_at, last_watered_at: p.last_watered_at })));
+    const dryTime = 180;
+    const now = Date.now();
+    for (const plot of result.rows) {
+      if (plot.seed_id && !plot.is_dead && plot.stage < 4 && plot.planted_at) {
+        const plantedAt = new Date(plot.planted_at).getTime();
+        const elapsed = (now - plantedAt) / 1000;
+        if (elapsed > dryTime) {
+          await client.query('UPDATE garden_plots SET is_dead = true WHERE user_id = $1 AND plot_index = $2', [req.user.id, plot.plot_index]);
+          plot.is_dead = true;
+        }
+      }
+    }
+    res.json(result.rows.map(p => ({ id: p.id, plot_index: p.plot_index, is_unlocked: p.is_unlocked, level: p.level, seed_id: p.seed_id, stage: p.stage, planted_at: p.planted_at, last_watered_at: p.last_watered_at, is_dead: p.is_dead || false })));
   } catch (error) {
     logger.error('Get garden error', { error: error.message });
     res.status(500).json({ error: '获取花园状态失败' });
