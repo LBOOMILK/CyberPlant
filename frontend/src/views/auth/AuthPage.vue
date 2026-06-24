@@ -268,8 +268,8 @@ const gateToasts = [
 
 function checkGate() {
   if (
-    gateForm.value.email === '1' &&
-    gateForm.value.password === "1"
+    gateForm.value.email === 'TestKey' &&
+    gateForm.value.password === "123456"
   ) {
     gatePassed.value = true
     loginGate.value.classList.remove('active')
